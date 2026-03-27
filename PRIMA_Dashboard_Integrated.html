@@ -1,0 +1,2129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1440">
+<title>PRIMA — Dashboard Sistem Pemantauan PAKD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#0D0506;--bg1:#160709;--bg2:#1E0B0D;--bg3:#271012;
+  --border:#3A1519;--border2:#4D1C21;
+  --txt1:#F5DDE0;--txt2:#B87880;--txt3:#7A4A50;
+  --red:#C8102E;--red-bright:#FF6B85;--red-bg:rgba(200,16,46,0.12);
+  --green:#10B981;--green-bg:#021F14;
+  --amber:#F59E0B;--amber-bg:#1F1002;
+  --navy:#7A0E1E;--r:6px;
+}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg0);color:var(--txt1);min-height:100vh;font-size:13px}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+/* LAYOUT */
+.shell{display:grid;grid-template-columns:220px 1fr;grid-template-rows:52px 1fr;min-height:100vh}
+
+/* TOPBAR */
+.topbar{grid-column:1/-1;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:100}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-icon{width:32px;height:32px;background:linear-gradient(135deg,#C8102E,#7A0E1E);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.brand-icon svg{width:18px;height:18px}
+.brand-name{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;letter-spacing:0.04em;color:var(--txt1)}
+.brand-name span{color:var(--red)}
+.topbar-divider{width:1px;height:24px;background:var(--border);margin:0 8px}
+.breadcrumb{font-size:11px;color:var(--txt3);letter-spacing:0.05em;display:flex;align-items:center;gap:6px}
+.breadcrumb a{color:var(--txt3);text-decoration:none}.breadcrumb a:hover{color:var(--txt2)}
+.breadcrumb-sep{color:var(--border2)}.breadcrumb-current{color:var(--txt2)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.badge-alert{background:rgba(200,16,46,0.15);border:1px solid var(--red);color:var(--red-bright);border-radius:20px;padding:2px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace;font-weight:500;display:flex;align-items:center;gap:5px}
+.badge-alert::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--red-bright);animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shimmer{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
+.topbar-time{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--txt3)}
+.topbar-user{display:flex;align-items:center;gap:8px;padding:4px 10px;border-radius:var(--r);border:1px solid var(--border)}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#FF8A9A}
+.user-name{font-size:11px;font-weight:600;color:var(--txt1)}.user-role{font-size:10px;color:var(--txt3)}
+
+/* SIDEBAR */
+.sidebar{background:var(--bg1);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;gap:4px}
+.nav-section{font-size:9px;letter-spacing:0.12em;color:var(--txt3);padding:12px 8px 6px;text-transform:uppercase;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);cursor:pointer;color:var(--txt3);font-size:12px;font-weight:500;transition:all 0.15s}
+.nav-item:hover{background:var(--bg2);color:var(--txt2)}
+.nav-item.active{background:rgba(200,16,46,0.12);color:var(--red);border:1px solid rgba(200,16,46,0.25)}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.sidebar-footer{margin-top:auto;padding:12px 8px;border-top:1px solid var(--border)}
+.api-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt2);margin-bottom:5px}
+.api-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.api-dot.ok{background:var(--green)}.api-dot.warn{background:var(--amber)}
+.api-latency{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--txt3)}
+
+/* MAIN */
+.main{padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+
+/* BUTTONS */
+.btn{padding:7px 14px;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;border:none;letter-spacing:0.03em;display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--txt2)}.btn-ghost:hover{border-color:var(--red);color:var(--red)}
+.btn-primary{background:var(--red);color:#fff}.btn-primary:hover{background:#A50D25}
+.btn-outline-green{background:transparent;border:1px solid rgba(16,185,129,0.3);color:var(--green)}.btn-outline-green:hover{background:var(--green-bg)}
+.btn-sm{padding:5px 10px;font-size:10px}
+
+/* PAGE HEADER */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between}
+.page-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--txt1)}
+.page-subtitle{font-size:11px;color:var(--txt3);margin-top:2px;font-family:'IBM Plex Mono',monospace}
+.header-actions{display:flex;gap:8px;align-items:center}
+
+/* TOGGLE VIEW */
+.view-toggle{display:flex;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:3px;gap:2px}
+.toggle-opt{padding:5px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:var(--txt3);transition:all 0.15s;white-space:nowrap}
+.toggle-opt.active{background:var(--red);color:#fff}
+
+/* INPUT DATA PANEL */
+.input-panel{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:0;flex-wrap:wrap}
+.input-stat{flex:1;min-width:160px;padding:0 16px;border-right:1px solid var(--border)}
+.input-stat:first-child{padding-left:0}
+.input-stat:last-child{border-right:none}
+.input-stat-label{font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.07em;font-weight:600;margin-bottom:4px}
+.input-stat-val{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--txt1)}
+.input-stat-sub{font-size:10px;color:var(--txt3);margin-top:2px}
+
+/* SCENARIO CARDS */
+.scenario-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.scenario-card{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative;overflow:hidden;transition:border-color 0.2s}
+.scenario-card.active-card{border-color:var(--red)}
+.scenario-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.scenario-card.mild::before{background:var(--green)}
+.scenario-card.moderate::before{background:var(--amber)}
+.scenario-card.severe::before{background:var(--red-bright)}
+.scenario-card.custom::before{background:var(--red)}
+.sc-label{font-size:9px;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:6px}
+.sc-label.mild{color:var(--green)}.sc-label.moderate{color:var(--amber)}.sc-label.severe{color:var(--red-bright)}.sc-label.custom{color:var(--red)}
+.sc-pct{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1;margin-bottom:4px}
+.sc-pct.mild{color:var(--green)}.sc-pct.moderate{color:var(--amber)}.sc-pct.severe{color:var(--red-bright)}.sc-pct.custom{color:var(--red)}
+.sc-ref{font-size:10px;color:var(--txt3);margin-bottom:12px}
+.sc-result{display:flex;gap:8px;margin-top:8px}
+.sc-pill{font-size:10px;font-family:'IBM Plex Mono',monospace;padding:2px 7px;border-radius:4px}
+.sc-pill.lulus{background:var(--green-bg);color:var(--green);border:1px solid rgba(16,185,129,0.3)}
+.sc-pill.gagal{background:rgba(200,16,46,0.1);color:var(--red-bright);border:1px solid rgba(200,16,46,0.25)}
+.sc-bar-wrap{height:6px;background:var(--bg0);border-radius:3px;overflow:hidden;margin-top:8px}
+.sc-bar{height:100%;border-radius:3px}
+.sc-bar.mild{background:var(--green)}.sc-bar.moderate{background:var(--amber)}.sc-bar.severe{background:var(--red-bright)}.sc-bar.custom{background:var(--red)}
+.custom-input-wrap{display:flex;align-items:center;gap:6px;margin:8px 0}
+.custom-input{background:var(--bg0);border:1px solid var(--border2);border-radius:4px;padding:5px 8px;color:var(--txt1);font-size:18px;font-weight:800;font-family:'Syne',sans-serif;width:72px;outline:none;text-align:center}
+.custom-input:focus{border-color:var(--red)}
+.custom-sym{font-size:18px;color:var(--txt3);font-weight:800}
+
+/* SECTION */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.section-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--txt1);display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';display:inline-block;width:3px;height:14px;background:var(--red);border-radius:2px}
+.section-link{font-size:11px;color:var(--red);cursor:pointer}
+
+/* BAR CHART */
+.chart-panel{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:16px}
+.chart-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.chart-row:last-child{margin-bottom:0}
+.chart-label-col{width:80px;font-size:11px;font-weight:600;flex-shrink:0}
+.chart-label-col.mild{color:var(--green)}.chart-label-col.moderate{color:var(--amber)}.chart-label-col.severe{color:var(--red-bright)}.chart-label-col.custom{color:var(--red)}
+.chart-bar-col{flex:1;display:flex;align-items:center;gap:4px;height:22px}
+.bar-lulus{height:100%;border-radius:3px 0 0 3px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px}
+.bar-gagal{height:100%;border-radius:0 3px 3px 0;display:flex;align-items:center;padding-left:6px}
+.bar-lulus.mild-c{background:rgba(16,185,129,0.25)}.bar-lulus.moderate-c{background:rgba(245,158,11,0.2)}.bar-lulus.severe-c{background:rgba(255,107,133,0.15)}.bar-lulus.custom-c{background:rgba(200,16,46,0.15)}
+.bar-gagal.mild-c{background:rgba(16,185,129,0.08)}.bar-gagal.moderate-c{background:rgba(245,158,11,0.07)}.bar-gagal.severe-c{background:rgba(255,107,133,0.1)}.bar-gagal.custom-c{background:rgba(200,16,46,0.1)}
+.bar-txt{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600}
+.chart-count-col{width:90px;display:flex;gap:6px;font-size:10px;font-family:'IBM Plex Mono',monospace;flex-shrink:0}
+
+/* FAILED PAKD PANEL */
+.failed-panel{background:var(--bg1);border:1px solid rgba(200,16,46,0.2);border-radius:10px;overflow:hidden}
+.failed-panel-header{background:rgba(200,16,46,0.06);padding:12px 16px;border-bottom:1px solid rgba(200,16,46,0.15);display:flex;align-items:center;justify-content:space-between}
+.failed-item{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)}
+.failed-item:last-child{border-bottom:none}
+.failed-rank{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--txt3);width:20px}
+.failed-name{flex:1}
+.failed-pakd-name{font-size:12px;font-weight:600;color:var(--txt1)}
+.failed-pakd-id{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--txt3)}
+.failed-scenario-badges{display:flex;gap:4px}
+.fs-badge{font-size:9px;font-family:'IBM Plex Mono',monospace;padding:1px 5px;border-radius:3px}
+.fs-badge.mild{background:var(--green-bg);color:var(--green)}.fs-badge.moderate{background:var(--amber-bg);color:var(--amber)}.fs-badge.severe{background:rgba(200,16,46,0.1);color:var(--red-bright)}
+.failed-shortfall{text-align:right;flex-shrink:0}
+.shortfall-val{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--red-bright)}
+.shortfall-label{font-size:9px;color:var(--txt3);margin-top:1px}
+.ratio-mini{display:flex;gap:8px;flex-shrink:0}
+.ratio-cell{text-align:center;width:52px}
+.ratio-val{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600}
+.ratio-val.ok{color:var(--green)}.ratio-val.warn{color:var(--amber)}.ratio-val.bad{color:var(--red-bright)}
+.ratio-lbl{font-size:8px;color:var(--txt3);margin-top:1px}
+
+/* DETAIL TABLE */
+.table-wrap{background:var(--bg1);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--bg2)}
+th{padding:9px 12px;text-align:left;font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--txt3);white-space:nowrap}
+td{padding:9px 12px;border-top:1px solid var(--border);font-size:11px;color:var(--txt2);vertical-align:middle}
+tr:hover td{background:rgba(200,16,46,0.025)}
+.pakd-name{font-weight:600;color:var(--txt1);font-size:11px;display:block}
+.pakd-id{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--txt3)}
+.mono-sm{font-family:'IBM Plex Mono',monospace;font-size:10px}
+.ratio-badge{display:inline-block;padding:2px 6px;border-radius:3px;font-size:9px;font-family:'IBM Plex Mono',monospace;font-weight:600}
+.ratio-badge.ok{background:var(--green-bg);color:var(--green)}
+.ratio-badge.warn{background:var(--amber-bg);color:var(--amber)}
+.ratio-badge.bad{background:rgba(200,16,46,0.1);color:var(--red-bright)}
+.ratio-badge.na{color:var(--txt3);background:transparent}
+
+/* METHODOLOGY */
+.method-panel{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:16px}
+.method-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:11px}
+.method-item:last-child{border-bottom:none}
+.method-key{color:var(--txt3);flex:0 0 160px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600}
+.method-val{color:var(--txt2);flex:1;line-height:1.5}
+.method-val a{color:var(--red);text-decoration:none}
+
+/* FOOTER */
+.dash-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);margin-top:4px}
+.dash-footer-txt{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--txt3)}
+.live-indicator{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--green)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+
+/* RUNNING OVERLAY */
+.running-badge{display:none;align-items:center;gap:6px;font-size:11px;color:var(--amber);font-family:'IBM Plex Mono',monospace}
+.running-badge.show{display:flex}
+.running-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);animation:shimmer 1s ease-in-out infinite}
+
+.syne{font-family:'Syne',sans-serif}
+/* ─── LAYOUT ─── */
+.shell{display:grid;grid-template-columns:220px 1fr;grid-template-rows:52px 1fr;min-height:100vh}
+/* ─── TOPBAR ─── */
+.topbar{grid-column:1/-1;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:100}
+.topbar-user:hover{border-color:var(--border2)}
+.user-info{text-align:left}
+/* ─── SIDEBAR ─── */
+.sidebar{background:var(--bg1);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;gap:4px}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:9px;font-family:'IBM Plex Mono',monospace}
+.nav-badge.amber{background:var(--amber);color:#000}
+.api-status{display:flex;flex-direction:column;gap:5px}
+/* ─── MAIN ─── */
+.main{padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+/* ─── PAGE HEADER ─── */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between}
+.btn{padding:7px 14px;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;border:none;letter-spacing:0.03em}
+.period-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--txt3);background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:3px 8px}
+/* ─── KPI CARDS ─── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi-card{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi-card.green::before{background:var(--green)}
+.kpi-card.red::before{background:#FF6B85}
+.kpi-card.amber::before{background:var(--amber)}
+.kpi-card.teal::before{background:var(--red)}
+.kpi-label{font-size:9px;color:var(--txt3);letter-spacing:0.06em;text-transform:uppercase;font-weight:600;margin-bottom:8px}
+.kpi-label svg{width:12px;height:12px}
+.kpi-value{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;line-height:1;margin-bottom:4px}
+.kpi-value.green{color:var(--green)}
+.kpi-value.red{color:var(--red-bright)}
+.kpi-value.amber{color:var(--amber)}
+.kpi-value.teal{color:var(--teal)}
+.kpi-sub{font-size:10px;color:var(--txt3)}
+.kpi-sub strong{color:var(--txt2)}
+.kpi-breakdown{display:flex;gap:8px;margin-top:8px}
+.kpi-pill{font-size:10px;font-family:'IBM Plex Mono',monospace;padding:2px 7px;border-radius:4px}
+.kpi-pill.g{background:var(--green-bg);color:var(--green);border:1px solid rgba(16,185,129,0.3)}
+.kpi-pill.a{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,158,11,0.3)}
+.kpi-pill.r{background:rgba(200,16,46,0.12);color:#FF6B85;border:1px solid rgba(200,16,46,0.3)}
+/* ─── SECTION HEADERS ─── */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+/* ─── PAKD TABLE ─── */
+.table-wrap{background:var(--bg1);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.table-toolbar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.search-box{flex:1;max-width:240px;background:var(--bg0);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;color:var(--txt2);font-size:11px;font-family:'IBM Plex Sans',sans-serif;outline:none}
+.filter-chips{display:flex;gap:6px}
+.chip{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid}
+.chip.all{border-color:var(--teal);color:var(--teal);background:rgba(200,16,46,0.08)}
+.chip.aman{border-color:var(--border);color:var(--txt3);background:transparent}
+.chip.deviasi{border-color:var(--border);color:var(--txt3);background:transparent}
+.chip.kritis{border-color:var(--border);color:var(--txt3);background:transparent}
+th:last-child{text-align:right}
+td:last-child{text-align:right}
+.status-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+.status-badge.aman{background:var(--green-bg);color:var(--green);border:1px solid rgba(16,185,129,0.25)}
+.status-badge.deviasi{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,158,11,0.25)}
+.status-badge.kritis{background:rgba(200,16,46,0.12);color:#FF6B85;border:1px solid rgba(200,16,46,0.3)}
+.status-badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor}
+.status-badge.kritis::before{animation:pulse 1s ease-in-out infinite}
+.mono-val{font-family:'IBM Plex Mono',monospace;font-size:11px}
+.dev-bar{width:72px;height:5px;background:var(--bg0);border-radius:3px;display:inline-block;overflow:hidden;flex-shrink:0}
+.dev-fill{height:100%;border-radius:3px}
+.dev-fill.g{background:var(--green)}
+.dev-fill.a{background:var(--amber)}
+.dev-fill.r{background:var(--red-bright)}
+.tier-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px}
+.tier-tag.t1{background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.2)}
+.tier-tag.t2{background:rgba(200,16,46,0.1);color:#FF6B85;border:1px solid rgba(200,16,46,0.2)}
+.tier-tag.none{color:var(--txt3);font-size:10px}
+.chain-dots{display:flex;gap:3px}
+.chain-dot{width:16px;height:16px;border-radius:4px;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace}
+.chain-dot.btc{background:rgba(247,147,26,0.15);color:#F7931A}
+.chain-dot.eth{background:rgba(98,126,234,0.15);color:#627EEA}
+.chain-dot.sol{background:rgba(153,69,255,0.15);color:#9945FF}
+.table-footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.table-info{font-size:11px;color:var(--txt3)}
+.pagination{display:flex;gap:4px}
+.pg-btn{width:26px;height:26px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--txt3);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pg-btn.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+/* ─── BOTTOM GRID ─── */
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* ─── STRESS TEST PANEL ─── */
+.panel{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:16px}
+.stress-scenario{display:flex;align-items:center;gap:10px;padding:10px;border-radius:var(--r);margin-bottom:8px}
+.stress-scenario.mild{background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15)}
+.stress-scenario.moderate{background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15)}
+.stress-scenario.severe{background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15)}
+.stress-label{flex:0 0 80px}
+.stress-name{font-size:11px;font-weight:600}
+.stress-name.mild{color:var(--green)}
+.stress-name.moderate{color:var(--amber)}
+.stress-name.severe{color:var(--red)}
+.stress-pct{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--txt3);margin-top:1px}
+.stress-bar-wrap{flex:1;height:8px;background:var(--bg0);border-radius:4px;overflow:hidden}
+.stress-bar{height:100%;border-radius:4px;transition:width 0.3s}
+.stress-bar.mild{background:var(--green)}
+.stress-bar.moderate{background:var(--amber)}
+.stress-bar.severe{background:var(--red)}
+.stress-count{font-family:'IBM Plex Mono',monospace;font-size:11px;white-space:nowrap;flex:0 0 60px;text-align:right}
+.stress-count span{font-size:9px;color:var(--txt3)}
+/* ─── TIMESTAMP FOOTER ─── */
+.chart-area{position:relative;height:120px;margin-top:8px}
+.chart-svg{width:100%;height:100%}
+.chart-grid{stroke:var(--border);stroke-width:0.5}
+.chart-line-onchain{fill:none;stroke:var(--teal);stroke-width:2;stroke-linejoin:round}
+.chart-line-laporan{fill:none;stroke:var(--txt3);stroke-width:1.5;stroke-linejoin:round;stroke-dasharray:4 3}
+.chart-area-fill{fill:url(#areaGrad);opacity:0.15}
+.chart-dot{fill:var(--teal);stroke:var(--bg1);stroke-width:2}
+.chart-dot.warn{fill:var(--amber)}
+.chart-labels{display:flex;justify-content:space-between;margin-top:6px}
+.chart-label{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--txt3)}
+.chart-legend{display:flex;gap:12px;margin-bottom:8px}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txt3)}
+.legend-line{width:16px;height:2px;border-radius:1px}
+.legend-line.teal{background:var(--teal)}
+.legend-line.dashed{background:repeating-linear-gradient(90deg,var(--txt3) 0,var(--txt3) 4px,transparent 4px,transparent 7px);height:1.5px}
+/* ─── TIMESTAMP FOOTER ─── */
+.dash-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);margin-top:4px}
+/* ─── BUTTONS ─── */
+.btn{padding:7px 14px;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;border:none;letter-spacing:0.03em;display:flex;align-items:center;gap:6px}
+.btn-primary .spin{animation:spin 0.8s linear infinite}
+.back-link{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt3);cursor:pointer;margin-bottom:6px}
+.back-link:hover{color:var(--red)}
+/* ─── STATUS BANNER ─── */
+.status-banner{border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:16px;border:1px solid}
+.status-banner.deviasi{background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.2)}
+.status-banner.kritis{background:rgba(200,16,46,0.06);border-color:rgba(200,16,46,0.2)}
+.status-banner.aman{background:rgba(16,185,129,0.06);border-color:rgba(16,185,129,0.2)}
+.banner-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.banner-icon.deviasi{background:rgba(245,158,11,0.15)}
+.banner-icon svg{width:20px;height:20px}
+.banner-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:600;margin-bottom:3px}
+.banner-label.deviasi{color:var(--amber)}
+.banner-status{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--txt1)}
+.banner-desc{font-size:11px;color:var(--txt3);margin-top:2px}
+.banner-right{margin-left:auto;display:flex;gap:24px}
+.banner-stat{text-align:right}
+.banner-stat-label{font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px}
+.banner-stat-val{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600}
+.banner-stat-val.amber{color:var(--amber)}
+.banner-stat-val.red{color:var(--red-bright)}
+.tier-badge{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.25);align-self:center}
+.kpi-card.red-bright::before{background:var(--red-bright)}
+.kpi-value.primary{color:var(--red)}
+/* ─── TWO COLUMN GRID ─── */
+.two-col{display:grid;grid-template-columns:1fr 320px;gap:16px}
+/* ─── SECTION ─── */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+/* ─── ASSET TABLE ─── */
+.table-wrap{background:var(--bg1);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.asset-name{font-weight:600;color:var(--txt1);font-size:13px;display:block}
+.asset-ticker{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--txt3);margin-top:1px;display:block}
+.asset-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;flex-shrink:0}
+.asset-icon.btc{background:rgba(247,147,26,0.15);color:#F7931A}
+.asset-icon.eth{background:rgba(98,126,234,0.15);color:#627EEA}
+.asset-icon.sol{background:rgba(153,69,255,0.15);color:#9945FF}
+.asset-icon.usdt{background:rgba(38,161,123,0.15);color:#26A17B}
+.asset-cell{display:flex;align-items:center;gap:10px}
+.mono-val-sm{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--txt3);margin-top:2px;display:block}
+.dev-bar-wrap{display:flex;align-items:center;gap:8px}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.status-dot.aman{background:var(--green)}
+.status-dot.deviasi{background:var(--amber)}
+.status-dot.kritis{background:var(--red-bright);animation:pulse 1s ease-in-out infinite}
+.status-badge-sm{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:600;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+.status-badge-sm.aman{background:var(--green-bg);color:var(--green);border:1px solid rgba(16,185,129,0.2)}
+.status-badge-sm.deviasi{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,158,11,0.2)}
+.status-badge-sm.kritis{background:rgba(200,16,46,0.1);color:var(--red-bright);border:1px solid rgba(200,16,46,0.2)}
+.ts-text{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--txt3)}
+/* ─── PANEL ─── */
+.panel{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:16px}
+.panel-section{margin-bottom:16px}
+.panel-section:last-child{margin-bottom:0}
+/* ─── PROFILE TABLE ─── */
+.profile-row{display:flex;padding:8px 0;border-bottom:1px solid var(--border);font-size:11px}
+.profile-row:last-child{border-bottom:none}
+.profile-key{color:var(--txt3);flex:0 0 130px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;padding-top:1px}
+.profile-val{color:var(--txt2);flex:1}
+.profile-val strong{color:var(--txt1)}
+/* ─── WALLET LIST ─── */
+.wallet-item{margin-bottom:8px}
+.wallet-chain{font-size:9px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:5px}
+.wallet-addr{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--txt3);background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:5px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px;word-break:break-all}
+.wallet-addr-text{flex:1}
+.wallet-copy{cursor:pointer;color:var(--txt3);flex-shrink:0;font-size:9px;padding:1px 5px;border:1px solid var(--border);border-radius:3px}
+.wallet-copy:hover{color:var(--red);border-color:var(--red)}
+.chain-tag{font-size:9px;font-family:'IBM Plex Mono',monospace;padding:1px 6px;border-radius:3px}
+.chain-tag.btc{background:rgba(247,147,26,0.12);color:#F7931A}
+.chain-tag.sol{background:rgba(153,69,255,0.12);color:#9945FF}
+/* ─── FOOTER ─── */
+.dash-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);margin-top:4px}
+
+
+/* ─── INTEGRATED NAVIGATION ─── */
+.page-switcher{
+  position:fixed;top:0;left:0;right:0;z-index:9999;
+  background:#100306;border-bottom:1px solid #3A1519;
+  display:flex;align-items:center;height:44px;padding:0 20px;gap:0;
+}
+.page-tab{
+  font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;
+  letter-spacing:0.06em;text-transform:uppercase;
+  padding:0 18px;height:44px;display:flex;align-items:center;gap:7px;
+  cursor:pointer;color:#7A4A50;border-bottom:2px solid transparent;
+  transition:all 0.15s;white-space:nowrap;
+}
+.page-tab:hover{color:#F5DDE0;}
+.page-tab.active{color:#C8102E;border-bottom-color:#C8102E;}
+.page-tab svg{width:13px;height:13px;flex-shrink:0;}
+.page-divider{width:1px;height:20px;background:#3A1519;margin:0 4px;}
+.prima-nav-logo{
+  font-family:'Syne',sans-serif;font-size:14px;font-weight:800;
+  color:#F5DDE0;letter-spacing:0.04em;margin-right:16px;
+}
+.prima-nav-logo span{color:#C8102E;}
+
+/* push content below fixed nav bar */
+body.integrated .shell{margin-top:44px;}
+body.integrated .topbar{top:44px;}
+
+/* page panels */
+.page-panel{display:none;}
+.page-panel.active{display:block;}
+</style>
+</head>
+<body class="integrated">
+
+<!-- ══ INTEGRATED NAV ══ -->
+<nav class="page-switcher">
+  <span class="prima-nav-logo">PRI<span>MA</span></span>
+  <div class="page-divider"></div>
+  <div class="page-tab active" onclick="showPage('overview')" id="tab-overview">
+    <svg viewBox="0 0 14 14" fill="none">
+      <rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".8"/>
+      <rect x="8" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".8"/>
+      <rect x="1" y="8" width="5" height="5" rx="1" fill="currentColor" opacity=".8"/>
+      <rect x="8" y="8" width="5" height="5" rx="1" fill="currentColor" opacity=".8"/>
+    </svg>
+    Overview PAKD
+  </div>
+  <div class="page-tab" onclick="showPage('detail')" id="tab-detail">
+    <svg viewBox="0 0 14 14" fill="none">
+      <rect x="1" y="2" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+      <path d="M4 5h6M4 7.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+    </svg>
+    Detail Per PAKD
+  </div>
+  <div class="page-tab" onclick="showPage('stress')" id="tab-stress">
+    <svg viewBox="0 0 14 14" fill="none">
+      <path d="M2 11V6l3-3 3 3 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Stress Test
+  </div>
+</nav>
+
+<!-- ══ PAGE 1: OVERVIEW PAKD ══ -->
+<div class="page-panel active" id="page-overview">
+<div class="shell">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon" style="background:linear-gradient(135deg,#C8102E,#7A0E1E)">
+      <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M9 2L15 5.5V12.5L9 16L3 12.5V5.5L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
+        <circle cx="9" cy="9" r="2.5" fill="white" opacity="0.9"/>
+        <path d="M9 4V6.5M9 11.5V14M4.5 6.75L6.5 8M11.5 10L13.5 11.25M4.5 11.25L6.5 10M11.5 8L13.5 6.75" stroke="white" stroke-width="1" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <span class="brand-name syne">PRI<span>MA</span></span>
+  </div>
+  <div class="topbar-divider"></div>
+  <span class="breadcrumb">SISTEM PEMANTAUAN TRANSPARANSI ASET KEUANGAN DIGITAL</span>
+  <div class="topbar-right">
+    <div class="badge-alert">3 ALERT AKTIF</div>
+    <span class="topbar-time">Senin, 25 Mar 2026 · 09:47 WIB</span>
+    <div class="topbar-user">
+      <div class="avatar">MI</div>
+      <div class="user-info">
+        <div class="user-name">M. Ihsanudin</div>
+        <div class="user-role">Supervisor · IAKD</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="nav-section">Monitoring</div>
+  <div class="nav-item active">
+    <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/><rect x="9" y="2" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/><rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/><rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/></svg>
+    Overview PAKD
+  </div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Detail Per PAKD
+  </div>
+
+  <div class="nav-section">Analisis</div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v12M4 6v8M12 4v10M2 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Stress Test
+  </div>
+
+
+  <div class="nav-section">Sistem</div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="5" width="12" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 5V4a3 3 0 016 0v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Audit Log
+  </div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Pengaturan
+  </div>
+
+  <div class="sidebar-footer">
+    <div style="font-size:9px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;font-weight:600">Status API Blockchain</div>
+    <div class="api-status">
+      <div class="api-row"><span class="api-dot ok"></span>Bitcoin Explorer<span class="api-latency">142ms</span></div>
+      <div class="api-row"><span class="api-dot ok"></span>Ethereum (Etherscan)<span class="api-latency">98ms</span></div>
+      <div class="api-row"><span class="api-dot warn"></span>Solana (Solscan)<span class="api-latency">612ms</span></div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div>
+      <div class="page-title syne">Overview Rekonsiliasi PAKD</div>
+      <div class="page-subtitle">Periode laporan: Februari 2026 · Rekonsiliasi terakhir: 25 Mar 2026, 08:30 WIB</div>
+    </div>
+    <div class="header-actions">
+      <span class="period-tag mono">FEB 2026</span>
+      <button class="btn btn-ghost">↓ Ekspor Laporan</button>
+      <button class="btn btn-primary">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-grid">
+    <div class="kpi-card green">
+      <div class="kpi-label">Status Rekonsiliasi</div>
+      <div class="kpi-value green">22</div>
+      <div class="kpi-sub"><strong>dari 25 PAKD</strong> dalam kondisi aman</div>
+      <div class="kpi-breakdown">
+        <span class="kpi-pill g">22 Aman</span>
+        <span class="kpi-pill a">2 Deviasi</span>
+        <span class="kpi-pill r">1 Kritis</span>
+      </div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-label">Alert Aktif</div>
+      <div class="kpi-value red">3</div>
+      <div class="kpi-sub"><strong>memerlukan</strong> tindak lanjut segera</div>
+      <div class="kpi-breakdown">
+        <span class="kpi-pill a">2 Tier 1</span>
+        <span class="kpi-pill r">1 Tier 2</span>
+      </div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-label">Hasil Stress Test Terbaru</div>
+      <div class="kpi-value amber">20</div>
+      <div class="kpi-sub"><strong>PAKD lulus</strong> skenario moderate (-55%)</div>
+      <div class="kpi-breakdown">
+        <span class="kpi-pill g">24 mild</span>
+        <span class="kpi-pill a">20 mod.</span>
+        <span class="kpi-pill r">14 severe</span>
+      </div>
+    </div>
+    <div class="kpi-card teal">
+      <div class="kpi-label">Total Aset Tervalidasi</div>
+      <div class="kpi-value teal mono" style="font-size:22px">Rp28,4T</div>
+      <div class="kpi-sub"><strong>vs. laporan</strong> Rp28,6T (gap Rp0,21T)</div>
+      <div class="kpi-breakdown">
+        <span class="kpi-pill g">Deviasi industri: 0,74%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAKD TABLE -->
+  <div>
+    <div class="section-header">
+      <div class="section-title">Daftar Pedagang Aset Keuangan Digital (25 Entitas Berizin)</div>
+      <span class="section-link">Lihat semua →</span>
+    </div>
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <input class="search-box" type="text" placeholder="Cari nama PAKD...">
+        <div class="filter-chips">
+          <span class="chip all">Semua (25)</span>
+          <span class="chip aman">Aman (22)</span>
+          <span class="chip deviasi">Deviasi (2)</span>
+          <span class="chip kritis">Kritis (1)</span>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nama PAKD</th>
+            <th>Status</th>
+            <th>Aset On-Chain</th>
+            <th>Aset Dilaporkan</th>
+            <th>Deviasi</th>
+            <th>Alert</th>
+            <th>Chain</th>
+            <th>Rekonsiliasi Terakhir</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- KRITIS -->
+          <tr style="background:rgba(239,68,68,0.04)">
+            <td class="mono" style="color:var(--txt3)">01</td>
+            <td><span class="pakd-name">PT Bitharga Indonesia</span><span class="pakd-id">PAKD-OJK-018 · Berizin</span></td>
+            <td><span class="status-badge kritis">Kritis</span></td>
+            <td class="mono-val" style="color:var(--txt1)">Rp 142,3 M</td>
+            <td class="mono-val" style="color:var(--txt2)">Rp 198,7 M</td>
+            <td>
+              <div class="dev-bar"><div class="dev-fill r" style="width:88%"></div></div>
+              <span class="mono-val" style="color:var(--red)">28,36%</span>
+            </td>
+            <td><span class="tier-tag t2">Tier 2</span></td>
+            <td><div class="chain-dots"><span class="chain-dot btc">B</span><span class="chain-dot eth">E</span></div></td>
+            <td class="mono-val">25 Mar 08:30</td>
+          </tr>
+          <!-- DEVIASI -->
+          <tr style="background:rgba(245,158,11,0.03)">
+            <td class="mono" style="color:var(--txt3)">02</td>
+            <td><span class="pakd-name">PT Triv Karya Utama</span><span class="pakd-id">PAKD-OJK-022 · Berizin</span></td>
+            <td><span class="status-badge deviasi">Deviasi</span></td>
+            <td class="mono-val" style="color:var(--txt1)">Rp 87,4 M</td>
+            <td class="mono-val" style="color:var(--txt2)">Rp 93,2 M</td>
+            <td>
+              <div class="dev-bar"><div class="dev-fill a" style="width:38%"></div></div>
+              <span class="mono-val" style="color:var(--amber)">6,22%</span>
+            </td>
+            <td><span class="tier-tag t1">Tier 1</span></td>
+            <td><div class="chain-dots"><span class="chain-dot btc">B</span><span class="chain-dot sol">S</span></div></td>
+            <td class="mono-val">25 Mar 08:30</td>
+          </tr>
+          <tr style="background:rgba(245,158,11,0.03)">
+            <td class="mono" style="color:var(--txt3)">03</td>
+            <td><span class="pakd-name">PT Zipmex Indonesia</span><span class="pakd-id">PAKD-OJK-011 · Berizin</span></td>
+            <td><span class="status-badge deviasi">Deviasi</span></td>
+            <td class="mono-val" style="color:var(--txt1)">Rp 54,1 M</td>
+            <td class="mono-val" style="color:var(--txt2)">Rp 57,8 M</td>
+            <td>
+              <div class="dev-bar"><div class="dev-fill a" style="width:29%"></div></div>
+              <span class="mono-val" style="color:var(--amber)">6,40%</span>
+            </td>
+            <td><span class="tier-tag t1">Tier 1</span></td>
+            <td><div class="chain-dots"><span class="chain-dot eth">E</span><span class="chain-dot sol">S</span></div></td>
+            <td class="mono-val">25 Mar 08:30</td>
+          </tr>
+          <!-- AMAN -->
+          <tr>
+            <td class="mono" style="color:var(--txt3)">04</td>
+            <td><span class="pakd-name">PT Indodax Nasional Indonesia</span><span class="pakd-id">PAKD-OJK-001 · Berizin · PoR Publik ✓</span></td>
+            <td><span class="status-badge aman">Aman</span></td>
+            <td class="mono-val" style="color:var(--txt1)">Rp 9.821,4 M</td>
+            <td class="mono-val" style="color:var(--txt2)">Rp 9.814,8 M</td>
+            <td>
+              <div class="dev-bar"><div class="dev-fill g" style="width:2%"></div></div>
+              <span class="mono-val" style="color:var(--green)">0,07%</span>
+            </td>
+            <td><span class="tier-tag none">—</span></td>
+            <td><div class="chain-dots"><span class="chain-dot btc">B</span><span class="chain-dot eth">E</span><span class="chain-dot sol">S</span></div></td>
+            <td class="mono-val">25 Mar 08:30</td>
+          </tr>
+          <tr>
+            <td class="mono" style="color:var(--txt3)">05</td>
+            <td><span class="pakd-name">PT Tokocrypto</span><span class="pakd-id">PAKD-OJK-002 · Berizin</span></td>
+            <td><span class="status-badge aman">Aman</span></td>
+            <td class="mono-val" style="color:var(--txt1)">Rp 3.412,7 M</td>
+            <td class="mono-val" style="color:var(--txt2)">Rp 3.421,0 M</td>
+            <td>
+              <div class="dev-bar"><div class="dev-fill g" style="width:4%"></div></div>
+              <span class="mono-val" style="color:var(--green)">0,24%</span>
+            </td>
+            <td><span class="tier-tag none">—</span></td>
+            <td><div class="chain-dots"><span class="chain-dot btc">B</span><span class="chain-dot eth">E</span></div></td>
+            <td class="mono-val">25 Mar 08:30</td>
+          </tr>
+          <tr>
+            <td class="mono" style="color:var(--txt3)">06</td>
+            <td><span class="pakd-name">PT Pintu Kemana Saja</span><span class="pakd-id">PAKD-OJK-004 · Berizin</span></td>
+            <td><span class="status-badge aman">Aman</span></td>
+            <td class="mono-val" style="color:var(--txt1)">Rp 2.187,3 M</td>
+            <td class="mono-val" style="color:var(--txt2)">Rp 2.191,0 M</td>
+            <td>
+              <div class="dev-bar"><div class="dev-fill g" style="width:3%"></div></div>
+              <span class="mono-val" style="color:var(--green)">0,17%</span>
+            </td>
+            <td><span class="tier-tag none">—</span></td>
+            <td><div class="chain-dots"><span class="chain-dot btc">B</span><span class="chain-dot eth">E</span><span class="chain-dot sol">S</span></div></td>
+            <td class="mono-val">25 Mar 08:30</td>
+          </tr>
+          <tr>
+            <td class="mono" style="color:var(--txt3)">07</td>
+            <td><span class="pakd-name">PT Luno Indonesia</span><span class="pakd-id">PAKD-OJK-005 · Berizin</span></td>
+            <td><span class="status-badge aman">Aman</span></td>
+            <td class="mono-val" style="color:var(--txt1)">Rp 1.544,8 M</td>
+            <td class="mono-val" style="color:var(--txt2)">Rp 1.549,2 M</td>
+            <td>
+              <div class="dev-bar"><div class="dev-fill g" style="width:4%"></div></div>
+              <span class="mono-val" style="color:var(--green)">0,28%</span>
+            </td>
+            <td><span class="tier-tag none">—</span></td>
+            <td><div class="chain-dots"><span class="chain-dot btc">B</span><span class="chain-dot eth">E</span></div></td>
+            <td class="mono-val">25 Mar 08:30</td>
+          </tr>
+          <tr>
+            <td class="mono" style="color:var(--txt3)">08</td>
+            <td><span class="pakd-name">PT Upbit Indonesia</span><span class="pakd-id">PAKD-OJK-007 · Berizin</span></td>
+            <td><span class="status-badge aman">Aman</span></td>
+            <td class="mono-val" style="color:var(--txt1)">Rp 1.238,6 M</td>
+            <td class="mono-val" style="color:var(--txt2)">Rp 1.242,1 M</td>
+            <td>
+              <div class="dev-bar"><div class="dev-fill g" style="width:3%"></div></div>
+              <span class="mono-val" style="color:var(--green)">0,28%</span>
+            </td>
+            <td><span class="tier-tag none">—</span></td>
+            <td><div class="chain-dots"><span class="chain-dot btc">B</span><span class="chain-dot eth">E</span><span class="chain-dot sol">S</span></div></td>
+            <td class="mono-val">25 Mar 08:30</td>
+          </tr>
+          <tr>
+            <td colspan="9" style="text-align:center;color:var(--txt3);font-size:11px;padding:10px">... 17 PAKD lainnya dalam kondisi aman (deviasi &lt; 1%)</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="table-footer">
+        <span class="table-info">Menampilkan 8 dari 25 PAKD · Diperbarui: 25 Mar 2026, 08:30 WIB</span>
+        <div class="pagination">
+          <button class="pg-btn active">1</button>
+          <button class="pg-btn">2</button>
+          <button class="pg-btn">3</button>
+          <button class="pg-btn">›</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM GRID -->
+  <div class="bottom-grid">
+
+    <!-- STRESS TEST -->
+    <div class="panel">
+      <div class="section-header">
+        <div class="section-title">Stress Test Solvabilitas</div>
+        <span class="section-link">Detail →</span>
+      </div>
+      <div style="font-size:10px;color:var(--txt3);margin-bottom:10px">Berdasarkan data historis harga kripto · Feb 2026</div>
+
+      <div class="stress-scenario mild">
+        <div class="stress-label">
+          <div class="stress-name mild">Mild</div>
+          <div class="stress-pct">-30%</div>
+        </div>
+        <div class="stress-bar-wrap"><div class="stress-bar mild" style="width:96%"></div></div>
+        <div class="stress-count" style="color:var(--green)">24/25<span> lulus</span></div>
+      </div>
+      <div class="stress-scenario moderate">
+        <div class="stress-label">
+          <div class="stress-name moderate">Moderate</div>
+          <div class="stress-pct">-55%</div>
+        </div>
+        <div class="stress-bar-wrap"><div class="stress-bar moderate" style="width:80%"></div></div>
+        <div class="stress-count" style="color:var(--amber)">20/25<span> lulus</span></div>
+      </div>
+      <div class="stress-scenario severe">
+        <div class="stress-label">
+          <div class="stress-name severe">Severe</div>
+          <div class="stress-pct">-80%</div>
+        </div>
+        <div class="stress-bar-wrap"><div class="stress-bar severe" style="width:56%"></div></div>
+        <div class="stress-count" style="color:var(--red)">14/25<span> lulus</span></div>
+      </div>
+
+      <div style="margin-top:12px;padding:8px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--amber)">
+        <div style="font-size:10px;color:var(--amber);font-weight:600;margin-bottom:3px">⚠ Perhatian</div>
+        <div style="font-size:10px;color:var(--txt3);line-height:1.4">5 PAKD berisiko gagal solvabilitas pada skenario moderate. Rekomendasi: permintaan laporan aset cadangan tambahan.</div>
+      </div>
+    </div>
+
+    <!-- TREND CHART -->
+    <div class="panel">
+      <div class="section-header">
+        <div class="section-title">Tren Rekonsiliasi Historis</div>
+        <span class="section-link">Ekspor →</span>
+      </div>
+      <div style="font-size:10px;color:var(--txt3);margin-bottom:6px">Total aset industri · 6 bulan terakhir (Rp Miliar)</div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-line teal"></div>On-Chain</div>
+        <div class="legend-item"><div class="legend-line dashed"></div>Dilaporkan</div>
+      </div>
+      <div class="chart-area">
+        <svg class="chart-svg" viewBox="0 0 320 110" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#C8102E" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="#C8102E" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <!-- Grid lines -->
+          <line x1="0" y1="25" x2="320" y2="25" class="chart-grid"/>
+          <line x1="0" y1="50" x2="320" y2="50" class="chart-grid"/>
+          <line x1="0" y1="75" x2="320" y2="75" class="chart-grid"/>
+          <!-- Area fill -->
+          <path class="chart-area-fill" d="M10,85 L64,80 L118,72 L172,68 L226,58 L280,50 L310,48 L310,100 L10,100Z"/>
+          <!-- On-chain line -->
+          <polyline class="chart-line-onchain" points="10,85 64,80 118,72 172,68 226,58 280,50 310,48"/>
+          <!-- Laporan dashed line -->
+          <polyline class="chart-line-laporan" points="10,83 64,79 118,73 172,70 226,61 280,54 310,52"/>
+          <!-- Dots -->
+          <circle class="chart-dot" cx="10" cy="85" r="3"/>
+          <circle class="chart-dot" cx="64" cy="80" r="3"/>
+          <circle class="chart-dot" cx="118" cy="72" r="3"/>
+          <circle class="chart-dot" cx="172" cy="68" r="3"/>
+          <circle class="chart-dot warn" cx="226" cy="58" r="4"/>
+          <circle class="chart-dot" cx="280" cy="50" r="3"/>
+          <circle class="chart-dot" cx="310" cy="48" r="3"/>
+          <!-- Y labels -->
+          <text x="315" y="29" font-size="7" fill="#4A6A8A" font-family="IBM Plex Mono">30T</text>
+          <text x="315" y="54" font-size="7" fill="#4A6A8A" font-family="IBM Plex Mono">25T</text>
+          <text x="315" y="79" font-size="7" fill="#4A6A8A" font-family="IBM Plex Mono">20T</text>
+        </svg>
+      </div>
+      <div class="chart-labels">
+        <span class="chart-label">Okt</span>
+        <span class="chart-label">Nov</span>
+        <span class="chart-label">Des</span>
+        <span class="chart-label">Jan</span>
+        <span class="chart-label">Feb ⚠</span>
+        <span class="chart-label">Mar</span>
+      </div>
+      <div style="margin-top:10px;padding:8px;background:var(--bg2);border-radius:var(--r);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.06em">Gap agregat industri</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--amber);margin-top:2px">Rp 0,21 T</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.06em">Deviasi rata-rata</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--green);margin-top:2px">0,74%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="dash-footer">
+    <span class="dash-footer-txt">PRIMA v1.0 · Sistem Pemantauan Transparansi Aset Keuangan Digital Berbasis Blockchain · OJK © 2026</span>
+    <div class="live-indicator"><span class="live-dot"></span>Pemantauan aktif · Data diperbarui setiap 60 menit</div>
+  </div>
+
+</main>
+</div>
+</div>
+
+<!-- ══ PAGE 2: DETAIL PER PAKD ══ -->
+<div class="page-panel" id="page-detail">
+<div class="shell">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 18 18" fill="none">
+        <path d="M9 2L15 5.5V12.5L9 16L3 12.5V5.5L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
+        <circle cx="9" cy="9" r="2.5" fill="white" opacity="0.9"/>
+        <path d="M9 4V6.5M9 11.5V14M4.5 6.75L6.5 8M11.5 10L13.5 11.25M4.5 11.25L6.5 10M11.5 8L13.5 6.75" stroke="white" stroke-width="1" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <span class="brand-name syne">PRI<span>MA</span></span>
+  </div>
+  <div class="topbar-divider"></div>
+  <div class="breadcrumb">
+    <a href="#">SISTEM PEMANTAUAN TRANSPARANSI ASET KEUANGAN DIGITAL</a>
+    <span class="breadcrumb-sep">›</span>
+    <a href="#">Detail Per PAKD</a>
+    <span class="breadcrumb-sep">›</span>
+    <span class="breadcrumb-current">PT Triv Karya Utama</span>
+  </div>
+  <div class="topbar-right">
+    <div class="badge-alert">1 ALERT AKTIF</div>
+    <span class="topbar-time">Senin, 25 Mar 2026 · 09:47 WIB</span>
+    <div class="topbar-user">
+      <div class="avatar">MI</div>
+      <div>
+        <div class="user-name">M. Ihsanudin</div>
+        <div class="user-role">Supervisor · IAKD</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="nav-section">Monitoring</div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/><rect x="9" y="2" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/><rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/><rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/></svg>
+    Overview PAKD
+  </div>
+  <div class="nav-item active">
+    <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Detail Per PAKD
+  </div>
+
+  <div class="nav-section">Analisis</div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v12M4 6v8M12 4v10M2 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Stress Test
+  </div>
+
+  <div class="nav-section">Sistem</div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="5" width="12" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 5V4a3 3 0 016 0v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Audit Log
+  </div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Pengaturan
+  </div>
+
+  <div class="sidebar-footer">
+    <div style="font-size:9px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;font-weight:600">Status API Blockchain</div>
+    <div class="api-row"><span class="api-dot ok"></span>Bitcoin Explorer<span class="api-latency">142ms</span></div>
+    <div class="api-row"><span class="api-dot ok"></span>Ethereum (Etherscan)<span class="api-latency">98ms</span></div>
+    <div class="api-row"><span class="api-dot warn"></span>Solana (Solscan)<span class="api-latency">612ms</span></div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div>
+      <div class="back-link">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 2L4 6L8 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Kembali ke Overview PAKD
+      </div>
+      <div class="page-title syne">PT Triv Karya Utama</div>
+      <div class="page-subtitle">PAKD-OJK-022 · Berizin sejak 14 Feb 2022 · Rekonsiliasi terakhir: 25 Mar 2026, 08:30 WIB</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 8l2 2 2-2M4 10V4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 4L8 2 6 4M8 2v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Ekspor Laporan
+      </button>
+      <button class="btn btn-primary" onclick="doRefresh(this)">
+        <svg id="refresh-icon" width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M11 2.5A5.5 5.5 0 1 0 12 6.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/><path d="M12 2.5V6H8.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Refresh Data
+      </button>
+    </div>
+  </div>
+
+  <!-- STATUS BANNER -->
+  <div class="status-banner deviasi">
+    <div class="banner-icon deviasi">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M10 3L18 17H2L10 3Z" stroke="#F59E0B" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M10 9v4M10 14.5v.5" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div>
+      <div class="banner-label deviasi">Status Rekonsiliasi</div>
+      <div class="banner-status">Deviasi Terdeteksi</div>
+      <div class="banner-desc">Saldo on-chain tidak sesuai dengan laporan pada 4 dari 9 aset yang dimonitor</div>
+    </div>
+    <span class="tier-badge">TIER 1 · ALERT AKTIF</span>
+    <div class="banner-right">
+      <div class="banner-stat">
+        <div class="banner-stat-label">Gap Agregat</div>
+        <div class="banner-stat-val amber">Rp 5,83 M</div>
+      </div>
+      <div class="banner-stat">
+        <div class="banner-stat-label">Deviasi Tertinggi</div>
+        <div class="banner-stat-val red">8,12%</div>
+      </div>
+      <div class="banner-stat">
+        <div class="banner-stat-label">Aset Dimonitor</div>
+        <div class="banner-stat-val" style="color:var(--txt1)">9 Aset</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-grid">
+    <div class="kpi-card teal">
+      <div class="kpi-label">Total Aset On-Chain</div>
+      <div class="kpi-value primary mono" style="font-size:20px">Rp 87,4 M</div>
+      <div class="kpi-sub">Tervalidasi dari <strong>6 wallet</strong></div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-label">Total Aset Dilaporkan</div>
+      <div class="kpi-value amber mono" style="font-size:20px">Rp 93,2 M</div>
+      <div class="kpi-sub">Dari laporan <strong>Feb 2026</strong></div>
+    </div>
+    <div class="kpi-card red-bright">
+      <div class="kpi-label">Gap Agregat</div>
+      <div class="kpi-value red mono" style="font-size:20px">Rp 5,83 M</div>
+      <div class="kpi-sub">Deviasi rata-rata <strong>6,22%</strong></div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Aset Aman</div>
+      <div class="kpi-value green">5/9</div>
+      <div class="kpi-sub">BTC · ETH · USDC · JUP · PYTH dalam batas <strong>normal</strong></div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT: TABLE + SIDEBAR PANEL -->
+  <div class="two-col">
+
+    <!-- ASSET DEVIATION TABLE -->
+    <div>
+      <div class="section-header">
+        <div class="section-title">Pemantauan Per Aset Keuangan Digital</div>
+        <span style="font-size:10px;color:var(--txt3);font-family:'IBM Plex Mono',monospace">Data per: 25 Mar 2026, 08:30 WIB</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Aset Kripto</th>
+              <th>Saldo On-Chain</th>
+              <th>Saldo Dilaporkan</th>
+              <th>Deviasi</th>
+              <th>Status</th>
+              <th>Rekonsiliasi Terakhir</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <!-- SOL — Deviasi -->
+            <tr style="background:rgba(245,158,11,0.03)">
+              <td>
+                <div class="asset-cell">
+                  <div class="asset-icon sol">S</div>
+                  <div>
+                    <span class="asset-name">Solana</span>
+                    <span class="asset-ticker">SOL · Solana Network</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="mono-val" style="color:var(--txt1)">1.842,33 SOL</span>
+                <span class="mono-val-sm">≈ Rp 26,1 M</span>
+              </td>
+              <td>
+                <span class="mono-val">2.003,50 SOL</span>
+                <span class="mono-val-sm">≈ Rp 28,4 M</span>
+              </td>
+              <td>
+                <div class="dev-bar-wrap">
+                  <div class="dev-bar"><div class="dev-fill a" style="width:65%"></div></div>
+                  <span class="mono-val" style="color:var(--amber)">8,04%</span>
+                </div>
+              </td>
+              <td><span class="status-badge-sm deviasi">⚠ Deviasi</span></td>
+              <td><span class="ts-text">25 Mar · 08:30 WIB</span></td>
+            </tr>
+
+            <!-- BTC — Aman -->
+            <tr>
+              <td>
+                <div class="asset-cell">
+                  <div class="asset-icon btc">₿</div>
+                  <div>
+                    <span class="asset-name">Bitcoin</span>
+                    <span class="asset-ticker">BTC · Bitcoin Network</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="mono-val" style="color:var(--txt1)">0,7821 BTC</span>
+                <span class="mono-val-sm">≈ Rp 57,9 M</span>
+              </td>
+              <td>
+                <span class="mono-val">0,7835 BTC</span>
+                <span class="mono-val-sm">≈ Rp 58,0 M</span>
+              </td>
+              <td>
+                <div class="dev-bar-wrap">
+                  <div class="dev-bar"><div class="dev-fill g" style="width:4%"></div></div>
+                  <span class="mono-val" style="color:var(--green)">0,18%</span>
+                </div>
+              </td>
+              <td><span class="status-badge-sm aman">✓ Aman</span></td>
+              <td><span class="ts-text">25 Mar · 08:30 WIB</span></td>
+            </tr>
+
+            <!-- USDT — Aman -->
+            <tr>
+              <td>
+                <div class="asset-cell">
+                  <div class="asset-icon usdt">₮</div>
+                  <div>
+                    <span class="asset-name">Tether USD</span>
+                    <span class="asset-ticker">USDT · Solana Network</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="mono-val" style="color:var(--txt1)">21.450,00 USDT</span>
+                <span class="mono-val-sm">≈ Rp 3,22 M</span>
+              </td>
+              <td>
+                <span class="mono-val">21.500,00 USDT</span>
+                <span class="mono-val-sm">≈ Rp 3,22 M</span>
+              </td>
+              <td>
+                <div class="dev-bar-wrap">
+                  <div class="dev-bar"><div class="dev-fill g" style="width:2%"></div></div>
+                  <span class="mono-val" style="color:var(--green)">0,23%</span>
+                </div>
+              </td>
+              <td><span class="status-badge-sm aman">✓ Aman</span></td>
+              <td><span class="ts-text">25 Mar · 08:30 WIB</span></td>
+            </tr>
+
+            <!-- SOL Staking — Deviasi -->
+            <tr style="background:rgba(245,158,11,0.03)">
+              <td>
+                <div class="asset-cell">
+                  <div class="asset-icon sol">S</div>
+                  <div>
+                    <span class="asset-name">Solana (Staking)</span>
+                    <span class="asset-ticker">SOL · Staking Account</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="mono-val" style="color:var(--txt1)">280,00 SOL</span>
+                <span class="mono-val-sm">≈ Rp 3,97 M</span>
+              </td>
+              <td>
+                <span class="mono-val">305,00 SOL</span>
+                <span class="mono-val-sm">≈ Rp 4,33 M</span>
+              </td>
+              <td>
+                <div class="dev-bar-wrap">
+                  <div class="dev-bar"><div class="dev-fill a" style="width:58%"></div></div>
+                  <span class="mono-val" style="color:var(--amber)">8,12%</span>
+                </div>
+              </td>
+              <td><span class="status-badge-sm deviasi">⚠ Deviasi</span></td>
+              <td><span class="ts-text">25 Mar · 08:30 WIB</span></td>
+            </tr>
+
+            <!-- ETH — Aman -->
+            <tr>
+              <td>
+                <div class="asset-cell">
+                  <div class="asset-icon eth">Ξ</div>
+                  <div>
+                    <span class="asset-name">Ethereum</span>
+                    <span class="asset-ticker">ETH · Ethereum Network</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="mono-val" style="color:var(--txt1)">4,2210 ETH</span>
+                <span class="mono-val-sm">≈ Rp 14,3 M</span>
+              </td>
+              <td>
+                <span class="mono-val">4,2350 ETH</span>
+                <span class="mono-val-sm">≈ Rp 14,3 M</span>
+              </td>
+              <td>
+                <div class="dev-bar-wrap">
+                  <div class="dev-bar"><div class="dev-fill g" style="width:3%"></div></div>
+                  <span class="mono-val" style="color:var(--green)">0,33%</span>
+                </div>
+              </td>
+              <td><span class="status-badge-sm aman">✓ Aman</span></td>
+              <td><span class="ts-text">25 Mar · 08:30 WIB</span></td>
+            </tr>
+
+            <!-- USDC (ERC-20) — Aman -->
+            <tr>
+              <td>
+                <div class="asset-cell">
+                  <div class="asset-icon eth" style="color:#2775CA;background:rgba(39,117,202,0.15)">$</div>
+                  <div>
+                    <span class="asset-name">USD Coin</span>
+                    <span class="asset-ticker">USDC · Ethereum Network (ERC-20)</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="mono-val" style="color:var(--txt1)">8.200,00 USDC</span>
+                <span class="mono-val-sm">≈ Rp 1,23 M</span>
+              </td>
+              <td>
+                <span class="mono-val">8.200,00 USDC</span>
+                <span class="mono-val-sm">≈ Rp 1,23 M</span>
+              </td>
+              <td>
+                <div class="dev-bar-wrap">
+                  <div class="dev-bar"><div class="dev-fill g" style="width:1%"></div></div>
+                  <span class="mono-val" style="color:var(--green)">0,00%</span>
+                </div>
+              </td>
+              <td><span class="status-badge-sm aman">✓ Aman</span></td>
+              <td><span class="ts-text">25 Mar · 08:30 WIB</span></td>
+            </tr>
+
+            <!-- LINK (ERC-20) — Deviasi -->
+            <tr style="background:rgba(245,158,11,0.03)">
+              <td>
+                <div class="asset-cell">
+                  <div class="asset-icon eth" style="color:#2A5ADA;background:rgba(42,90,218,0.15)">⬡</div>
+                  <div>
+                    <span class="asset-name">Chainlink</span>
+                    <span class="asset-ticker">LINK · Ethereum Network (ERC-20)</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="mono-val" style="color:var(--txt1)">3.140,00 LINK</span>
+                <span class="mono-val-sm">≈ Rp 2,18 M</span>
+              </td>
+              <td>
+                <span class="mono-val">3.420,00 LINK</span>
+                <span class="mono-val-sm">≈ Rp 2,37 M</span>
+              </td>
+              <td>
+                <div class="dev-bar-wrap">
+                  <div class="dev-bar"><div class="dev-fill a" style="width:52%"></div></div>
+                  <span class="mono-val" style="color:var(--amber)">8,19%</span>
+                </div>
+              </td>
+              <td><span class="status-badge-sm deviasi">⚠ Deviasi</span></td>
+              <td><span class="ts-text">25 Mar · 08:30 WIB</span></td>
+            </tr>
+
+            <!-- JUP (SPL Token — Solana) — Aman -->
+            <tr>
+              <td>
+                <div class="asset-cell">
+                  <div class="asset-icon sol" style="color:#3ddc84;background:rgba(61,220,132,0.12)">J</div>
+                  <div>
+                    <span class="asset-name">Jupiter</span>
+                    <span class="asset-ticker">JUP · Solana Network (SPL)</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="mono-val" style="color:var(--txt1)">52.400,00 JUP</span>
+                <span class="mono-val-sm">≈ Rp 1,06 M</span>
+              </td>
+              <td>
+                <span class="mono-val">52.400,00 JUP</span>
+                <span class="mono-val-sm">≈ Rp 1,06 M</span>
+              </td>
+              <td>
+                <div class="dev-bar-wrap">
+                  <div class="dev-bar"><div class="dev-fill g" style="width:1%"></div></div>
+                  <span class="mono-val" style="color:var(--green)">0,00%</span>
+                </div>
+              </td>
+              <td><span class="status-badge-sm aman">✓ Aman</span></td>
+              <td><span class="ts-text">25 Mar · 08:30 WIB</span></td>
+            </tr>
+
+            <!-- PYTH (SPL Token — Solana) — Aman -->
+            <tr>
+              <td>
+                <div class="asset-cell">
+                  <div class="asset-icon sol" style="color:#e6dafe;background:rgba(153,69,255,0.18)">P</div>
+                  <div>
+                    <span class="asset-name">Pyth Network</span>
+                    <span class="asset-ticker">PYTH · Solana Network (SPL)</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="mono-val" style="color:var(--txt1)">210.000,00 PYTH</span>
+                <span class="mono-val-sm">≈ Rp 0,94 M</span>
+              </td>
+              <td>
+                <span class="mono-val">215.000,00 PYTH</span>
+                <span class="mono-val-sm">≈ Rp 0,96 M</span>
+              </td>
+              <td>
+                <div class="dev-bar-wrap">
+                  <div class="dev-bar"><div class="dev-fill g" style="width:14%"></div></div>
+                  <span class="mono-val" style="color:var(--green)">2,33%</span>
+                </div>
+              </td>
+              <td><span class="status-badge-sm aman">✓ Aman</span></td>
+              <td><span class="ts-text">25 Mar · 08:30 WIB</span></td>
+            </tr>
+
+          </tbody>
+        </table>
+
+        <!-- Alert note -->
+        <div style="padding:12px 16px;background:rgba(245,158,11,0.04);border-top:1px solid rgba(245,158,11,0.15);display:flex;align-items:flex-start;gap:10px">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;margin-top:1px"><path d="M7 2.5L12.5 12H1.5L7 2.5Z" stroke="#F59E0B" stroke-width="1.3" stroke-linejoin="round"/><path d="M7 6.5v2.5M7 10v.5" stroke="#F59E0B" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <div>
+            <div style="font-size:10px;color:var(--amber);font-weight:600;margin-bottom:2px">Catatan Rekonsiliasi</div>
+            <div style="font-size:10px;color:var(--txt3);line-height:1.5">Deviasi SOL terdeteksi pada dua akun (liquid + staking). Total selisih 187,17 SOL (≈ Rp 2,66 M) belum dapat dikonfirmasi. Permintaan klarifikasi otomatis terkirim ke PAKD-OJK-022 pada 25 Mar 2026, 08:31 WIB. Batas waktu respons: 27 Mar 2026, 17:00 WIB.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+
+      <!-- PAKD PROFILE -->
+      <div class="panel">
+        <div class="section-header">
+          <div class="section-title">Profil PAKD</div>
+        </div>
+        <div class="panel-section">
+          <div class="profile-row">
+            <div class="profile-key">Nama Resmi</div>
+            <div class="profile-val"><strong>PT Triv Karya Utama</strong></div>
+          </div>
+          <div class="profile-row">
+            <div class="profile-key">Nomor Izin</div>
+            <div class="profile-val" style="font-family:'IBM Plex Mono',monospace;font-size:10px">PAKD-OJK-022</div>
+          </div>
+          <div class="profile-row">
+            <div class="profile-key">Status</div>
+            <div class="profile-val"><span style="color:var(--green);font-size:10px">● Berizin Aktif</span></div>
+          </div>
+          <div class="profile-row">
+            <div class="profile-key">Tanggal Berizin</div>
+            <div class="profile-val">14 Februari 2022</div>
+          </div>
+          <div class="profile-row">
+            <div class="profile-key">Chain Didukung</div>
+            <div class="profile-val" style="display:flex;gap:5px">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(247,147,26,0.12);color:#F7931A">BTC</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(98,126,234,0.12);color:#627EEA">ETH</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(153,69,255,0.12);color:#9945FF">SOL</span>
+            </div>
+          </div>
+          <div class="profile-row">
+            <div class="profile-key">Periode Laporan</div>
+            <div class="profile-val">Februari 2026</div>
+          </div>
+          <div class="profile-row">
+            <div class="profile-key">PoR Publik</div>
+            <div class="profile-val" style="color:var(--txt3)">Tidak tersedia</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WALLET ADDRESSES -->
+      <div class="panel">
+        <div class="section-header">
+          <div class="section-title">Daftar Wallet Dideklarasikan</div>
+        </div>
+
+        <div class="wallet-item">
+          <div class="wallet-chain">
+            <span class="chain-tag btc">BTC</span>
+            Bitcoin Network
+          </div>
+          <div class="wallet-addr">
+            <span class="wallet-addr-text">bc1qxy2kg...m4g8l3p</span>
+            <span class="wallet-copy">Salin</span>
+          </div>
+        </div>
+
+        <div class="wallet-item">
+          <div class="wallet-chain">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(98,126,234,0.12);color:#627EEA">ETH</span>
+            Ethereum · ETH &amp; ERC-20
+          </div>
+          <div class="wallet-addr">
+            <span class="wallet-addr-text">0x71C7656EC7...1d6e</span>
+            <span class="wallet-copy">Salin</span>
+          </div>
+        </div>
+
+        <div class="wallet-item">
+          <div class="wallet-chain">
+            <span class="chain-tag sol">SOL</span>
+            Solana · Liquid
+          </div>
+          <div class="wallet-addr">
+            <span class="wallet-addr-text">7xKXtg2CW...9nRs4vMp</span>
+            <span class="wallet-copy">Salin</span>
+          </div>
+        </div>
+
+        <div class="wallet-item">
+          <div class="wallet-chain">
+            <span class="chain-tag sol">SOL</span>
+            Solana · Staking
+          </div>
+          <div class="wallet-addr">
+            <span class="wallet-addr-text">StakeAcc...K3mP9vQr</span>
+            <span class="wallet-copy">Salin</span>
+          </div>
+        </div>
+
+        <div class="wallet-item">
+          <div class="wallet-chain">
+            <span class="chain-tag sol">SOL</span>
+            Solana · SPL Tokens
+          </div>
+          <div class="wallet-addr">
+            <span class="wallet-addr-text">Es9vMFr...KxLp2Wa</span>
+            <span class="wallet-copy">Salin</span>
+          </div>
+        </div>
+
+        <div class="wallet-item">
+          <div class="wallet-chain">
+            <span class="chain-tag sol">SOL</span>
+            Solana · USDT (SPL)
+          </div>
+          <div class="wallet-addr">
+            <span class="wallet-addr-text">HxRELX...mP3nKq8</span>
+            <span class="wallet-copy">Salin</span>
+          </div>
+        </div>
+
+        <div style="margin-top:8px;padding:7px 8px;background:var(--bg2);border-radius:var(--r);font-size:9px;color:var(--txt3);line-height:1.4">
+          ⓘ Alamat wallet berdasarkan deklarasi mandiri PAKD melalui e-reporting OJK. Validasi kelengkapan tidak dapat dijamin secara otomatis.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="dash-footer">
+    <span class="dash-footer-txt">PRIMA v1.0 · Sistem Pemantauan Transparansi Aset Keuangan Digital Berbasis Blockchain · OJK © 2026</span>
+    <div class="live-indicator"><span class="live-dot"></span>Pemantauan aktif · Data diperbarui setiap 60 menit</div>
+  </div>
+
+</main>
+</div>
+</div>
+
+<!-- ══ PAGE 3: STRESS TEST ══ -->
+<div class="page-panel" id="page-stress">
+<div class="shell">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 18 18" fill="none">
+        <path d="M9 2L15 5.5V12.5L9 16L3 12.5V5.5L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
+        <circle cx="9" cy="9" r="2.5" fill="white" opacity="0.9"/>
+        <path d="M9 4V6.5M9 11.5V14M4.5 6.75L6.5 8M11.5 10L13.5 11.25M4.5 11.25L6.5 10M11.5 8L13.5 6.75" stroke="white" stroke-width="1" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <span class="brand-name">PRI<span>MA</span></span>
+  </div>
+  <div class="topbar-divider"></div>
+  <div class="breadcrumb">
+    <a href="#">SISTEM PEMANTAUAN TRANSPARANSI ASET KEUANGAN DIGITAL</a>
+    <span class="breadcrumb-sep">›</span>
+    <a href="#">Analisis</a>
+    <span class="breadcrumb-sep">›</span>
+    <span class="breadcrumb-current">Stress Test Solvabilitas</span>
+  </div>
+  <div class="topbar-right">
+    <div class="badge-alert">3 ALERT AKTIF</div>
+    <span class="topbar-time">Senin, 25 Mar 2026 · 09:47 WIB</span>
+    <div class="topbar-user">
+      <div class="avatar">MI</div>
+      <div>
+        <div class="user-name">M. Ihsanudin</div>
+        <div class="user-role">Supervisor · IAKD</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="nav-section">Monitoring</div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/><rect x="9" y="2" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/><rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/><rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor" opacity="0.8"/></svg>
+    Overview PAKD
+  </div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Detail Per PAKD
+  </div>
+
+  <div class="nav-section">Analisis</div>
+  <div class="nav-item active">
+    <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v12M4 6v8M12 4v10M2 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Stress Test
+  </div>
+
+  <div class="nav-section">Sistem</div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="5" width="12" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 5V4a3 3 0 016 0v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Audit Log
+  </div>
+  <div class="nav-item">
+    <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Pengaturan
+  </div>
+
+  <div class="sidebar-footer">
+    <div style="font-size:9px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;font-weight:600">Status API</div>
+    <div class="api-row"><span class="api-dot ok"></span>Bitcoin Explorer<span class="api-latency">142ms</span></div>
+    <div class="api-row"><span class="api-dot ok"></span>Ethereum (Etherscan)<span class="api-latency">98ms</span></div>
+    <div class="api-row"><span class="api-dot warn"></span>Solana (Solscan)<span class="api-latency">612ms</span></div>
+    <div class="api-row"><span class="api-dot ok"></span>Bursa AKD (Harga)<span class="api-latency">204ms</span></div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div>
+      <div class="page-title" style="font-family:'Syne',sans-serif">Stress Test Solvabilitas</div>
+      <div class="page-subtitle">Terakhir dijalankan: 25 Mar 2026, 07:00 WIB &nbsp;·&nbsp; Baseline laporan: Februari 2026 &nbsp;·&nbsp; Harga acuan: Bursa AKD Mar 2026</div>
+    </div>
+    <div class="header-actions">
+      <!-- View Toggle -->
+      <div class="view-toggle">
+        <div class="toggle-opt active" onclick="setView(this,'agregat')">Agregat Industri</div>
+        <div class="toggle-opt" onclick="setView(this,'pakd')">Per PAKD</div>
+      </div>
+      <div class="running-badge" id="running-badge">
+        <span class="running-dot"></span>Menjalankan simulasi...
+      </div>
+      <button class="btn btn-ghost" onclick="exportLaporan()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 9l2 2 2-2M4 11V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 3L8 1 6 3M8 1v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Ekspor Laporan
+      </button>
+      <button class="btn btn-ghost" onclick="cetakLaporan()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="2" y="4" width="8" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M4 4V2h4v2M4 9v1h4V9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Cetak Laporan OJK
+      </button>
+      <button class="btn btn-primary" id="run-btn" onclick="runStressTest(this)">
+        <svg id="run-icon" width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M4 2.5l6 4-6 4V2.5Z" fill="white"/></svg>
+        Jalankan Stress Test
+      </button>
+    </div>
+  </div>
+
+  <!-- DATA INPUT PANEL -->
+  <div>
+    <div class="section-header">
+      <div class="section-title">Data Input Simulasi</div>
+      <span style="font-size:10px;color:var(--txt3);font-family:'IBM Plex Mono',monospace">Baseline: Laporan Februari 2026</span>
+    </div>
+    <div class="input-panel">
+      <div class="input-stat">
+        <div class="input-stat-label">Total Aset On-Chain Tervalidasi</div>
+        <div class="input-stat-val" style="color:var(--red)">Rp 28.412,4 M</div>
+        <div class="input-stat-sub">Dari rekonsiliasi PRIMA · 25 PAKD</div>
+      </div>
+      <div class="input-stat">
+        <div class="input-stat-label">Total Liabilitas Nasabah</div>
+        <div class="input-stat-val" style="color:var(--amber)">Rp 27.890,1 M</div>
+        <div class="input-stat-sub">Dari laporan keuangan Feb 2026</div>
+      </div>
+      <div class="input-stat">
+        <div class="input-stat-label">Harga Acuan Aset Keuangan Digital</div>
+        <div class="input-stat-val" style="color:var(--txt1)">BTC Rp 1.486 M &nbsp;ETH Rp 47,1 M</div>
+        <div class="input-stat-sub">Sumber: Laporan Bulanan Bursa AKD Mar 2026</div>
+      </div>
+      <div class="input-stat">
+        <div class="input-stat-label">Rasio Solvabilitas Baseline</div>
+        <div class="input-stat-val" style="color:var(--green)">101,87%</div>
+        <div class="input-stat-sub">Sebelum simulasi penurunan harga</div>
+      </div>
+      <div class="input-stat">
+        <div class="input-stat-label">Tanggal Laporan Baseline</div>
+        <div class="input-stat-val" style="color:var(--txt1);font-size:13px">28 Feb 2026</div>
+        <div class="input-stat-sub">Laporan keuangan bulanan PAKD</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENARIO CARDS -->
+  <div>
+    <div class="section-header">
+      <div class="section-title">Skenario Simulasi</div>
+      <span style="font-size:10px;color:var(--txt3)">Klik skenario untuk sorot hasil &nbsp;·&nbsp; Sumber metodologi: BIS WP No.1049 (2022), Chainalysis 2023</span>
+    </div>
+    <div class="scenario-grid">
+
+      <!-- MILD -->
+      <div class="scenario-card mild">
+        <div class="sc-label mild">Mild</div>
+        <div class="sc-pct mild">-30%</div>
+        <div class="sc-ref">Koreksi pasar Q2 2021</div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--txt3);margin-bottom:4px">
+          <span>Aset pasca-simulasi</span><span style="color:var(--txt2);font-family:'IBM Plex Mono',monospace">Rp 19.888,7 M</span>
+        </div>
+        <div class="sc-bar-wrap"><div class="sc-bar mild" style="width:96%"></div></div>
+        <div class="sc-result">
+          <span class="sc-pill lulus">24 Lulus</span>
+          <span class="sc-pill gagal">1 Gagal</span>
+        </div>
+      </div>
+
+      <!-- MODERATE -->
+      <div class="scenario-card moderate active-card">
+        <div class="sc-label moderate">Moderate</div>
+        <div class="sc-pct moderate">-55%</div>
+        <div class="sc-ref">Crash Mei 2022 (Chainalysis 2023)</div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--txt3);margin-bottom:4px">
+          <span>Aset pasca-simulasi</span><span style="color:var(--txt2);font-family:'IBM Plex Mono',monospace">Rp 12.785,6 M</span>
+        </div>
+        <div class="sc-bar-wrap"><div class="sc-bar moderate" style="width:80%"></div></div>
+        <div class="sc-result">
+          <span class="sc-pill lulus">20 Lulus</span>
+          <span class="sc-pill gagal">5 Gagal</span>
+        </div>
+      </div>
+
+      <!-- SEVERE -->
+      <div class="scenario-card severe">
+        <div class="sc-label severe">Severe</div>
+        <div class="sc-pct severe">-80%</div>
+        <div class="sc-ref">Kolaps Terra/LUNA 2022</div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--txt3);margin-bottom:4px">
+          <span>Aset pasca-simulasi</span><span style="color:var(--txt2);font-family:'IBM Plex Mono',monospace">Rp 5.682,5 M</span>
+        </div>
+        <div class="sc-bar-wrap"><div class="sc-bar severe" style="width:56%"></div></div>
+        <div class="sc-result">
+          <span class="sc-pill lulus">14 Lulus</span>
+          <span class="sc-pill gagal">11 Gagal</span>
+        </div>
+      </div>
+
+      <!-- CUSTOM -->
+      <div class="scenario-card custom">
+        <div class="sc-label custom">Custom</div>
+        <div class="custom-input-wrap">
+          <input class="custom-input" type="number" value="45" min="1" max="99" id="custom-pct" oninput="updateCustom(this.value)"/>
+          <span class="custom-sym">%</span>
+        </div>
+        <div class="sc-ref" id="custom-ref">Skenario regulasi OJK (input manual)</div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--txt3);margin-bottom:4px">
+          <span>Aset pasca-simulasi</span><span id="custom-aset" style="color:var(--txt2);font-family:'IBM Plex Mono',monospace">Rp 15.626,8 M</span>
+        </div>
+        <div class="sc-bar-wrap"><div class="sc-bar custom" id="custom-bar" style="width:88%"></div></div>
+        <div class="sc-result" id="custom-result">
+          <span class="sc-pill lulus">22 Lulus</span>
+          <span class="sc-pill gagal">3 Gagal</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CHART + FAILED PAKD -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+    <!-- BAR CHART -->
+    <div class="chart-panel">
+      <div class="section-header">
+        <div class="section-title">Distribusi Hasil Per Skenario</div>
+        <span style="font-size:10px;color:var(--txt3)">25 PAKD berizin aktif</span>
+      </div>
+
+      <!-- Legend -->
+      <div style="display:flex;gap:14px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txt3)">
+          <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.4)"></div>Lulus
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txt3)">
+          <div style="width:12px;height:12px;border-radius:2px;background:rgba(200,16,46,0.3)"></div>Gagal
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-label-col mild">Mild</div>
+        <div class="chart-bar-col">
+          <div class="bar-lulus mild-c" style="width:76%">
+            <span class="bar-txt" style="color:var(--green);font-size:9px">24</span>
+          </div>
+          <div class="bar-gagal mild-c" style="width:4%">
+            <span class="bar-txt" style="color:var(--red-bright);font-size:9px">1</span>
+          </div>
+        </div>
+        <div class="chart-count-col">
+          <span style="color:var(--green)">24</span>
+          <span style="color:var(--txt3)">/</span>
+          <span style="color:var(--red-bright)">1</span>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-label-col moderate">Moderate</div>
+        <div class="chart-bar-col">
+          <div class="bar-lulus moderate-c" style="width:62%">
+            <span class="bar-txt" style="color:var(--amber);font-size:9px">20</span>
+          </div>
+          <div class="bar-gagal severe-c" style="width:18%">
+            <span class="bar-txt" style="color:var(--red-bright);font-size:9px">5</span>
+          </div>
+        </div>
+        <div class="chart-count-col">
+          <span style="color:var(--amber)">20</span>
+          <span style="color:var(--txt3)">/</span>
+          <span style="color:var(--red-bright)">5</span>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-label-col severe">Severe</div>
+        <div class="chart-bar-col">
+          <div class="bar-lulus severe-c" style="width:45%">
+            <span class="bar-txt" style="color:var(--red-bright);font-size:9px">14</span>
+          </div>
+          <div class="bar-gagal severe-c" style="width:35%">
+            <span class="bar-txt" style="color:var(--red-bright);font-size:9px">11</span>
+          </div>
+        </div>
+        <div class="chart-count-col">
+          <span style="color:#F97316">14</span>
+          <span style="color:var(--txt3)">/</span>
+          <span style="color:var(--red-bright)">11</span>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-label-col custom">Custom</div>
+        <div class="chart-bar-col">
+          <div class="bar-lulus custom-c" style="width:70%">
+            <span class="bar-txt" style="color:var(--red);font-size:9px">22</span>
+          </div>
+          <div class="bar-gagal custom-c" style="width:10%">
+            <span class="bar-txt" style="color:var(--red-bright);font-size:9px">3</span>
+          </div>
+        </div>
+        <div class="chart-count-col">
+          <span style="color:var(--red)">22</span>
+          <span style="color:var(--txt3)">/</span>
+          <span style="color:var(--red-bright)">3</span>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;padding:10px;background:var(--bg2);border-radius:var(--r)">
+        <div style="font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;font-weight:600">Ambang Batas Solvabilitas</div>
+        <div style="font-size:11px;color:var(--txt2);line-height:1.5">PAKD dinyatakan <span style="color:var(--red-bright)">gagal</span> apabila rasio aset terhadap liabilitas nasabah pasca-simulasi jatuh di bawah <span style="font-family:'IBM Plex Mono',monospace;color:var(--txt1)">100%</span>. Threshold merujuk pada prinsip full reserve yang diwajibkan POJK No. 27 Tahun 2024.</div>
+      </div>
+    </div>
+
+    <!-- FAILED PAKD PANEL -->
+    <div>
+      <div class="section-header">
+        <div class="section-title">PAKD Gagal — Skenario Moderate & Severe</div>
+        <span class="section-link">Lihat semua →</span>
+      </div>
+      <div class="failed-panel">
+        <div class="failed-panel-header">
+          <div style="font-size:11px;color:var(--red-bright);font-weight:600;display:flex;align-items:center;gap:6px">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 2L12 11H1L6.5 2Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6.5 6v2M6.5 9.5v.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+            5 PAKD berisiko pada skenario moderate
+          </div>
+          <div style="display:flex;gap:10px;font-size:9px;font-family:'IBM Plex Mono',monospace">
+            <span style="color:var(--green)">Mild</span>
+            <span style="color:var(--amber)">Moderate</span>
+            <span style="color:var(--red-bright)">Severe</span>
+          </div>
+        </div>
+
+        <!-- Row 1 — PT Bitharga kritis -->
+        <div class="failed-item">
+          <div class="failed-rank">01</div>
+          <div class="failed-name">
+            <div class="failed-pakd-name">PT Bitharga Indonesia</div>
+            <div class="failed-pakd-id">PAKD-OJK-018 · Status Kritis</div>
+          </div>
+          <div class="ratio-mini">
+            <div class="ratio-cell">
+              <div class="ratio-val ok">104%</div>
+              <div class="ratio-lbl">Mild</div>
+            </div>
+            <div class="ratio-cell">
+              <div class="ratio-val bad">81%</div>
+              <div class="ratio-lbl">Moderate</div>
+            </div>
+            <div class="ratio-cell">
+              <div class="ratio-val bad">41%</div>
+              <div class="ratio-lbl">Severe</div>
+            </div>
+          </div>
+          <div class="failed-shortfall">
+            <div class="shortfall-val">-Rp 26,8 M</div>
+            <div class="shortfall-label">Shortfall moderate</div>
+          </div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="failed-item">
+          <div class="failed-rank">02</div>
+          <div class="failed-name">
+            <div class="failed-pakd-name">PT Zipmex Indonesia</div>
+            <div class="failed-pakd-id">PAKD-OJK-011 · Deviasi Tier 1</div>
+          </div>
+          <div class="ratio-mini">
+            <div class="ratio-cell">
+              <div class="ratio-val ok">108%</div>
+              <div class="ratio-lbl">Mild</div>
+            </div>
+            <div class="ratio-cell">
+              <div class="ratio-val bad">88%</div>
+              <div class="ratio-lbl">Moderate</div>
+            </div>
+            <div class="ratio-cell">
+              <div class="ratio-val bad">52%</div>
+              <div class="ratio-lbl">Severe</div>
+            </div>
+          </div>
+          <div class="failed-shortfall">
+            <div class="shortfall-val">-Rp 6,94 M</div>
+            <div class="shortfall-label">Shortfall moderate</div>
+          </div>
+        </div>
+
+        <!-- Row 3 -->
+        <div class="failed-item">
+          <div class="failed-rank">03</div>
+          <div class="failed-name">
+            <div class="failed-pakd-name">PT Triv Karya Utama</div>
+            <div class="failed-pakd-id">PAKD-OJK-022 · Deviasi Tier 1</div>
+          </div>
+          <div class="ratio-mini">
+            <div class="ratio-cell">
+              <div class="ratio-val ok">106%</div>
+              <div class="ratio-lbl">Mild</div>
+            </div>
+            <div class="ratio-cell">
+              <div class="ratio-val bad">86%</div>
+              <div class="ratio-lbl">Moderate</div>
+            </div>
+            <div class="ratio-cell">
+              <div class="ratio-val bad">47%</div>
+              <div class="ratio-lbl">Severe</div>
+            </div>
+          </div>
+          <div class="failed-shortfall">
+            <div class="shortfall-val">-Rp 13,0 M</div>
+            <div class="shortfall-label">Shortfall moderate</div>
+          </div>
+        </div>
+
+        <!-- Row 4 -->
+        <div class="failed-item">
+          <div class="failed-rank">04</div>
+          <div class="failed-name">
+            <div class="failed-pakd-name">PT Rekeningku Dotcom</div>
+            <div class="failed-pakd-id">PAKD-OJK-019 · Aman</div>
+          </div>
+          <div class="ratio-mini">
+            <div class="ratio-cell">
+              <div class="ratio-val ok">102%</div>
+              <div class="ratio-lbl">Mild</div>
+            </div>
+            <div class="ratio-cell">
+              <div class="ratio-val bad">97%</div>
+              <div class="ratio-lbl">Moderate</div>
+            </div>
+            <div class="ratio-cell">
+              <div class="ratio-val bad">62%</div>
+              <div class="ratio-lbl">Severe</div>
+            </div>
+          </div>
+          <div class="failed-shortfall">
+            <div class="shortfall-val">-Rp 3,2 M</div>
+            <div class="shortfall-label">Shortfall moderate</div>
+          </div>
+        </div>
+
+        <!-- Row 5 -->
+        <div class="failed-item">
+          <div class="failed-rank">05</div>
+          <div class="failed-name">
+            <div class="failed-pakd-name">PT Pluton Binaraya</div>
+            <div class="failed-pakd-id">PAKD-OJK-024 · Aman</div>
+          </div>
+          <div class="ratio-mini">
+            <div class="ratio-cell">
+              <div class="ratio-val ok">101%</div>
+              <div class="ratio-lbl">Mild</div>
+            </div>
+            <div class="ratio-cell">
+              <div class="ratio-val warn">99%</div>
+              <div class="ratio-lbl">Moderate</div>
+            </div>
+            <div class="ratio-cell">
+              <div class="ratio-val bad">58%</div>
+              <div class="ratio-lbl">Severe</div>
+            </div>
+          </div>
+          <div class="failed-shortfall">
+            <div class="shortfall-val">-Rp 0,9 M</div>
+            <div class="shortfall-label">Shortfall moderate</div>
+          </div>
+        </div>
+
+        <div style="padding:10px 16px;background:rgba(245,158,11,0.04);border-top:1px solid rgba(245,158,11,0.12);font-size:10px;color:var(--txt3);line-height:1.5">
+          ⚠ Rekomendasi: 5 PAKD di atas direkomendasikan untuk menyampaikan laporan aset cadangan tambahan dalam 14 hari kerja. PT Bitharga Indonesia diprioritaskan untuk pemeriksaan lapangan karena rasio severe di bawah 50%.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL TABLE ALL PAKD -->
+  <div>
+    <div class="section-header">
+      <div class="section-title">Tabel Rasio Solvabilitas Seluruh PAKD</div>
+      <span style="font-size:10px;color:var(--txt3)">Rasio = Aset On-Chain / Liabilitas Nasabah pasca-simulasi penurunan harga</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nama PAKD</th>
+            <th>Aset Baseline (On-Chain)</th>
+            <th>Liabilitas Nasabah</th>
+            <th>Rasio Baseline</th>
+            <th>Mild (-30%)</th>
+            <th>Moderate (-55%)</th>
+            <th>Severe (-80%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:rgba(200,16,46,0.04)">
+            <td class="mono-sm" style="color:var(--txt3)">01</td>
+            <td><span class="pakd-name">PT Bitharga Indonesia</span><span class="pakd-id">PAKD-OJK-018</span></td>
+            <td class="mono-sm" style="color:var(--txt1)">Rp 142,3 M</td>
+            <td class="mono-sm">Rp 136,8 M</td>
+            <td><span class="ratio-badge ok">104,0%</span></td>
+            <td><span class="ratio-badge ok">104%</span></td>
+            <td><span class="ratio-badge bad">81%</span></td>
+            <td><span class="ratio-badge bad">41%</span></td>
+          </tr>
+          <tr style="background:rgba(200,16,46,0.04)">
+            <td class="mono-sm" style="color:var(--txt3)">02</td>
+            <td><span class="pakd-name">PT Zipmex Indonesia</span><span class="pakd-id">PAKD-OJK-011</span></td>
+            <td class="mono-sm" style="color:var(--txt1)">Rp 54,1 M</td>
+            <td class="mono-sm">Rp 50,1 M</td>
+            <td><span class="ratio-badge ok">108,0%</span></td>
+            <td><span class="ratio-badge ok">108%</span></td>
+            <td><span class="ratio-badge bad">88%</span></td>
+            <td><span class="ratio-badge bad">52%</span></td>
+          </tr>
+          <tr style="background:rgba(200,16,46,0.04)">
+            <td class="mono-sm" style="color:var(--txt3)">03</td>
+            <td><span class="pakd-name">PT Triv Karya Utama</span><span class="pakd-id">PAKD-OJK-022</span></td>
+            <td class="mono-sm" style="color:var(--txt1)">Rp 87,4 M</td>
+            <td class="mono-sm">Rp 82,5 M</td>
+            <td><span class="ratio-badge ok">105,9%</span></td>
+            <td><span class="ratio-badge ok">106%</span></td>
+            <td><span class="ratio-badge bad">86%</span></td>
+            <td><span class="ratio-badge bad">47%</span></td>
+          </tr>
+          <tr>
+            <td class="mono-sm" style="color:var(--txt3)">04</td>
+            <td><span class="pakd-name">PT Indodax Nasional Indonesia</span><span class="pakd-id">PAKD-OJK-001 · PoR Publik ✓</span></td>
+            <td class="mono-sm" style="color:var(--txt1)">Rp 9.821,4 M</td>
+            <td class="mono-sm">Rp 9.104,2 M</td>
+            <td><span class="ratio-badge ok">107,9%</span></td>
+            <td><span class="ratio-badge ok">121%</span></td>
+            <td><span class="ratio-badge ok">110%</span></td>
+            <td><span class="ratio-badge warn">108%</span></td>
+          </tr>
+          <tr>
+            <td class="mono-sm" style="color:var(--txt3)">05</td>
+            <td><span class="pakd-name">PT Tokocrypto</span><span class="pakd-id">PAKD-OJK-002</span></td>
+            <td class="mono-sm" style="color:var(--txt1)">Rp 3.412,7 M</td>
+            <td class="mono-sm">Rp 3.190,4 M</td>
+            <td><span class="ratio-badge ok">107,0%</span></td>
+            <td><span class="ratio-badge ok">116%</span></td>
+            <td><span class="ratio-badge ok">104%</span></td>
+            <td><span class="ratio-badge warn">102%</span></td>
+          </tr>
+          <tr>
+            <td class="mono-sm" style="color:var(--txt3)">06</td>
+            <td><span class="pakd-name">PT Pintu Kemana Saja</span><span class="pakd-id">PAKD-OJK-004</span></td>
+            <td class="mono-sm" style="color:var(--txt1)">Rp 2.187,3 M</td>
+            <td class="mono-sm">Rp 2.043,2 M</td>
+            <td><span class="ratio-badge ok">107,1%</span></td>
+            <td><span class="ratio-badge ok">115%</span></td>
+            <td><span class="ratio-badge ok">103%</span></td>
+            <td><span class="ratio-badge warn">101%</span></td>
+          </tr>
+          <tr>
+            <td colspan="8" style="text-align:center;color:var(--txt3);font-size:11px;padding:10px">
+              ... 19 PAKD lainnya dengan rasio solvabilitas di atas 100% pada seluruh skenario
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- METHODOLOGY -->
+  <div>
+    <div class="section-header">
+      <div class="section-title">Asumsi dan Metodologi</div>
+    </div>
+    <div class="method-panel">
+      <div class="method-item">
+        <div class="method-key">Pendekatan</div>
+        <div class="method-val">Historical simulation berdasarkan data penurunan harga aktual aset kripto. Metodologi mengacu pada <a href="#">BIS Working Paper No. 1049 (2022)</a> dan <a href="#">Chainalysis Crypto Crime Report 2023</a>.</div>
+      </div>
+      <div class="method-item">
+        <div class="method-key">Skenario Mild (-30%)</div>
+        <div class="method-val">Mengacu pada koreksi harga pasar kripto Q2 2021, di mana BTC turun dari USD 63.000 ke USD 30.000 dalam 30 hari.</div>
+      </div>
+      <div class="method-item">
+        <div class="method-key">Skenario Moderate (-55%)</div>
+        <div class="method-val">Mengacu pada crash Mei 2022. Chainalysis (2023) mencatat total market cap turun 55% dalam 30 hari. Digunakan sebagai skenario regulasi baseline oleh OJK.</div>
+      </div>
+      <div class="method-item">
+        <div class="method-key">Skenario Severe (-80%)</div>
+        <div class="method-val">Mengacu pada kolaps ekosistem Terra/LUNA Mei 2022, di mana LUNA kehilangan 99% nilainya dalam 7 hari dan memicu contagion luas ke pasar kripto.</div>
+      </div>
+      <div class="method-item">
+        <div class="method-key">Ambang Batas Gagal</div>
+        <div class="method-val">PAKD dinyatakan gagal jika rasio aset on-chain terhadap liabilitas nasabah jatuh di bawah 100%, mengacu pada prinsip full reserve POJK No. 27 Tahun 2024.</div>
+      </div>
+      <div class="method-item">
+        <div class="method-key">Harga Acuan</div>
+        <div class="method-val">Harga Acuan Aset Keuangan Digital dari laporan bulanan Bursa Aset Keuangan Digital, periode Maret 2026. Harga diperbarui setiap bulan seiring publikasi laporan Bursa.</div>
+      </div>
+      <div class="method-item">
+        <div class="method-key">Keterbatasan</div>
+        <div class="method-val">Stress test ini bersifat statis dan menggunakan harga tunggal per aset. Tidak mempertimbangkan korelasi antar aset, efek likuiditas, atau dampak market impact dari penjualan massal.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="dash-footer">
+    <span class="dash-footer-txt">PRIMA v1.0 · Sistem Pemantauan Transparansi Aset Keuangan Digital Berbasis Blockchain · OJK © 2026</span>
+    <div class="live-indicator"><span class="live-dot"></span>Pemantauan aktif · Data diperbarui setiap 60 menit</div>
+  </div>
+
+</main>
+</div>
+</div>
+
+<script>
+function showPage(name) {
+  // hide all panels
+  document.querySelectorAll('.page-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+  // show target
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+// Intercept sidebar nav clicks to switch pages
+document.addEventListener('click', function(e) {
+  const item = e.target.closest('.nav-item');
+  if (!item) return;
+  const text = item.textContent.trim();
+  if (text.includes('Overview PAKD')) { showPage('overview'); e.preventDefault(); }
+  else if (text.includes('Detail Per PAKD') || text.includes('Detail')) { showPage('detail'); e.preventDefault(); }
+  else if (text.includes('Stress Test')) { showPage('stress'); e.preventDefault(); }
+});
+
+// ─── Scripts from individual pages ───────────────────────
+function doRefresh(btn) {
+  const icon = btn.querySelector('svg');
+  icon.style.animation = 'spin 0.8s linear infinite';
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+  setTimeout(() => {
+    icon.style.animation = '';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    document.querySelector('.page-subtitle').textContent =
+      'PAKD-OJK-022 · Berizin sejak 14 Feb 2022 · Rekonsiliasi terakhir: 25 Mar 2026, ' +
+      new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) + ' WIB';
+  }, 2000);
+}
+function setView(el, mode) {
+  document.querySelectorAll('.toggle-opt').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function runStressTest(btn) {
+  const badge = document.getElementById('running-badge');
+  const icon = document.getElementById('run-icon');
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+  badge.classList.add('show');
+  icon.innerHTML = '<circle cx="6.5" cy="6.5" r="4.5" stroke="white" stroke-width="1.5" stroke-dasharray="14 6"/>';
+  icon.style.animation = 'spin 0.8s linear infinite';
+  setTimeout(() => {
+    badge.classList.remove('show');
+    icon.innerHTML = '<path d="M4 2.5l6 4-6 4V2.5Z" fill="white"/>';
+    icon.style.animation = '';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    document.querySelector('.page-subtitle').textContent =
+      'Terakhir dijalankan: 25 Mar 2026, ' +
+      new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) +
+      ' WIB · Baseline laporan: Februari 2026 · Harga acuan: Bursa AKD Mar 2026';
+  }, 2800);
+}
+
+function updateCustom(val) {
+  const pct = Math.min(99, Math.max(1, parseInt(val) || 1));
+  const base = 28412.4;
+  const aset = base * (1 - pct / 100);
+  document.getElementById('custom-aset').textContent = 'Rp ' + aset.toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g,'.') + ' M';
+  const ratio = Math.round((aset / 27890.1) * 100);
+  const lulus = Math.min(25, Math.max(0, Math.round(25 * ratio / 100)));
+  const gagal = 25 - lulus;
+  document.getElementById('custom-result').innerHTML =
+    `<span class="sc-pill lulus">${lulus} Lulus</span><span class="sc-pill gagal">${gagal} Gagal</span>`;
+  document.getElementById('custom-bar').style.width = Math.min(100, ratio) + '%';
+}
+
+function exportLaporan() { alert('Mengunduh laporan stress test (PDF/Excel)...'); }
+function cetakLaporan() { window.print(); }
+
+</script>
+</body>
+</html>
