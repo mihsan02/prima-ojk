@@ -67,10 +67,13 @@ tr:hover td{background:rgba(14,165,201,0.03)}
 .mono-val{font-family:'IBM Plex Mono',monospace;font-size:11px}
 .loading-row td{text-align:center;color:var(--txt3);padding:24px;font-style:italic}
 .error-row td{text-align:center;color:var(--red);padding:24px}
+.form-input{width:100%;background:var(--bg0);border:1px solid var(--border2);border-radius:var(--r);padding:7px 10px;color:var(--txt1);font-size:11px;font-family:'IBM Plex Sans',sans-serif;outline:none}
+.form-input:focus{border-color:var(--teal)}
+.form-label{font-size:10px;color:var(--txt3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em;display:block}
+.btn-primary{padding:7px 16px;border-radius:var(--r);background:var(--teal);color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn-primary:hover{background:#0C8DAD}
 .dash-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);margin-top:4px}
 .dash-footer-txt{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--txt3)}
-.btn-refresh{padding:7px 14px;border-radius:var(--r);background:var(--teal);color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:0.03em}
-.btn-refresh:hover{background:#0C8DAD}
 </style>
 </head>
 <body>
@@ -111,7 +114,7 @@ tr:hover td{background:rgba(14,165,201,0.03)}
       <div class="page-title">Overview Rekonsiliasi PAKD</div>
       <div class="page-subtitle">Data live dari blockchain · Diperbarui setiap pemuatan halaman</div>
     </div>
-    <button class="btn-refresh" onclick="loadData()">⟳ Rekonsiliasi Manual</button>
+    <button class="btn-primary" onclick="loadData()">⟳ Rekonsiliasi Manual</button>
   </div>
 
   <div class="kpi-grid">
@@ -161,6 +164,55 @@ tr:hover td{background:rgba(14,165,201,0.03)}
     </div>
   </div>
 
+  <div>
+    <div class="section-header">
+      <div class="section-title">Input Manual Data PAKD</div>
+    </div>
+    <div class="table-wrap" style="padding:16px">
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:14px">Gunakan form ini jika API E-reporting OJK belum tersedia. Data akan disimpan dan direkonsiliasi otomatis.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end">
+        <div>
+          <label class="form-label">Nama PAKD</label>
+          <input id="f-nama" class="form-input" type="text" placeholder="PT Nama Exchange">
+        </div>
+        <div>
+          <label class="form-label">ID PAKD</label>
+          <input id="f-id" class="form-input mono" type="text" placeholder="PAKD-OJK-003">
+        </div>
+        <div>
+          <label class="form-label">ETH Wallet Address</label>
+          <input id="f-wallet" class="form-input mono" type="text" placeholder="0x...">
+        </div>
+        <div>
+          <label class="form-label">Aset Dilaporkan (IDR)</label>
+          <input id="f-aset" class="form-input mono" type="number" placeholder="5000000000">
+        </div>
+        <button class="btn-primary" onclick="submitManual()">+ Tambah PAKD</button>
+      </div>
+      <div id="form-msg" style="margin-top:10px;font-size:11px;display:none;font-family:'IBM Plex Mono',monospace"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-header">
+      <div class="section-title">Audit Log</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Waktu</th>
+            <th>Aksi</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody id="audit-tbody">
+          <tr class="loading-row"><td colspan="3">Memuat audit log...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="dash-footer">
     <span class="dash-footer-txt">PRIMA v1.0 · Sistem Pemantauan Transparansi Aset PAKD Berbasis Blockchain · OJK © 2026</span>
     <span class="dash-footer-txt" id="footer-time">—</span>
@@ -176,72 +228,116 @@ function formatIDR(angka) {
   return 'Rp ' + Math.round(angka).toLocaleString('id-ID');
 }
 
-function statusClass(status) {
-  if (status === 'Aman') return 'aman';
-  if (status === 'Deviasi') return 'deviasi';
+function statusClass(s) {
+  if (s === 'Aman') return 'aman';
+  if (s === 'Deviasi') return 'deviasi';
   return 'kritis';
 }
 
-function deviColor(status) {
-  if (status === 'Aman') return 'var(--green)';
-  if (status === 'Deviasi') return 'var(--amber)';
+function deviColor(s) {
+  if (s === 'Aman') return 'var(--green)';
+  if (s === 'Deviasi') return 'var(--amber)';
   return 'var(--red)';
 }
 
 async function loadData() {
   const tbody = document.getElementById('pakd-tbody');
   tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Mengambil data dari blockchain...</td></tr>';
-
   try {
     const res = await fetch('/api/reconciliation');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     const data = json.data;
-
-    const now = new Date().toLocaleString('id-ID', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-
+    const now = new Date().toLocaleString('id-ID', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
     document.getElementById('last-update').textContent = now;
     document.getElementById('footer-time').textContent = 'Rekonsiliasi terakhir: ' + now;
     document.getElementById('live-badge').textContent = 'LIVE';
     document.getElementById('live-badge').style.color = 'var(--green)';
-
     const aman = data.filter(d => d.status === 'Aman').length;
-    const alert = data.filter(d => d.status !== 'Aman').length;
-    const maxDev = data.length ? Math.max(...data.map(d => d.deviasi_pct)) : 0;
-
     document.getElementById('kpi-aman').textContent = aman;
     document.getElementById('kpi-total-label').textContent = 'dari ' + data.length + ' PAKD terdaftar';
-    document.getElementById('kpi-alert').textContent = alert;
-    document.getElementById('kpi-max-dev').textContent = maxDev.toFixed(2) + '%';
-
+    document.getElementById('kpi-alert').textContent = data.length - aman;
+    document.getElementById('kpi-max-dev').textContent = (data.length ? Math.max(...data.map(d => d.deviasi_pct)) : 0).toFixed(2) + '%';
     tbody.innerHTML = data.map((d, i) => `
-      <tr style="background:${d.status === 'Kritis' ? 'rgba(239,68,68,0.04)' : d.status === 'Deviasi' ? 'rgba(245,158,11,0.03)' : ''}">
-        <td class="mono" style="color:var(--txt3)">${String(i + 1).padStart(2, '0')}</td>
-        <td>
-          <span class="pakd-name">${d.nama}</span>
-          <span class="pakd-id">${d.id} · Berizin</span>
-        </td>
+      <tr style="background:${d.status==='Kritis'?'rgba(239,68,68,0.04)':d.status==='Deviasi'?'rgba(245,158,11,0.03)':''}">
+        <td class="mono" style="color:var(--txt3)">${String(i+1).padStart(2,'0')}</td>
+        <td><span class="pakd-name">${d.nama}</span><span class="pakd-id">${d.id} · Berizin</span></td>
         <td><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
         <td class="mono-val" style="color:var(--txt1)">${formatIDR(d.aset_onchain_idr)}</td>
         <td class="mono-val" style="color:var(--txt2)">${formatIDR(d.aset_dilaporkan_idr)}</td>
         <td class="mono-val" style="color:${deviColor(d.status)}">${d.deviasi_pct}%</td>
         <td class="mono-val" style="color:var(--txt3)">${d.eth_balance} ETH</td>
-      </tr>
-    `).join('');
-
+      </tr>`).join('');
   } catch (err) {
-    tbody.innerHTML = '<tr class="error-row"><td colspan="7">Gagal mengambil data: ' + err.message + '. Pastikan Flask server berjalan.</td></tr>';
+    tbody.innerHTML = '<tr class="error-row"><td colspan="7">Gagal mengambil data: ' + err.message + '</td></tr>';
     document.getElementById('live-badge').textContent = 'OFFLINE';
     document.getElementById('live-badge').style.color = 'var(--red)';
-    document.getElementById('live-badge').style.borderColor = 'rgba(239,68,68,0.3)';
-    document.getElementById('live-badge').style.background = 'rgba(239,68,68,0.1)';
+  }
+}
+
+async function submitManual() {
+  const nama = document.getElementById('f-nama').value.trim();
+  const id = document.getElementById('f-id').value.trim();
+  const wallet = document.getElementById('f-wallet').value.trim();
+  const aset = parseInt(document.getElementById('f-aset').value) || 0;
+  const msg = document.getElementById('form-msg');
+  if (!nama || !id || !wallet) {
+    msg.style.display = 'block';
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Nama, ID, dan wallet wajib diisi.';
+    return;
+  }
+  try {
+    const res = await fetch('/api/input-manual', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({nama, id, eth_wallet: wallet, aset_dilaporkan: aset})
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = json.error;
+    } else {
+      msg.style.color = 'var(--green)';
+      msg.textContent = json.message + ' — rekonsiliasi diperbarui.';
+      document.getElementById('f-nama').value = '';
+      document.getElementById('f-id').value = '';
+      document.getElementById('f-wallet').value = '';
+      document.getElementById('f-aset').value = '';
+      loadData();
+      loadAudit();
+    }
+    msg.style.display = 'block';
+  } catch (err) {
+    msg.style.color = 'var(--red)';
+    msg.style.display = 'block';
+    msg.textContent = 'Gagal menghubungi server: ' + err.message;
+  }
+}
+
+async function loadAudit() {
+  const tbody = document.getElementById('audit-tbody');
+  if (!tbody) return;
+  try {
+    const res = await fetch('/api/audit-log');
+    const json = await res.json();
+    if (!json.data.length) {
+      tbody.innerHTML = '<tr class="loading-row"><td colspan="3">Belum ada aktivitas tercatat.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = json.data.map(log => `
+      <tr>
+        <td class="mono-val" style="color:var(--txt3);white-space:nowrap">${log.waktu}</td>
+        <td><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(14,165,201,0.1);color:var(--teal);border:1px solid rgba(14,165,201,0.2)">${log.aksi}</span></td>
+        <td style="color:var(--txt2)">${log.detail}</td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="3">Gagal memuat audit log.</td></tr>';
   }
 }
 
 loadData();
+loadAudit();
 </script>
 </body>
 </html>
