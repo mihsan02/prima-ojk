@@ -3,12 +3,12 @@ from flask_cors import CORS
 import requests
 import os
 import json
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
 
 ETHERSCAN_API_KEY = os.environ.get("ETHERSCAN_API_KEY", "")
-ETH_TO_IDR = 50000000
 DATA_FILE = os.path.join(os.path.dirname(__file__), 'pakd_data.json')
 AUDIT_FILE = os.path.join(os.path.dirname(__file__), 'audit_log.json')
 
@@ -27,6 +27,15 @@ PAKD_DEFAULT = [
     }
 ]
 
+def get_eth_price_idr():
+    try:
+        url = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=idr"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        return data["ethereum"]["idr"]
+    except:
+        return 39910503
+
 def load_pakd():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'r') as f:
@@ -42,7 +51,6 @@ def write_audit(action, detail):
     if os.path.exists(AUDIT_FILE):
         with open(AUDIT_FILE, 'r') as f:
             logs = json.load(f)
-    from datetime import datetime
     logs.insert(0, {
         "waktu": datetime.now().strftime("%d %b %Y, %H:%M"),
         "aksi": action,
@@ -73,11 +81,12 @@ def status():
 
 @app.route('/api/reconciliation')
 def reconciliation():
+    eth_price = get_eth_price_idr()
     pakd_list = load_pakd()
     hasil = []
     for pakd in pakd_list:
         eth_balance = get_eth_balance(pakd["eth_wallet"])
-        aset_onchain_idr = eth_balance * ETH_TO_IDR
+        aset_onchain_idr = eth_balance * eth_price
         aset_dilaporkan = pakd["aset_dilaporkan"]
         if aset_dilaporkan > 0:
             deviasi_pct = abs(aset_onchain_idr - aset_dilaporkan) / aset_dilaporkan * 100
@@ -98,7 +107,44 @@ def reconciliation():
             "status": status_rec,
             "eth_balance": round(eth_balance, 4)
         })
-    return jsonify({"data": hasil, "total_pakd": len(hasil)})
+    write_audit("REKONSILIASI", f"{len(hasil)} PAKD direkonsiliasi, harga ETH: Rp {eth_price:,}")
+    return jsonify({"data": hasil, "total_pakd": len(hasil), "eth_price_idr": eth_price})
+
+@app.route('/api/stress-test')
+def stress_test():
+    eth_price = get_eth_price_idr()
+    pakd_list = load_pakd()
+    skenario = {
+        "mild":     {"label": "Mild (-30%)",     "penurunan": 0.30},
+        "moderate": {"label": "Moderate (-55%)", "penurunan": 0.55},
+        "severe":   {"label": "Severe (-80%)",   "penurunan": 0.80}
+    }
+    hasil = {}
+    for key, s in skenario.items():
+        lulus = 0
+        gagal = 0
+        eth_price_stressed = eth_price * (1 - s["penurunan"])
+        for pakd in pakd_list:
+            eth_balance = get_eth_balance(pakd["eth_wallet"])
+            aset_onchain_stressed = eth_balance * eth_price_stressed
+            aset_dilaporkan = pakd["aset_dilaporkan"]
+            if aset_dilaporkan > 0:
+                rasio = aset_onchain_stressed / aset_dilaporkan
+            else:
+                rasio = 0
+            if rasio >= 0.80:
+                lulus += 1
+            else:
+                gagal += 1
+        hasil[key] = {
+            "label": s["label"],
+            "lulus": lulus,
+            "gagal": gagal,
+            "total": len(pakd_list),
+            "eth_price_stressed": round(eth_price_stressed)
+        }
+    write_audit("STRESS TEST", f"Stress test dijalankan untuk {len(pakd_list)} PAKD")
+    return jsonify({"data": hasil, "eth_price_idr": eth_price})
 
 @app.route('/api/input-manual', methods=['POST'])
 def input_manual():
