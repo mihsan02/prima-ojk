@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRIMA — Pemantauan Transparansi Aset PAKD Berbasis Blockchain</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',sans-serif;background:#050D1C;color:#DCE8F8;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
+.container{max-width:680px;width:100%;text-align:center}
+.badge{display:inline-flex;align-items:center;gap:6px;background:rgba(14,165,201,0.1);border:1px solid rgba(14,165,201,0.25);border-radius:20px;padding:4px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#0EA5C9;margin-bottom:28px}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%;background:#0EA5C9;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.brand{font-family:'Syne',sans-serif;font-size:56px;font-weight:800;letter-spacing:0.04em;line-height:1;margin-bottom:8px}
+.brand span{color:#0EA5C9}
+.tagline{font-size:14px;color:#4A6A8A;font-family:'IBM Plex Mono',monospace;letter-spacing:0.06em;margin-bottom:24px;text-transform:uppercase}
+.desc{font-size:15px;color:#7A9BBE;line-height:1.7;margin-bottom:36px;max-width:520px;margin-left:auto;margin-right:auto}
+.desc strong{color:#DCE8F8;font-weight:600}
+.pills{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
+.pill{padding:5px 14px;border-radius:20px;font-size:11px;font-family:'IBM Plex Mono',monospace;border:1px solid}
+.pill.g{background:#021F14;color:#10B981;border-color:rgba(16,185,129,0.3)}
+.pill.t{background:rgba(14,165,201,0.08);color:#0EA5C9;border-color:rgba(14,165,201,0.25)}
+.pill.a{background:#1F1002;color:#F59E0B;border-color:rgba(245,158,11,0.3)}
+.btn-demo{display:inline-flex;align-items:center;gap:8px;background:#0EA5C9;color:#fff;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none}
+.btn-demo:hover{background:#0C8DAD}
+.btn-github{display:inline-flex;align-items:center;gap:8px;background:transparent;color:#7A9BBE;padding:12px 24px;border-radius:8px;font-size:13px;font-weight:500;text-decoration:none;border:1px solid #1C2F4A;margin-left:12px}
+.btn-github:hover{border-color:#0EA5C9;color:#0EA5C9}
+.footer{margin-top:60px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#1C2F4A;letter-spacing:0.06em}
+.divider{width:48px;height:1px;background:#1C2F4A;margin:40px auto}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:40px}
+.stat-val{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#DCE8F8}
+.stat-label{font-size:10px;color:#4A6A8A;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;font-family:'IBM Plex Mono',monospace}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="badge">OJK · DIGDAYA X HACKATHON 2026</div>
+  <div class="brand">PRI<span>MA</span></div>
+  <div class="tagline">Pemantauan Transparansi Aset Pedagang Aset Keuangan Digital</div>
+  <p class="desc">Sistem rekonsiliasi otomatis berbasis blockchain yang memungkinkan <strong>OJK</strong> memverifikasi aset on-chain seluruh PAKD berizin secara real-time, mendeteksi deviasi, dan menjalankan stress test solvabilitas tanpa bergantung pada laporan mandiri.</p>
+  <div class="pills">
+    <span class="pill g">Rekonsiliasi Real-Time</span>
+    <span class="pill t">Etherscan V2 · Solana RPC</span>
+    <span class="pill g">Stress Test Solvabilitas</span>
+    <span class="pill a">POJK No. 27/2024</span>
+    <span class="pill t">Python · Flask · Blockchain Explorer</span>
+  </div>
+  <div class="stats">
+    <div><div class="stat-val">3</div><div class="stat-label">Blockchain Chains</div></div>
+    <div><div class="stat-val">3</div><div class="stat-label">Skenario Stress Test</div></div>
+    <div><div class="stat-val">v1.0</div><div class="stat-label">Status: MVP</div></div>
+  </div>
+  <a class="btn-demo" href="https://github.com/mihsan02/prima-ojk" target="_blank">Lihat Repository →</a>
+  <a class="btn-github" href="https://github.com/mihsan02/prima-ojk" target="_blank">GitHub</a>
+  <div class="divider"></div>
+  <div class="footer">PRIMA © 2026 · OJK IAKD · DIGDAYA X HACKATHON · github.com/mihsan02/prima-ojk</div>
+</div>
+</body>
+</html>
