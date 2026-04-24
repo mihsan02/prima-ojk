@@ -29,11 +29,13 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg0);color:var(--tx
 .badge-live{border-radius:20px;padding:2px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;gap:5px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:var(--green)}
 .badge-live::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-.sidebar{background:var(--bg1);border-right:1px solid var(--border);padding:16px 12px}
+.sidebar{background:var(--bg1);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column}
 .nav-section{font-size:9px;letter-spacing:0.12em;color:var(--txt3);padding:12px 8px 6px;text-transform:uppercase;font-weight:600}
-.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);cursor:pointer;color:var(--txt3);font-size:12px;font-weight:500}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);cursor:pointer;color:var(--txt3);font-size:12px;font-weight:500;transition:all 0.15s;user-select:none}
+.nav-item:hover{background:var(--bg2);color:var(--txt2)}
 .nav-item.active{background:rgba(14,165,201,0.1);color:var(--teal);border:1px solid rgba(14,165,201,0.2)}
 .main{padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.page{display:none}.page.active{display:flex;flex-direction:column;gap:16px}
 .page-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:700}
 .page-subtitle{font-size:11px;color:var(--txt3);margin-top:2px}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
@@ -48,7 +50,8 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg0);color:var(--tx
 .kpi-value.green{color:var(--green)}.kpi-value.red{color:var(--red)}.kpi-value.amber{color:var(--amber)}.kpi-value.teal{color:var(--teal)}
 .kpi-sub{font-size:11px;color:var(--txt3)}
 .kpi-sub strong{color:var(--txt2)}
-.table-wrap{background:var(--bg1);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.panel{background:var(--bg1);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.panel-body{padding:16px}
 .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .section-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
 .section-title::before{content:'';display:inline-block;width:3px;height:14px;background:var(--teal);border-radius:2px}
@@ -75,25 +78,24 @@ tr:hover td{background:rgba(14,165,201,0.03)}
 .dash-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);margin-top:4px}
 .dash-footer-txt{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--txt3)}
 /* STRESS TEST */
-.stress-panel{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:16px}
 .stress-row{display:flex;align-items:center;gap:12px;padding:10px;border-radius:var(--r);margin-bottom:8px}
 .stress-row.mild{background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15)}
 .stress-row.moderate{background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15)}
 .stress-row.severe{background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15)}
 .stress-label-wrap{flex:0 0 110px}
 .stress-name{font-size:11px;font-weight:600}
-.stress-name.mild{color:var(--green)}
-.stress-name.moderate{color:var(--amber)}
-.stress-name.severe{color:var(--red)}
-.stress-pct{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--txt3);margin-top:2px}
+.stress-name.mild{color:var(--green)}.stress-name.moderate{color:var(--amber)}.stress-name.severe{color:var(--red)}
+.stress-pct-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--txt3);margin-top:2px}
 .stress-bar-wrap{flex:1;height:8px;background:var(--bg0);border-radius:4px;overflow:hidden}
 .stress-bar{height:100%;border-radius:4px;transition:width 0.6s ease}
-.stress-bar.mild{background:var(--green)}
-.stress-bar.moderate{background:var(--amber)}
-.stress-bar.severe{background:var(--red)}
+.stress-bar.mild{background:var(--green)}.stress-bar.moderate{background:var(--amber)}.stress-bar.severe{background:var(--red)}
 .stress-count{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;flex:0 0 70px;text-align:right}
-.stress-count span{font-size:9px;color:var(--txt3);font-weight:400}
-.stress-price-note{font-size:10px;color:var(--txt3);margin-bottom:10px;font-family:'IBM Plex Mono',monospace}
+/* SETTINGS */
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:12px;font-weight:600;color:var(--txt1);margin-bottom:3px}
+.setting-desc{font-size:11px;color:var(--txt3)}
+.setting-val{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--teal);background:rgba(14,165,201,0.08);border:1px solid rgba(14,165,201,0.2);padding:3px 10px;border-radius:4px}
 </style>
 </head>
 <body>
@@ -108,7 +110,7 @@ tr:hover td{background:rgba(14,165,201,0.03)}
   </div>
   <span class="brand-name">PRI<span>MA</span></span>
   <div class="topbar-divider"></div>
-  <span class="breadcrumb">SISTEM PEMANTAUAN TRANSPARANSI ASET DIGITAL · OJK</span>
+  <span class="breadcrumb" id="breadcrumb-text">SISTEM PEMANTAUAN TRANSPARANSI ASET DIGITAL · OJK</span>
   <div class="topbar-right">
     <div class="badge-live" id="live-badge">MENGHUBUNGKAN</div>
     <span class="mono" style="font-size:11px;color:var(--txt3)" id="last-update">—</span>
@@ -117,145 +119,185 @@ tr:hover td{background:rgba(14,165,201,0.03)}
 
 <aside class="sidebar">
   <div class="nav-section">Monitoring</div>
-  <div class="nav-item active">Overview PAKD</div>
-  <div class="nav-item">Rekonsiliasi Real-Time</div>
-  <div class="nav-item">Tren Historis</div>
+  <div class="nav-item active" onclick="showPage('overview')">Overview PAKD</div>
   <div class="nav-section">Analisis</div>
-  <div class="nav-item">Stress Test</div>
+  <div class="nav-item" onclick="showPage('stresstest')">Stress Test</div>
   <div class="nav-section">Sistem</div>
-  <div class="nav-item">Audit Log</div>
-  <div class="nav-item">Pengaturan</div>
+  <div class="nav-item" onclick="showPage('auditlog')">Audit Log</div>
+  <div class="nav-item" onclick="showPage('pengaturan')">Pengaturan</div>
 </aside>
 
 <main class="main">
 
-  <div style="display:flex;align-items:center;justify-content:space-between">
+  <!-- PAGE: OVERVIEW -->
+  <div id="page-overview" class="page active">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div class="page-title">Overview Rekonsiliasi PAKD</div>
+        <div class="page-subtitle">Data live dari blockchain · Diperbarui setiap pemuatan halaman</div>
+      </div>
+      <button class="btn-primary" onclick="loadAll()">⟳ Rekonsiliasi Manual</button>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card green">
+        <div class="kpi-label">PAKD Status Aman</div>
+        <div class="kpi-value green" id="kpi-aman">—</div>
+        <div class="kpi-sub"><strong id="kpi-total-label">—</strong></div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">Alert Aktif</div>
+        <div class="kpi-value red" id="kpi-alert">—</div>
+        <div class="kpi-sub">memerlukan tindak lanjut</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-label">Defisit Tertinggi</div>
+        <div class="kpi-value amber" id="kpi-max-dev">—</div>
+        <div class="kpi-sub">deviasi negatif terbesar</div>
+      </div>
+      <div class="kpi-card teal">
+        <div class="kpi-label">Koneksi Blockchain</div>
+        <div class="kpi-value teal" style="font-size:18px;margin-top:4px">AKTIF</div>
+        <div class="kpi-sub">Etherscan V2 · CoinGecko</div>
+      </div>
+    </div>
+
     <div>
-      <div class="page-title">Overview Rekonsiliasi PAKD</div>
-      <div class="page-subtitle">Data live dari blockchain · Diperbarui setiap pemuatan halaman</div>
-    </div>
-    <button class="btn-primary" onclick="loadAll()">⟳ Rekonsiliasi Manual</button>
-  </div>
-
-  <div class="kpi-grid">
-    <div class="kpi-card green">
-      <div class="kpi-label">PAKD Status Aman</div>
-      <div class="kpi-value green" id="kpi-aman">—</div>
-      <div class="kpi-sub"><strong id="kpi-total-label">—</strong></div>
-    </div>
-    <div class="kpi-card red">
-      <div class="kpi-label">Alert Aktif</div>
-      <div class="kpi-value red" id="kpi-alert">—</div>
-      <div class="kpi-sub">memerlukan tindak lanjut</div>
-    </div>
-    <div class="kpi-card amber">
-      <div class="kpi-label">Deviasi Tertinggi</div>
-      <div class="kpi-value amber" id="kpi-max-dev">—</div>
-      <div class="kpi-sub">deviasi maksimum industri</div>
-    </div>
-    <div class="kpi-card teal">
-      <div class="kpi-label">Koneksi Blockchain</div>
-      <div class="kpi-value teal" id="kpi-api" style="font-size:18px;margin-top:4px">AKTIF</div>
-      <div class="kpi-sub">Etherscan V2 · Solana RPC</div>
-    </div>
-  </div>
-
-  <!-- PAKD TABLE -->
-  <div>
-    <div class="section-header">
-      <div class="section-title">Daftar Pedagang Aset Keuangan Digital</div>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Nama PAKD</th>
-            <th>Status</th>
-            <th>Aset On-Chain (IDR)</th>
-            <th>Aset Dilaporkan (IDR)</th>
-            <th>Deviasi</th>
-            <th>ETH Balance</th>
-          </tr>
-        </thead>
-        <tbody id="pakd-tbody">
-          <tr class="loading-row"><td colspan="7">Mengambil data dari blockchain...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- STRESS TEST -->
-  <div>
-    <div class="section-header">
-      <div class="section-title">Stress Test Solvabilitas</div>
-    </div>
-    <div class="stress-panel">
-      <div class="stress-price-note" id="stress-price-note">Memuat harga ETH live...</div>
-      <div id="stress-mild" class="stress-row mild">
-        <div class="stress-label-wrap">
-          <div class="stress-name mild">Mild</div>
-          <div class="stress-pct">-30%</div>
-        </div>
-        <div class="stress-bar-wrap"><div class="stress-bar mild" style="width:0%"></div></div>
-        <div class="stress-count mild" style="color:var(--green)">—<span> lulus</span></div>
+      <div class="section-header">
+        <div class="section-title">Daftar Pedagang Aset Keuangan Digital</div>
       </div>
-      <div id="stress-moderate" class="stress-row moderate">
-        <div class="stress-label-wrap">
-          <div class="stress-name moderate">Moderate</div>
-          <div class="stress-pct">-55%</div>
-        </div>
-        <div class="stress-bar-wrap"><div class="stress-bar moderate" style="width:0%"></div></div>
-        <div class="stress-count moderate" style="color:var(--amber)">—<span> lulus</span></div>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nama PAKD</th>
+              <th>Status</th>
+              <th>Aset On-Chain (IDR)</th>
+              <th>Aset Dilaporkan (IDR)</th>
+              <th>Deviasi</th>
+              <th>ETH Balance</th>
+            </tr>
+          </thead>
+          <tbody id="pakd-tbody">
+            <tr class="loading-row"><td colspan="7">Mengambil data dari blockchain...</td></tr>
+          </tbody>
+        </table>
       </div>
-      <div id="stress-severe" class="stress-row severe">
-        <div class="stress-label-wrap">
-          <div class="stress-name severe">Severe</div>
-          <div class="stress-pct">-80%</div>
-        </div>
-        <div class="stress-bar-wrap"><div class="stress-bar severe" style="width:0%"></div></div>
-        <div class="stress-count severe" style="color:var(--red)">—<span> lulus</span></div>
+    </div>
+
+    <div>
+      <div class="section-header">
+        <div class="section-title">Input Manual Data PAKD</div>
       </div>
-      <div id="stress-note" style="margin-top:10px;padding:8px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--txt3);font-size:10px;color:var(--txt3)">Memuat hasil stress test...</div>
+      <div class="panel">
+        <div class="panel-body">
+          <div style="font-size:11px;color:var(--txt3);margin-bottom:14px">Gunakan form ini jika API E-reporting OJK belum tersedia. Data akan disimpan dan direkonsiliasi otomatis.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end">
+            <div><label class="form-label">Nama PAKD</label><input id="f-nama" class="form-input" type="text" placeholder="PT Nama Exchange"></div>
+            <div><label class="form-label">ID PAKD</label><input id="f-id" class="form-input mono" type="text" placeholder="PAKD-OJK-003"></div>
+            <div><label class="form-label">ETH Wallet Address</label><input id="f-wallet" class="form-input mono" type="text" placeholder="0x..."></div>
+            <div><label class="form-label">Aset Dilaporkan (IDR)</label><input id="f-aset" class="form-input mono" type="number" placeholder="5000000000"></div>
+            <button class="btn-primary" onclick="submitManual()">+ Tambah PAKD</button>
+          </div>
+          <div id="form-msg" style="margin-top:10px;font-size:11px;display:none;font-family:'IBM Plex Mono',monospace"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-footer">
+      <span class="dash-footer-txt">PRIMA v1.0 · Sistem Pemantauan Transparansi Aset PAKD Berbasis Blockchain · OJK © 2026</span>
+      <span class="dash-footer-txt" id="footer-time">—</span>
     </div>
   </div>
 
-  <!-- MANUAL INPUT -->
-  <div>
-    <div class="section-header">
-      <div class="section-title">Input Manual Data PAKD</div>
+  <!-- PAGE: STRESS TEST -->
+  <div id="page-stresstest" class="page">
+    <div>
+      <div class="page-title">Stress Test Solvabilitas</div>
+      <div class="page-subtitle">Simulasi ketahanan aset PAKD terhadap penurunan harga kripto</div>
     </div>
-    <div class="table-wrap" style="padding:16px">
-      <div style="font-size:11px;color:var(--txt3);margin-bottom:14px">Gunakan form ini jika API E-reporting OJK belum tersedia. Data akan disimpan dan direkonsiliasi otomatis.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end">
-        <div>
-          <label class="form-label">Nama PAKD</label>
-          <input id="f-nama" class="form-input" type="text" placeholder="PT Nama Exchange">
-        </div>
-        <div>
-          <label class="form-label">ID PAKD</label>
-          <input id="f-id" class="form-input mono" type="text" placeholder="PAKD-OJK-003">
-        </div>
-        <div>
-          <label class="form-label">ETH Wallet Address</label>
-          <input id="f-wallet" class="form-input mono" type="text" placeholder="0x...">
-        </div>
-        <div>
-          <label class="form-label">Aset Dilaporkan (IDR)</label>
-          <input id="f-aset" class="form-input mono" type="number" placeholder="5000000000">
-        </div>
-        <button class="btn-primary" onclick="submitManual()">+ Tambah PAKD</button>
+
+    <div class="kpi-grid">
+      <div class="kpi-card green">
+        <div class="kpi-label">Lulus Mild (-30%)</div>
+        <div class="kpi-value green" id="st-kpi-mild">—</div>
+        <div class="kpi-sub">dari total PAKD terdaftar</div>
       </div>
-      <div id="form-msg" style="margin-top:10px;font-size:11px;display:none;font-family:'IBM Plex Mono',monospace"></div>
+      <div class="kpi-card amber">
+        <div class="kpi-label">Lulus Moderate (-55%)</div>
+        <div class="kpi-value amber" id="st-kpi-moderate">—</div>
+        <div class="kpi-sub">dari total PAKD terdaftar</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">Lulus Severe (-80%)</div>
+        <div class="kpi-value red" id="st-kpi-severe">—</div>
+        <div class="kpi-sub">dari total PAKD terdaftar</div>
+      </div>
+      <div class="kpi-card teal">
+        <div class="kpi-label">Harga ETH Live</div>
+        <div class="kpi-value teal" id="st-kpi-eth" style="font-size:18px;margin-top:4px">—</div>
+        <div class="kpi-sub">sumber: CoinGecko</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-header">
+        <div class="section-title">Hasil Simulasi per Skenario</div>
+        <button class="btn-primary" onclick="loadStressTest()">⟳ Jalankan Ulang</button>
+      </div>
+      <div class="panel">
+        <div class="panel-body">
+          <div style="font-size:10px;color:var(--txt3);margin-bottom:14px;font-family:'IBM Plex Mono',monospace" id="stress-price-note">Memuat harga ETH live...</div>
+          <div id="stress-mild" class="stress-row mild">
+            <div class="stress-label-wrap"><div class="stress-name mild">Mild</div><div class="stress-pct-label">-30% harga ETH</div></div>
+            <div class="stress-bar-wrap"><div class="stress-bar mild" style="width:0%"></div></div>
+            <div class="stress-count" style="color:var(--green)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
+          </div>
+          <div id="stress-moderate" class="stress-row moderate">
+            <div class="stress-label-wrap"><div class="stress-name moderate">Moderate</div><div class="stress-pct-label">-55% harga ETH</div></div>
+            <div class="stress-bar-wrap"><div class="stress-bar moderate" style="width:0%"></div></div>
+            <div class="stress-count" style="color:var(--amber)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
+          </div>
+          <div id="stress-severe" class="stress-row severe">
+            <div class="stress-label-wrap"><div class="stress-name severe">Severe</div><div class="stress-pct-label">-80% harga ETH</div></div>
+            <div class="stress-bar-wrap"><div class="stress-bar severe" style="width:0%"></div></div>
+            <div class="stress-count" style="color:var(--red)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
+          </div>
+          <div id="stress-note" style="margin-top:12px;padding:10px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--txt3);font-size:11px;color:var(--txt3)">Memuat hasil stress test...</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-header">
+        <div class="section-title">Metodologi</div>
+      </div>
+      <div class="panel">
+        <div class="panel-body">
+          <div style="font-size:12px;color:var(--txt2);line-height:1.8">
+            Stress test menggunakan pendekatan <span style="color:var(--teal);font-family:'IBM Plex Mono',monospace">Liquidity Coverage Ratio (LCR)</span> yang diadaptasi untuk aset kripto. Setiap skenario mensimulasikan penurunan harga ETH dan menghitung apakah aset on-chain yang dimiliki PAKD masih mencukupi minimal 80% dari kewajiban yang dilaporkan. Ambang batas 80% mengacu pada konservatisme yang lazim digunakan dalam stress test perbankan (Basel III LCR minimum 100%, dengan buffer 20% untuk aset kripto yang lebih volatil).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-footer">
+      <span class="dash-footer-txt">PRIMA v1.0 · OJK © 2026</span>
     </div>
   </div>
 
-  <!-- AUDIT LOG -->
-  <div>
-    <div class="section-header">
-      <div class="section-title">Audit Log</div>
+  <!-- PAGE: AUDIT LOG -->
+  <div id="page-auditlog" class="page">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div class="page-title">Audit Log</div>
+        <div class="page-subtitle">Riwayat seluruh aktivitas sistem · Maksimal 50 entri terakhir</div>
+      </div>
+      <button class="btn-primary" onclick="loadAudit()">⟳ Muat Ulang</button>
     </div>
-    <div class="table-wrap">
+
+    <div class="panel">
       <table>
         <thead>
           <tr>
@@ -269,21 +311,105 @@ tr:hover td{background:rgba(14,165,201,0.03)}
         </tbody>
       </table>
     </div>
+
+    <div class="dash-footer">
+      <span class="dash-footer-txt">PRIMA v1.0 · OJK © 2026</span>
+    </div>
   </div>
 
-  <div class="dash-footer">
-    <span class="dash-footer-txt">PRIMA v1.0 · Sistem Pemantauan Transparansi Aset PAKD Berbasis Blockchain · OJK © 2026</span>
-    <span class="dash-footer-txt" id="footer-time">—</span>
+  <!-- PAGE: PENGATURAN -->
+  <div id="page-pengaturan" class="page">
+    <div>
+      <div class="page-title">Pengaturan Sistem</div>
+      <div class="page-subtitle">Konfigurasi parameter rekonsiliasi dan koneksi API</div>
+    </div>
+
+    <div>
+      <div class="section-header"><div class="section-title">Parameter Rekonsiliasi</div></div>
+      <div class="panel">
+        <div class="panel-body">
+          <div class="setting-row">
+            <div><div class="setting-label">Ambang Deviasi Tier 1</div><div class="setting-desc">Deviasi defisit yang memicu peringatan Deviasi</div></div>
+            <span class="setting-val">5% – 15%</span>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Ambang Deviasi Tier 2</div><div class="setting-desc">Deviasi defisit yang memicu status Kritis</div></div>
+            <span class="setting-val">&gt; 15%</span>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Logika Surplus</div><div class="setting-desc">Aset on-chain melebihi aset dilaporkan diklasifikasikan sebagai Aman</div></div>
+            <span class="setting-val">AKTIF</span>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Ambang Stress Test (Rasio Minimum)</div><div class="setting-desc">PAKD dinyatakan lulus jika aset on-chain stres minimal 80% dari kewajiban</div></div>
+            <span class="setting-val">80%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-header"><div class="section-title">Koneksi API</div></div>
+      <div class="panel">
+        <div class="panel-body">
+          <div class="setting-row">
+            <div><div class="setting-label">Etherscan V2</div><div class="setting-desc">Sumber data saldo ETH on-chain · chainid=1 (Ethereum Mainnet)</div></div>
+            <span class="setting-val">TERHUBUNG</span>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">CoinGecko Public API</div><div class="setting-desc">Sumber harga ETH/IDR live · Tanpa API key</div></div>
+            <span class="setting-val">TERHUBUNG</span>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Audit Log Retention</div><div class="setting-desc">Jumlah entri audit log yang disimpan di sistem</div></div>
+            <span class="setting-val">50 entri</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-header"><div class="section-title">Informasi Sistem</div></div>
+      <div class="panel">
+        <div class="panel-body">
+          <div class="setting-row">
+            <div><div class="setting-label">Versi PRIMA</div><div class="setting-desc">Versi sistem yang sedang berjalan</div></div>
+            <span class="setting-val">v1.0 MVP</span>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Regulasi Acuan</div><div class="setting-desc">Dasar hukum pengawasan PAKD</div></div>
+            <span class="setting-val">POJK 27/2024 · UU P2SK</span>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Repository</div><div class="setting-desc">Kode sumber terbuka untuk audit teknis</div></div>
+            <span class="setting-val">github.com/mihsan02/prima-ojk</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-footer">
+      <span class="dash-footer-txt">PRIMA v1.0 · OJK © 2026</span>
+    </div>
   </div>
 
 </main>
 </div>
 
 <script>
-function formatIDR(angka) {
-  if (angka >= 1e9) return 'Rp ' + (angka / 1e9).toFixed(2) + ' M';
-  if (angka >= 1e6) return 'Rp ' + (angka / 1e6).toFixed(1) + ' jt';
-  return 'Rp ' + Math.round(angka).toLocaleString('id-ID');
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (id === 'stresstest') loadStressTest();
+  if (id === 'auditlog') loadAudit();
+}
+
+function formatIDR(n) {
+  if (n >= 1e9) return 'Rp ' + (n/1e9).toFixed(2) + ' M';
+  if (n >= 1e6) return 'Rp ' + (n/1e6).toFixed(1) + ' jt';
+  return 'Rp ' + Math.round(n).toLocaleString('id-ID');
 }
 
 function formatRpCompact(n) {
@@ -298,10 +424,13 @@ function statusClass(s) {
   return 'kritis';
 }
 
-function deviColor(s) {
-  if (s === 'Aman') return 'var(--green)';
-  if (s === 'Deviasi') return 'var(--amber)';
-  return 'var(--red)';
+function deviDisplay(d) {
+  const pct = d.deviasi_pct;
+  if (d.surplus) {
+    return `<span style="color:var(--green);font-family:'IBM Plex Mono',monospace;font-size:11px">+${pct.toFixed(2)}%</span>`;
+  }
+  const color = d.status === 'Deviasi' ? 'var(--amber)' : 'var(--red)';
+  return `<span style="color:${color};font-family:'IBM Plex Mono',monospace;font-size:11px">${pct.toFixed(2)}%</span>`;
 }
 
 async function loadData() {
@@ -316,12 +445,12 @@ async function loadData() {
     document.getElementById('last-update').textContent = now;
     document.getElementById('footer-time').textContent = 'Rekonsiliasi terakhir: ' + now;
     document.getElementById('live-badge').textContent = 'LIVE';
-    document.getElementById('live-badge').style.color = 'var(--green)';
     const aman = data.filter(d => d.status === 'Aman').length;
     document.getElementById('kpi-aman').textContent = aman;
     document.getElementById('kpi-total-label').textContent = 'dari ' + data.length + ' PAKD terdaftar';
     document.getElementById('kpi-alert').textContent = data.length - aman;
-    document.getElementById('kpi-max-dev').textContent = (data.length ? Math.max(...data.map(d => d.deviasi_pct)) : 0).toFixed(2) + '%';
+    const defisits = data.filter(d => !d.surplus).map(d => Math.abs(d.deviasi_pct));
+    document.getElementById('kpi-max-dev').textContent = defisits.length ? Math.max(...defisits).toFixed(2) + '%' : '0%';
     tbody.innerHTML = data.map((d, i) => `
       <tr style="background:${d.status==='Kritis'?'rgba(239,68,68,0.04)':d.status==='Deviasi'?'rgba(245,158,11,0.03)':''}">
         <td class="mono" style="color:var(--txt3)">${String(i+1).padStart(2,'0')}</td>
@@ -329,7 +458,7 @@ async function loadData() {
         <td><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
         <td class="mono-val" style="color:var(--txt1)">${formatIDR(d.aset_onchain_idr)}</td>
         <td class="mono-val" style="color:var(--txt2)">${formatIDR(d.aset_dilaporkan_idr)}</td>
-        <td class="mono-val" style="color:${deviColor(d.status)}">${d.deviasi_pct}%</td>
+        <td>${deviDisplay(d)}</td>
         <td class="mono-val" style="color:var(--txt3)">${d.eth_balance} ETH</td>
       </tr>`).join('');
   } catch (err) {
@@ -346,32 +475,27 @@ async function loadStressTest() {
     const json = await res.json();
     const d = json.data;
     const ethPrice = json.eth_price_idr;
-
     document.getElementById('stress-price-note').textContent =
       'Harga ETH live: ' + formatRpCompact(ethPrice) + ' · Basis data: ' + d.mild.total + ' PAKD terdaftar';
-
-    const scenarios = [
-      { key: 'mild',     color: 'var(--green)' },
-      { key: 'moderate', color: 'var(--amber)' },
-      { key: 'severe',   color: 'var(--red)'   }
-    ];
-
-    scenarios.forEach(s => {
-      const row = document.getElementById('stress-' + s.key);
+    document.getElementById('st-kpi-mild').textContent = d.mild.lulus + '/' + d.mild.total;
+    document.getElementById('st-kpi-moderate').textContent = d.moderate.lulus + '/' + d.moderate.total;
+    document.getElementById('st-kpi-severe').textContent = d.severe.lulus + '/' + d.severe.total;
+    document.getElementById('st-kpi-eth').textContent = formatRpCompact(ethPrice);
+    [['mild','var(--green)'],['moderate','var(--amber)'],['severe','var(--red)']].forEach(([key, color]) => {
+      const row = document.getElementById('stress-' + key);
       const bar = row.querySelector('.stress-bar');
       const count = row.querySelector('.stress-count');
-      const pct = d[s.key].total > 0 ? (d[s.key].lulus / d[s.key].total * 100) : 0;
+      const pct = d[key].total > 0 ? d[key].lulus / d[key].total * 100 : 0;
       bar.style.width = pct + '%';
-      count.innerHTML = `${d[s.key].lulus}/${d[s.key].total}<span> lulus</span>`;
-      count.style.color = s.color;
+      count.innerHTML = `${d[key].lulus}/${d[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`;
+      count.style.color = color;
     });
-
-    const gagalSevere = d.severe.gagal;
     const noteEl = document.getElementById('stress-note');
+    const gagalSevere = d.severe.gagal;
     if (gagalSevere > 0) {
       noteEl.style.borderLeftColor = 'var(--amber)';
       noteEl.style.color = 'var(--amber)';
-      noteEl.textContent = '⚠ ' + gagalSevere + ' PAKD berisiko gagal solvabilitas pada skenario severe (-80%). Rekomendasi: permintaan laporan aset cadangan tambahan.';
+      noteEl.textContent = '⚠ ' + gagalSevere + ' PAKD berisiko gagal solvabilitas pada skenario severe (-80%). Rekomendasi: permintaan laporan aset cadangan tambahan kepada PAKD terkait.';
     } else {
       noteEl.style.borderLeftColor = 'var(--green)';
       noteEl.style.color = 'var(--green)';
@@ -389,47 +513,36 @@ async function submitManual() {
   const aset = parseInt(document.getElementById('f-aset').value) || 0;
   const msg = document.getElementById('form-msg');
   if (!nama || !id || !wallet) {
-    msg.style.display = 'block';
-    msg.style.color = 'var(--red)';
-    msg.textContent = 'Nama, ID, dan wallet wajib diisi.';
-    return;
+    msg.style.display = 'block'; msg.style.color = 'var(--red)';
+    msg.textContent = 'Nama, ID, dan wallet wajib diisi.'; return;
   }
   try {
     const res = await fetch('/api/input-manual', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({nama, id, eth_wallet: wallet, aset_dilaporkan: aset})
     });
     const json = await res.json();
-    if (!res.ok) {
-      msg.style.color = 'var(--red)';
-      msg.textContent = json.error;
-    } else {
+    if (!res.ok) { msg.style.color = 'var(--red)'; msg.textContent = json.error; }
+    else {
       msg.style.color = 'var(--green)';
       msg.textContent = json.message + ' — rekonsiliasi diperbarui.';
-      document.getElementById('f-nama').value = '';
-      document.getElementById('f-id').value = '';
-      document.getElementById('f-wallet').value = '';
-      document.getElementById('f-aset').value = '';
+      ['f-nama','f-id','f-wallet','f-aset'].forEach(id => document.getElementById(id).value = '');
       loadAll();
     }
     msg.style.display = 'block';
   } catch (err) {
-    msg.style.color = 'var(--red)';
-    msg.style.display = 'block';
+    msg.style.color = 'var(--red)'; msg.style.display = 'block';
     msg.textContent = 'Gagal menghubungi server: ' + err.message;
   }
 }
 
 async function loadAudit() {
   const tbody = document.getElementById('audit-tbody');
-  if (!tbody) return;
   try {
     const res = await fetch('/api/audit-log');
     const json = await res.json();
     if (!json.data.length) {
-      tbody.innerHTML = '<tr class="loading-row"><td colspan="3">Belum ada aktivitas tercatat.</td></tr>';
-      return;
+      tbody.innerHTML = '<tr class="loading-row"><td colspan="3">Belum ada aktivitas tercatat.</td></tr>'; return;
     }
     tbody.innerHTML = json.data.map(log => `
       <tr>
@@ -442,12 +555,7 @@ async function loadAudit() {
   }
 }
 
-function loadAll() {
-  loadData();
-  loadStressTest();
-  loadAudit();
-}
-
+function loadAll() { loadData(); loadAudit(); }
 loadAll();
 </script>
 </body>
