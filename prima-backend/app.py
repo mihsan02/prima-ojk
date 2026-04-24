@@ -13,18 +13,8 @@ DATA_FILE = os.path.join(os.path.dirname(__file__), 'pakd_data.json')
 AUDIT_FILE = os.path.join(os.path.dirname(__file__), 'audit_log.json')
 
 PAKD_DEFAULT = [
-    {
-        "id": "PAKD-OJK-001",
-        "nama": "PT Indodax Nasional Indonesia",
-        "eth_wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-        "aset_dilaporkan": 9814800000
-    },
-    {
-        "id": "PAKD-OJK-002",
-        "nama": "PT Tokocrypto",
-        "eth_wallet": "0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe",
-        "aset_dilaporkan": 3421000000
-    }
+    {"id": "PAKD-OJK-001", "nama": "PT Indodax Nasional Indonesia", "eth_wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", "aset_dilaporkan": 9814800000},
+    {"id": "PAKD-OJK-002", "nama": "PT Tokocrypto", "eth_wallet": "0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe", "aset_dilaporkan": 3421000000}
 ]
 
 def get_eth_price_idr():
@@ -51,11 +41,7 @@ def write_audit(action, detail):
     if os.path.exists(AUDIT_FILE):
         with open(AUDIT_FILE, 'r') as f:
             logs = json.load(f)
-    logs.insert(0, {
-        "waktu": datetime.now().strftime("%d %b %Y, %H:%M"),
-        "aksi": action,
-        "detail": detail
-    })
+    logs.insert(0, {"waktu": datetime.now().strftime("%d %b %Y, %H:%M"), "aksi": action, "detail": detail})
     logs = logs[:50]
     with open(AUDIT_FILE, 'w') as f:
         json.dump(logs, f, indent=2)
@@ -89,21 +75,29 @@ def reconciliation():
         aset_onchain_idr = eth_balance * eth_price
         aset_dilaporkan = pakd["aset_dilaporkan"]
         if aset_dilaporkan > 0:
-            deviasi_pct = abs(aset_onchain_idr - aset_dilaporkan) / aset_dilaporkan * 100
+            selisih = aset_onchain_idr - aset_dilaporkan
+            deviasi_pct = selisih / aset_dilaporkan * 100
         else:
-            deviasi_pct = 100
-        if deviasi_pct < 5:
+            selisih = 0
+            deviasi_pct = 0
+        surplus = aset_onchain_idr >= aset_dilaporkan
+        if surplus:
             status_rec = "Aman"
-        elif deviasi_pct < 15:
-            status_rec = "Deviasi"
         else:
-            status_rec = "Kritis"
+            deficit_pct = abs(deviasi_pct)
+            if deficit_pct < 5:
+                status_rec = "Aman"
+            elif deficit_pct < 15:
+                status_rec = "Deviasi"
+            else:
+                status_rec = "Kritis"
         hasil.append({
             "id": pakd["id"],
             "nama": pakd["nama"],
             "aset_onchain_idr": round(aset_onchain_idr),
             "aset_dilaporkan_idr": aset_dilaporkan,
             "deviasi_pct": round(deviasi_pct, 2),
+            "surplus": surplus,
             "status": status_rec,
             "eth_balance": round(eth_balance, 4)
         })
@@ -153,21 +147,13 @@ def input_manual():
     pakd_id = body.get('id', '').strip()
     wallet = body.get('eth_wallet', '').strip()
     aset = body.get('aset_dilaporkan', 0)
-
     if not nama or not pakd_id or not wallet:
         return jsonify({"error": "Nama, ID, dan wallet wajib diisi"}), 400
-
     pakd_list = load_pakd()
     for p in pakd_list:
         if p['id'] == pakd_id:
             return jsonify({"error": f"ID {pakd_id} sudah terdaftar"}), 400
-
-    entry = {
-        "id": pakd_id,
-        "nama": nama,
-        "eth_wallet": wallet,
-        "aset_dilaporkan": int(aset)
-    }
+    entry = {"id": pakd_id, "nama": nama, "eth_wallet": wallet, "aset_dilaporkan": int(aset)}
     pakd_list.append(entry)
     save_pakd(pakd_list)
     write_audit("INPUT MANUAL", f"{nama} ({pakd_id}) ditambahkan oleh OJK")

@@ -1,5 +1,20 @@
 [
   {
+    "waktu": "24 Apr 2026, 08:00",
+    "aksi": "STRESS TEST",
+    "detail": "Stress test dijalankan untuk 3 PAKD"
+  },
+  {
+    "waktu": "24 Apr 2026, 08:00",
+    "aksi": "STRESS TEST",
+    "detail": "Stress test dijalankan untuk 3 PAKD"
+  },
+  {
+    "waktu": "24 Apr 2026, 08:00",
+    "aksi": "REKONSILIASI",
+    "detail": "3 PAKD direkonsiliasi, harga ETH: Rp 39,830,972"
+  },
+  {
     "waktu": "24 Apr 2026, 07:21",
     "aksi": "STRESS TEST",
     "detail": "Stress test dijalankan untuk 3 PAKD"
