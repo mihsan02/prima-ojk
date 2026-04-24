@@ -13,7 +13,7 @@ PAKD_DATA = [
     {
         "id": "PAKD-OJK-001",
         "nama": "PT Indodax Nasional Indonesia",
-        "eth_wallet": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+        "eth_wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
         "aset_dilaporkan": 9814800000
     },
     {
