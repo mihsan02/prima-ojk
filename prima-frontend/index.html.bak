@@ -67,33 +67,10 @@ tr:hover td{background:rgba(14,165,201,0.03)}
 .mono-val{font-family:'IBM Plex Mono',monospace;font-size:11px}
 .loading-row td{text-align:center;color:var(--txt3);padding:24px;font-style:italic}
 .error-row td{text-align:center;color:var(--red);padding:24px}
-.form-input{width:100%;background:var(--bg0);border:1px solid var(--border2);border-radius:var(--r);padding:7px 10px;color:var(--txt1);font-size:11px;font-family:'IBM Plex Sans',sans-serif;outline:none}
-.form-input:focus{border-color:var(--teal)}
-.form-label{font-size:10px;color:var(--txt3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em;display:block}
-.btn-primary{padding:7px 16px;border-radius:var(--r);background:var(--teal);color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
-.btn-primary:hover{background:#0C8DAD}
 .dash-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);margin-top:4px}
 .dash-footer-txt{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--txt3)}
-/* STRESS TEST */
-.stress-panel{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:16px}
-.stress-row{display:flex;align-items:center;gap:12px;padding:10px;border-radius:var(--r);margin-bottom:8px}
-.stress-row.mild{background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15)}
-.stress-row.moderate{background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15)}
-.stress-row.severe{background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15)}
-.stress-label-wrap{flex:0 0 110px}
-.stress-name{font-size:11px;font-weight:600}
-.stress-name.mild{color:var(--green)}
-.stress-name.moderate{color:var(--amber)}
-.stress-name.severe{color:var(--red)}
-.stress-pct{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--txt3);margin-top:2px}
-.stress-bar-wrap{flex:1;height:8px;background:var(--bg0);border-radius:4px;overflow:hidden}
-.stress-bar{height:100%;border-radius:4px;transition:width 0.6s ease}
-.stress-bar.mild{background:var(--green)}
-.stress-bar.moderate{background:var(--amber)}
-.stress-bar.severe{background:var(--red)}
-.stress-count{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;flex:0 0 70px;text-align:right}
-.stress-count span{font-size:9px;color:var(--txt3);font-weight:400}
-.stress-price-note{font-size:10px;color:var(--txt3);margin-bottom:10px;font-family:'IBM Plex Mono',monospace}
+.btn-refresh{padding:7px 14px;border-radius:var(--r);background:var(--teal);color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:0.03em}
+.btn-refresh:hover{background:#0C8DAD}
 </style>
 </head>
 <body>
@@ -134,7 +111,7 @@ tr:hover td{background:rgba(14,165,201,0.03)}
       <div class="page-title">Overview Rekonsiliasi PAKD</div>
       <div class="page-subtitle">Data live dari blockchain · Diperbarui setiap pemuatan halaman</div>
     </div>
-    <button class="btn-primary" onclick="loadAll()">⟳ Rekonsiliasi Manual</button>
+    <button class="btn-refresh" onclick="loadData()">⟳ Rekonsiliasi Manual</button>
   </div>
 
   <div class="kpi-grid">
@@ -160,7 +137,6 @@ tr:hover td{background:rgba(14,165,201,0.03)}
     </div>
   </div>
 
-  <!-- PAKD TABLE -->
   <div>
     <div class="section-header">
       <div class="section-title">Daftar Pedagang Aset Keuangan Digital</div>
@@ -185,68 +161,37 @@ tr:hover td{background:rgba(14,165,201,0.03)}
     </div>
   </div>
 
-  <!-- STRESS TEST -->
-  <div>
-    <div class="section-header">
-      <div class="section-title">Stress Test Solvabilitas</div>
-    </div>
-    <div class="stress-panel">
-      <div class="stress-price-note" id="stress-price-note">Memuat harga ETH live...</div>
-      <div id="stress-mild" class="stress-row mild">
-        <div class="stress-label-wrap">
-          <div class="stress-name mild">Mild</div>
-          <div class="stress-pct">-30%</div>
-        </div>
-        <div class="stress-bar-wrap"><div class="stress-bar mild" style="width:0%"></div></div>
-        <div class="stress-count mild" style="color:var(--green)">—<span> lulus</span></div>
-      </div>
-      <div id="stress-moderate" class="stress-row moderate">
-        <div class="stress-label-wrap">
-          <div class="stress-name moderate">Moderate</div>
-          <div class="stress-pct">-55%</div>
-        </div>
-        <div class="stress-bar-wrap"><div class="stress-bar moderate" style="width:0%"></div></div>
-        <div class="stress-count moderate" style="color:var(--amber)">—<span> lulus</span></div>
-      </div>
-      <div id="stress-severe" class="stress-row severe">
-        <div class="stress-label-wrap">
-          <div class="stress-name severe">Severe</div>
-          <div class="stress-pct">-80%</div>
-        </div>
-        <div class="stress-bar-wrap"><div class="stress-bar severe" style="width:0%"></div></div>
-        <div class="stress-count severe" style="color:var(--red)">—<span> lulus</span></div>
-      </div>
-      <div id="stress-note" style="margin-top:10px;padding:8px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--txt3);font-size:10px;color:var(--txt3)">Memuat hasil stress test...</div>
-    </div>
+  <div class="dash-footer">
+    <span class="dash-footer-txt">PRIMA v1.0 · Sistem Pemantauan Transparansi Aset PAKD Berbasis Blockchain · OJK © 2026</span>
+    <span class="dash-footer-txt" id="footer-time">—</span>
   </div>
-
-  <!-- MANUAL INPUT -->
+<!-- MANUAL INPUT FORM -->
   <div>
     <div class="section-header">
       <div class="section-title">Input Manual Data PAKD</div>
     </div>
     <div class="table-wrap" style="padding:16px">
-      <div style="font-size:11px;color:var(--txt3);margin-bottom:14px">Gunakan form ini jika API E-reporting OJK belum tersedia. Data akan disimpan dan direkonsiliasi otomatis.</div>
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:12px">Gunakan form ini jika API E-reporting OJK belum tersedia. Data akan disimpan dan direkonsiliasi otomatis.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end">
         <div>
-          <label class="form-label">Nama PAKD</label>
-          <input id="f-nama" class="form-input" type="text" placeholder="PT Nama Exchange">
+          <div style="font-size:10px;color:var(--txt3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em">Nama PAKD</div>
+          <input id="f-nama" type="text" placeholder="PT Nama Exchange" style="width:100%;background:var(--bg0);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;color:var(--txt1);font-size:11px;font-family:'IBM Plex Sans',sans-serif;outline:none">
         </div>
         <div>
-          <label class="form-label">ID PAKD</label>
-          <input id="f-id" class="form-input mono" type="text" placeholder="PAKD-OJK-003">
+          <div style="font-size:10px;color:var(--txt3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em">ID PAKD</div>
+          <input id="f-id" type="text" placeholder="PAKD-OJK-003" style="width:100%;background:var(--bg0);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;color:var(--txt1);font-size:11px;font-family:'IBM Plex Mono',monospace;outline:none">
         </div>
         <div>
-          <label class="form-label">ETH Wallet Address</label>
-          <input id="f-wallet" class="form-input mono" type="text" placeholder="0x...">
+          <div style="font-size:10px;color:var(--txt3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em">ETH Wallet Address</div>
+          <input id="f-wallet" type="text" placeholder="0x..." style="width:100%;background:var(--bg0);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;color:var(--txt1);font-size:11px;font-family:'IBM Plex Mono',monospace;outline:none">
         </div>
         <div>
-          <label class="form-label">Aset Dilaporkan (IDR)</label>
-          <input id="f-aset" class="form-input mono" type="number" placeholder="5000000000">
+          <div style="font-size:10px;color:var(--txt3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em">Aset Dilaporkan (IDR)</div>
+          <input id="f-aset" type="number" placeholder="5000000000" style="width:100%;background:var(--bg0);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;color:var(--txt1);font-size:11px;font-family:'IBM Plex Mono',monospace;outline:none">
         </div>
-        <button class="btn-primary" onclick="submitManual()">+ Tambah PAKD</button>
+        <button onclick="submitManual()" style="padding:7px 16px;border-radius:6px;background:var(--teal);color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">+ Tambah PAKD</button>
       </div>
-      <div id="form-msg" style="margin-top:10px;font-size:11px;display:none;font-family:'IBM Plex Mono',monospace"></div>
+      <div id="form-msg" style="margin-top:10px;font-size:11px;display:none"></div>
     </div>
   </div>
 
@@ -270,12 +215,6 @@ tr:hover td{background:rgba(14,165,201,0.03)}
       </table>
     </div>
   </div>
-
-  <div class="dash-footer">
-    <span class="dash-footer-txt">PRIMA v1.0 · Sistem Pemantauan Transparansi Aset PAKD Berbasis Blockchain · OJK © 2026</span>
-    <span class="dash-footer-txt" id="footer-time">—</span>
-  </div>
-
 </main>
 </div>
 
@@ -286,114 +225,86 @@ function formatIDR(angka) {
   return 'Rp ' + Math.round(angka).toLocaleString('id-ID');
 }
 
-function formatRpCompact(n) {
-  if (n >= 1e9) return 'Rp ' + (n/1e9).toFixed(1) + ' M';
-  if (n >= 1e6) return 'Rp ' + (n/1e6).toFixed(1) + ' jt';
-  return 'Rp ' + n.toLocaleString('id-ID');
-}
-
-function statusClass(s) {
-  if (s === 'Aman') return 'aman';
-  if (s === 'Deviasi') return 'deviasi';
+function statusClass(status) {
+  if (status === 'Aman') return 'aman';
+  if (status === 'Deviasi') return 'deviasi';
   return 'kritis';
 }
 
-function deviColor(s) {
-  if (s === 'Aman') return 'var(--green)';
-  if (s === 'Deviasi') return 'var(--amber)';
+function deviColor(status) {
+  if (status === 'Aman') return 'var(--green)';
+  if (status === 'Deviasi') return 'var(--amber)';
   return 'var(--red)';
 }
 
 async function loadData() {
   const tbody = document.getElementById('pakd-tbody');
   tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Mengambil data dari blockchain...</td></tr>';
+
   try {
     const res = await fetch('/api/reconciliation');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     const data = json.data;
-    const now = new Date().toLocaleString('id-ID', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+    const now = new Date().toLocaleString('id-ID', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
     document.getElementById('last-update').textContent = now;
     document.getElementById('footer-time').textContent = 'Rekonsiliasi terakhir: ' + now;
     document.getElementById('live-badge').textContent = 'LIVE';
     document.getElementById('live-badge').style.color = 'var(--green)';
+
     const aman = data.filter(d => d.status === 'Aman').length;
+    const alert = data.filter(d => d.status !== 'Aman').length;
+    const maxDev = data.length ? Math.max(...data.map(d => d.deviasi_pct)) : 0;
+
     document.getElementById('kpi-aman').textContent = aman;
     document.getElementById('kpi-total-label').textContent = 'dari ' + data.length + ' PAKD terdaftar';
-    document.getElementById('kpi-alert').textContent = data.length - aman;
-    document.getElementById('kpi-max-dev').textContent = (data.length ? Math.max(...data.map(d => d.deviasi_pct)) : 0).toFixed(2) + '%';
+    document.getElementById('kpi-alert').textContent = alert;
+    document.getElementById('kpi-max-dev').textContent = maxDev.toFixed(2) + '%';
+
     tbody.innerHTML = data.map((d, i) => `
-      <tr style="background:${d.status==='Kritis'?'rgba(239,68,68,0.04)':d.status==='Deviasi'?'rgba(245,158,11,0.03)':''}">
-        <td class="mono" style="color:var(--txt3)">${String(i+1).padStart(2,'0')}</td>
-        <td><span class="pakd-name">${d.nama}</span><span class="pakd-id">${d.id} · Berizin</span></td>
+      <tr style="background:${d.status === 'Kritis' ? 'rgba(239,68,68,0.04)' : d.status === 'Deviasi' ? 'rgba(245,158,11,0.03)' : ''}">
+        <td class="mono" style="color:var(--txt3)">${String(i + 1).padStart(2, '0')}</td>
+        <td>
+          <span class="pakd-name">${d.nama}</span>
+          <span class="pakd-id">${d.id} · Berizin</span>
+        </td>
         <td><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
         <td class="mono-val" style="color:var(--txt1)">${formatIDR(d.aset_onchain_idr)}</td>
         <td class="mono-val" style="color:var(--txt2)">${formatIDR(d.aset_dilaporkan_idr)}</td>
         <td class="mono-val" style="color:${deviColor(d.status)}">${d.deviasi_pct}%</td>
         <td class="mono-val" style="color:var(--txt3)">${d.eth_balance} ETH</td>
-      </tr>`).join('');
+      </tr>
+    `).join('');
+
   } catch (err) {
-    tbody.innerHTML = '<tr class="error-row"><td colspan="7">Gagal mengambil data: ' + err.message + '</td></tr>';
+    tbody.innerHTML = '<tr class="error-row"><td colspan="7">Gagal mengambil data: ' + err.message + '. Pastikan Flask server berjalan.</td></tr>';
     document.getElementById('live-badge').textContent = 'OFFLINE';
     document.getElementById('live-badge').style.color = 'var(--red)';
+    document.getElementById('live-badge').style.borderColor = 'rgba(239,68,68,0.3)';
+    document.getElementById('live-badge').style.background = 'rgba(239,68,68,0.1)';
   }
 }
 
-async function loadStressTest() {
-  try {
-    const res = await fetch('/api/stress-test');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const json = await res.json();
-    const d = json.data;
-    const ethPrice = json.eth_price_idr;
-
-    document.getElementById('stress-price-note').textContent =
-      'Harga ETH live: ' + formatRpCompact(ethPrice) + ' · Basis data: ' + d.mild.total + ' PAKD terdaftar';
-
-    const scenarios = [
-      { key: 'mild',     color: 'var(--green)' },
-      { key: 'moderate', color: 'var(--amber)' },
-      { key: 'severe',   color: 'var(--red)'   }
-    ];
-
-    scenarios.forEach(s => {
-      const row = document.getElementById('stress-' + s.key);
-      const bar = row.querySelector('.stress-bar');
-      const count = row.querySelector('.stress-count');
-      const pct = d[s.key].total > 0 ? (d[s.key].lulus / d[s.key].total * 100) : 0;
-      bar.style.width = pct + '%';
-      count.innerHTML = `${d[s.key].lulus}/${d[s.key].total}<span> lulus</span>`;
-      count.style.color = s.color;
-    });
-
-    const gagalSevere = d.severe.gagal;
-    const noteEl = document.getElementById('stress-note');
-    if (gagalSevere > 0) {
-      noteEl.style.borderLeftColor = 'var(--amber)';
-      noteEl.style.color = 'var(--amber)';
-      noteEl.textContent = '⚠ ' + gagalSevere + ' PAKD berisiko gagal solvabilitas pada skenario severe (-80%). Rekomendasi: permintaan laporan aset cadangan tambahan.';
-    } else {
-      noteEl.style.borderLeftColor = 'var(--green)';
-      noteEl.style.color = 'var(--green)';
-      noteEl.textContent = '✓ Seluruh PAKD lulus stress test pada semua skenario.';
-    }
-  } catch (err) {
-    document.getElementById('stress-note').textContent = 'Gagal memuat stress test: ' + err.message;
-  }
-}
-
+loadData();
 async function submitManual() {
   const nama = document.getElementById('f-nama').value.trim();
   const id = document.getElementById('f-id').value.trim();
   const wallet = document.getElementById('f-wallet').value.trim();
   const aset = parseInt(document.getElementById('f-aset').value) || 0;
   const msg = document.getElementById('form-msg');
+
   if (!nama || !id || !wallet) {
     msg.style.display = 'block';
     msg.style.color = 'var(--red)';
     msg.textContent = 'Nama, ID, dan wallet wajib diisi.';
     return;
   }
+
   try {
     const res = await fetch('/api/input-manual', {
       method: 'POST',
@@ -411,7 +322,8 @@ async function submitManual() {
       document.getElementById('f-id').value = '';
       document.getElementById('f-wallet').value = '';
       document.getElementById('f-aset').value = '';
-      loadAll();
+      loadData();
+      loadAudit();
     }
     msg.style.display = 'block';
   } catch (err) {
@@ -423,7 +335,6 @@ async function submitManual() {
 
 async function loadAudit() {
   const tbody = document.getElementById('audit-tbody');
-  if (!tbody) return;
   try {
     const res = await fetch('/api/audit-log');
     const json = await res.json();
@@ -436,19 +347,73 @@ async function loadAudit() {
         <td class="mono-val" style="color:var(--txt3);white-space:nowrap">${log.waktu}</td>
         <td><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(14,165,201,0.1);color:var(--teal);border:1px solid rgba(14,165,201,0.2)">${log.aksi}</span></td>
         <td style="color:var(--txt2)">${log.detail}</td>
-      </tr>`).join('');
-  } catch(e) {
+      </tr>
+    `).join('');
+  } catch {
     tbody.innerHTML = '<tr class="loading-row"><td colspan="3">Gagal memuat audit log.</td></tr>';
   }
 }
 
-function loadAll() {
-  loadData();
-  loadStressTest();
-  loadAudit();
-}
-
-loadAll();
+loadAudit();
+sed -i '357a\
+\
+async function submitManual() {\
+  const nama = document.getElementById("f-nama").value.trim();\
+  const id = document.getElementById("f-id").value.trim();\
+  const wallet = document.getElementById("f-wallet").value.trim();\
+  const aset = parseInt(document.getElementById("f-aset").value) || 0;\
+  const msg = document.getElementById("form-msg");\
+  if (!nama || !id || !wallet) {\
+    msg.style.display = "block";\
+    msg.style.color = "var(--red)";\
+    msg.textContent = "Nama, ID, dan wallet wajib diisi.";\
+    return;\
+  }\
+  try {\
+    const res = await fetch("/api/input-manual", {\
+      method: "POST",\
+      headers: {"Content-Type": "application/json"},\
+      body: JSON.stringify({nama, id, eth_wallet: wallet, aset_dilaporkan: aset})\
+    });\
+    const json = await res.json();\
+    if (!res.ok) {\
+      msg.style.color = "var(--red)";\
+      msg.textContent = json.error;\
+    } else {\
+      msg.style.color = "var(--green)";\
+      msg.textContent = json.message + " — rekonsiliasi diperbarui.";\
+      document.getElementById("f-nama").value = "";\
+      document.getElementById("f-id").value = "";\
+      document.getElementById("f-wallet").value = "";\
+      document.getElementById("f-aset").value = "";\
+      loadData();\
+      loadAudit();\
+    }\
+    msg.style.display = "block";\
+  } catch (err) {\
+    msg.style.color = "var(--red)";\
+    msg.style.display = "block";\
+    msg.textContent = "Gagal menghubungi server: " + err.message;\
+  }\
+}\
+\
+async function loadAudit() {\
+  const tbody = document.getElementById("audit-tbody");\
+  if (!tbody) return;\
+  try {\
+    const res = await fetch("/api/audit-log");\
+    const json = await res.json();\
+    if (!json.data.length) {\
+      tbody.innerHTML = "<tr class=\\"loading-row\\"><td colspan=\\"3\\">Belum ada aktivitas tercatat.</td></tr>";\
+      return;\
+    }\
+    tbody.innerHTML = json.data.map(log => "<tr><td class=\\"mono-val\\" style=\\"color:var(--txt3);white-space:nowrap\\">" + log.waktu + "</td><td><span style=\\"font-family:IBM Plex Mono,monospace;font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(14,165,201,0.1);color:var(--teal);border:1px solid rgba(14,165,201,0.2)\\">" + log.aksi + "</span></td><td style=\\"color:var(--txt2)\\">" + log.detail + "</td></tr>").join("");\
+  } catch(e) {\
+    tbody.innerHTML = "<tr class=\\"loading-row\\"><td colspan=\\"3\\">Gagal memuat audit log.</td></tr>";\
+  }\
+}\
+\
+loadAudit();' /workspaces/prima-ojk/prima-frontend/index.html
 </script>
 </body>
 </html>

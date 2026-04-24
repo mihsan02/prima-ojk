@@ -1,0 +1,32 @@
+[
+  {
+    "waktu": "24 Apr 2026, 07:21",
+    "aksi": "STRESS TEST",
+    "detail": "Stress test dijalankan untuk 3 PAKD"
+  },
+  {
+    "waktu": "24 Apr 2026, 07:21",
+    "aksi": "REKONSILIASI",
+    "detail": "3 PAKD direkonsiliasi, harga ETH: Rp 39,910,192"
+  },
+  {
+    "waktu": "24 Apr 2026, 07:20",
+    "aksi": "STRESS TEST",
+    "detail": "Stress test dijalankan untuk 3 PAKD"
+  },
+  {
+    "waktu": "24 Apr 2026, 07:15",
+    "aksi": "STRESS TEST",
+    "detail": "Stress test dijalankan untuk 3 PAKD"
+  },
+  {
+    "waktu": "24 Apr 2026, 07:13",
+    "aksi": "REKONSILIASI",
+    "detail": "3 PAKD direkonsiliasi, harga ETH: Rp 39,971,851"
+  },
+  {
+    "waktu": "24 Apr 2026, 03:59",
+    "aksi": "INPUT MANUAL",
+    "detail": "PT ABCD (xx/xx/xx) ditambahkan oleh OJK"
+  }
+]
