@@ -158,9 +158,10 @@ tr:hover td{background:rgba(14,165,201,0.03)}
       <div class="kpi-card teal">
         <div class="kpi-label">Koneksi Blockchain</div>
         <div class="kpi-value teal" style="font-size:18px;margin-top:4px">AKTIF</div>
-        <div class="kpi-sub">Etherscan V2 · CoinGecko</div>
+        <div class="kpi-sub" id="kpi-blockchain-sub">Etherscan V2 · CoinGecko</div>
       </div>
     </div>
+    <div id="eth-fallback-notice" style="display:none;font-size:11px;color:var(--amber);font-family:'IBM Plex Mono',monospace;padding:6px 10px;background:var(--amber-bg);border:1px solid rgba(245,158,11,0.25);border-radius:var(--r)">(menggunakan harga fallback — CoinGecko tidak tersedia)</div>
 
     <div>
       <div class="section-header">
@@ -237,7 +238,7 @@ tr:hover td{background:rgba(14,165,201,0.03)}
       <div class="kpi-card teal">
         <div class="kpi-label">Harga ETH Live</div>
         <div class="kpi-value teal" id="st-kpi-eth" style="font-size:18px;margin-top:4px">—</div>
-        <div class="kpi-sub">sumber: CoinGecko</div>
+        <div class="kpi-sub" id="st-kpi-eth-sub">sumber: CoinGecko</div>
       </div>
     </div>
 
@@ -445,6 +446,14 @@ async function loadData() {
     document.getElementById('last-update').textContent = now;
     document.getElementById('footer-time').textContent = 'Rekonsiliasi terakhir: ' + now;
     document.getElementById('live-badge').textContent = 'LIVE';
+    const fallbackNotice = document.getElementById('eth-fallback-notice');
+    if (json.harga_fallback) {
+      fallbackNotice.style.display = 'block';
+      document.getElementById('kpi-blockchain-sub').textContent = 'Etherscan V2 · CoinGecko (fallback)';
+    } else {
+      fallbackNotice.style.display = 'none';
+      document.getElementById('kpi-blockchain-sub').textContent = 'Etherscan V2 · CoinGecko';
+    }
     const aman = data.filter(d => d.status === 'Aman').length;
     document.getElementById('kpi-aman').textContent = aman;
     document.getElementById('kpi-total-label').textContent = 'dari ' + data.length + ' PAKD terdaftar';
@@ -477,6 +486,8 @@ async function loadStressTest() {
     const ethPrice = json.eth_price_idr;
     document.getElementById('stress-price-note').textContent =
       'Harga ETH live: ' + formatRpCompact(ethPrice) + ' · Basis data: ' + d.mild.total + ' PAKD terdaftar';
+    document.getElementById('st-kpi-eth-sub').textContent =
+      json.harga_fallback ? 'sumber: CoinGecko (fallback)' : 'sumber: CoinGecko';
     document.getElementById('st-kpi-mild').textContent = d.mild.lulus + '/' + d.mild.total;
     document.getElementById('st-kpi-moderate').textContent = d.moderate.lulus + '/' + d.moderate.total;
     document.getElementById('st-kpi-severe').textContent = d.severe.lulus + '/' + d.severe.total;
@@ -522,7 +533,7 @@ async function submitManual() {
       body: JSON.stringify({nama, id, eth_wallet: wallet, aset_dilaporkan: aset})
     });
     const json = await res.json();
-    if (!res.ok) { msg.style.color = 'var(--red)'; msg.textContent = json.error; }
+    if (!res.ok) { msg.style.color = 'var(--red)'; msg.textContent = json.message; }
     else {
       msg.style.color = 'var(--green)';
       msg.textContent = json.message + ' — rekonsiliasi diperbarui.';
