@@ -197,7 +197,7 @@ def input_manual():
     try:
         body = request.get_json(silent=True)
         if not body:
-            return jsonify({"error": "Request body tidak valid atau bukan JSON"}), 400
+            return jsonify({"status": "error", "message": "Request body tidak valid atau bukan JSON"}), 400
 
         nama = body.get('nama', '').strip()
         pakd_id = body.get('id', '').strip()
@@ -205,20 +205,20 @@ def input_manual():
         aset = body.get('aset_dilaporkan', None)
 
         if not nama:
-            return jsonify({"error": "Field 'nama' wajib diisi"}), 400
+            return jsonify({"status": "error", "message": "Field 'nama' wajib diisi"}), 400
         if not pakd_id:
-            return jsonify({"error": "Field 'id' wajib diisi"}), 400
+            return jsonify({"status": "error", "message": "Field 'id' wajib diisi"}), 400
         if not wallet:
-            return jsonify({"error": "Field 'eth_wallet' wajib diisi"}), 400
+            return jsonify({"status": "error", "message": "Field 'eth_wallet' wajib diisi"}), 400
         if not wallet.startswith('0x') or len(wallet) != 42:
-            return jsonify({"error": "eth_wallet harus berformat Ethereum address valid (0x diikuti 40 karakter hex, total 42 karakter)"}), 400
+            return jsonify({"status": "error", "message": "eth_wallet harus berformat Ethereum address valid (0x diikuti 40 karakter hex, total 42 karakter)"}), 400
         if aset is None or not isinstance(aset, (int, float)) or aset <= 0:
-            return jsonify({"error": "Field 'aset_dilaporkan' harus berupa angka positif"}), 400
+            return jsonify({"status": "error", "message": "Field 'aset_dilaporkan' harus berupa angka positif"}), 400
 
         pakd_list = load_pakd()
         for p in pakd_list:
             if p['id'] == pakd_id:
-                return jsonify({"error": f"ID {pakd_id} sudah terdaftar"}), 400
+                return jsonify({"status": "error", "message": f"ID {pakd_id} sudah terdaftar"}), 400
 
         entry = {"id": pakd_id, "nama": nama, "eth_wallet": wallet, "aset_dilaporkan": int(aset)}
         pakd_list.append(entry)

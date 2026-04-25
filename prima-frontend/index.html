@@ -533,7 +533,7 @@ async function submitManual() {
       body: JSON.stringify({nama, id, eth_wallet: wallet, aset_dilaporkan: aset})
     });
     const json = await res.json();
-    if (!res.ok) { msg.style.color = 'var(--red)'; msg.textContent = json.error; }
+    if (!res.ok) { msg.style.color = 'var(--red)'; msg.textContent = json.message; }
     else {
       msg.style.color = 'var(--green)';
       msg.textContent = json.message + ' — rekonsiliasi diperbarui.';
