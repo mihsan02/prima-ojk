@@ -14,7 +14,9 @@ env/
 
 # Environment
 .env
-.env.*
+.env.local
+.env.production
+.env.staging
 
 # OS
 .DS_Store

@@ -1,7 +1,8 @@
+import os
 import requests
 
-ETHERSCAN_API_KEY = "***REDACTED_ETHERSCAN_KEY***"
-SOLSCAN_API_KEY = "***REDACTED_SOLSCAN_KEY*** "
+ETHERSCAN_API_KEY = os.environ.get("ETHERSCAN_API_KEY", "")
+SOLSCAN_API_KEY = os.environ.get("SOLSCAN_API_KEY", "")
 
 def test_etherscan():
     wallet = "0x0681d8db095565fe8a346fa0277bffde9c0edbbf"
