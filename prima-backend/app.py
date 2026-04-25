@@ -4,6 +4,7 @@ import requests
 import os
 import json
 from datetime import datetime
+import re
 
 app = Flask(__name__)
 CORS(app)
@@ -210,7 +211,7 @@ def input_manual():
             return jsonify({"status": "error", "message": "Field 'id' wajib diisi"}), 400
         if not wallet:
             return jsonify({"status": "error", "message": "Field 'eth_wallet' wajib diisi"}), 400
-        if not wallet.startswith('0x') or len(wallet) != 42:
+        if not re.match(r'^0x[0-9a-fA-F]{40}$', wallet):
             return jsonify({"status": "error", "message": "eth_wallet harus berformat Ethereum address valid (0x diikuti 40 karakter hex, total 42 karakter)"}), 400
         if aset is None or not isinstance(aset, (int, float)) or aset <= 0:
             return jsonify({"status": "error", "message": "Field 'aset_dilaporkan' harus berupa angka positif"}), 400
