@@ -94,7 +94,7 @@ def init_data():
 
 @app.route('/')
 def index():
-    return send_from_directory('../prima-frontend', 'index.html')
+    return send_from_directory('../prima-frontend', 'PRIMA Dashboard Standalone.html')
 
 
 @app.route('/api/status')
