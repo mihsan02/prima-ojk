@@ -13,9 +13,11 @@ ETHERSCAN_API_KEY = os.environ.get("ETHERSCAN_API_KEY", "")
 DATA_FILE = os.path.join(os.path.dirname(__file__), 'pakd_data.json')
 AUDIT_FILE = os.path.join(os.path.dirname(__file__), 'audit_log.json')
 
+WALLET_RE = re.compile(r'^0x[0-9a-fA-F]{40}$')
+
 PAKD_DEFAULT = [
-    {"id": "PAKD-OJK-001", "nama": "PT Indodax Nasional Indonesia", "eth_wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", "aset_dilaporkan": 9814800000},
-    {"id": "PAKD-OJK-002", "nama": "PT Tokocrypto", "eth_wallet": "0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe", "aset_dilaporkan": 3421000000}
+    {"id": "PAKD-OJK-001", "nama": "PT Indodax Nasional Indonesia", "wallets": ["0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"], "aset_dilaporkan": 9814800000},
+    {"id": "PAKD-OJK-002", "nama": "PT Tokocrypto", "wallets": ["0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe"], "aset_dilaporkan": 3421000000}
 ]
 
 
@@ -32,13 +34,21 @@ def get_eth_price_idr():
         return 39_910_503, True
 
 
+def _migrate_record(p):
+    """Migrate legacy eth_wallet string field to wallets array."""
+    if "eth_wallet" in p and "wallets" not in p:
+        p = dict(p)
+        p["wallets"] = [p.pop("eth_wallet")]
+    return p
+
+
 def load_pakd():
     try:
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE, 'r') as f:
                 data = json.load(f)
             if data:
-                return data
+                return [_migrate_record(p) for p in data]
     except Exception:
         pass
     return list(PAKD_DEFAULT)
@@ -78,6 +88,11 @@ def get_eth_balance(wallet_address):
         return 0
 
 
+def get_total_eth_balance(wallets):
+    """Sum ETH balance across all wallet addresses for a PAKD."""
+    return sum(get_eth_balance(w) for w in wallets)
+
+
 def init_data():
     """Write seed data to pakd_data.json if the file is missing or empty."""
     try:
@@ -112,7 +127,8 @@ def reconciliation():
         pakd_list = load_pakd()
         hasil = []
         for pakd in pakd_list:
-            eth_balance = get_eth_balance(pakd["eth_wallet"])
+            wallets = pakd["wallets"]
+            eth_balance = get_total_eth_balance(wallets)
             aset_onchain_idr = eth_balance * eth_price
             aset_dilaporkan = pakd["aset_dilaporkan"]
             if aset_dilaporkan > 0:
@@ -135,6 +151,8 @@ def reconciliation():
             hasil.append({
                 "id": pakd["id"],
                 "nama": pakd["nama"],
+                "wallets": wallets,
+                "wallet_count": len(wallets),
                 "aset_onchain_idr": round(aset_onchain_idr),
                 "aset_dilaporkan_idr": aset_dilaporkan,
                 "deviasi_pct": round(deviasi_pct, 2),
@@ -169,7 +187,7 @@ def stress_test():
             gagal = 0
             eth_price_stressed = eth_price * (1 - s["penurunan"])
             for pakd in pakd_list:
-                eth_balance = get_eth_balance(pakd["eth_wallet"])
+                eth_balance = get_total_eth_balance(pakd["wallets"])
                 aset_onchain_stressed = eth_balance * eth_price_stressed
                 aset_dilaporkan = pakd["aset_dilaporkan"]
                 if aset_dilaporkan > 0:
@@ -200,19 +218,25 @@ def input_manual():
         if not body:
             return jsonify({"status": "error", "message": "Request body tidak valid atau bukan JSON"}), 400
 
-        nama = body.get('nama', '').strip()
-        pakd_id = body.get('id', '').strip()
-        wallet = body.get('eth_wallet', '').strip()
+        nama = body.get('nama', '').strip() if isinstance(body.get('nama'), str) else ''
+        pakd_id = body.get('id', '').strip() if isinstance(body.get('id'), str) else ''
         aset = body.get('aset_dilaporkan', None)
+
+        # Accept wallets array; fall back to wrapping legacy eth_wallet string
+        raw_wallets = body.get('wallets')
+        if raw_wallets is None and 'eth_wallet' in body:
+            eth_wallet = body.get('eth_wallet')
+            raw_wallets = [eth_wallet] if isinstance(eth_wallet, str) else []
 
         if not nama:
             return jsonify({"status": "error", "message": "Field 'nama' wajib diisi"}), 400
         if not pakd_id:
             return jsonify({"status": "error", "message": "Field 'id' wajib diisi"}), 400
-        if not wallet:
-            return jsonify({"status": "error", "message": "Field 'eth_wallet' wajib diisi"}), 400
-        if not re.match(r'^0x[0-9a-fA-F]{40}$', wallet):
-            return jsonify({"status": "error", "message": "eth_wallet harus berformat Ethereum address valid (0x diikuti 40 karakter hex, total 42 karakter)"}), 400
+        if not isinstance(raw_wallets, list) or len(raw_wallets) < 1:
+            return jsonify({"status": "error", "message": "Field 'wallets' wajib berupa array dengan minimal 1 alamat"}), 400
+        for w in raw_wallets:
+            if not isinstance(w, str) or not WALLET_RE.match(w):
+                return jsonify({"status": "error", "message": f"Wallet '{w}' tidak valid. Harus berformat 0x diikuti 40 karakter hex"}), 400
         if aset is None or not isinstance(aset, (int, float)) or aset <= 0:
             return jsonify({"status": "error", "message": "Field 'aset_dilaporkan' harus berupa angka positif"}), 400
 
@@ -221,7 +245,7 @@ def input_manual():
             if p['id'] == pakd_id:
                 return jsonify({"status": "error", "message": f"ID {pakd_id} sudah terdaftar"}), 400
 
-        entry = {"id": pakd_id, "nama": nama, "eth_wallet": wallet, "aset_dilaporkan": int(aset)}
+        entry = {"id": pakd_id, "nama": nama, "wallets": raw_wallets, "aset_dilaporkan": int(aset)}
         pakd_list.append(entry)
         save_pakd(pakd_list)
         write_audit("INPUT MANUAL", f"{nama} ({pakd_id}) ditambahkan oleh OJK")
