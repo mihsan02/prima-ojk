@@ -109,7 +109,10 @@ def init_data():
 
 @app.route('/')
 def index():
-    return send_from_directory('../prima-frontend', 'PRIMA Dashboard Standalone.html')
+    response = send_from_directory('../prima-frontend', 'PRIMA Dashboard Standalone.html')
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    return response
 
 
 @app.route('/api/status')
