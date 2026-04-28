@@ -11,16 +11,31 @@ import time
 app = Flask(__name__)
 CORS(app)
 
-SATOSHI_PER_BTC = 100_000_000
-LAMPORTS_PER_SOL = 1_000_000_000
-PRICE_CACHE     = {}
-BALANCE_CACHE   = {}
-PRICE_TTL       = 60
-BALANCE_TTL     = 30
+SATOSHI_PER_BTC    = 100_000_000
+LAMPORTS_PER_SOL   = 1_000_000_000
+PRICE_CACHE        = {}
+BALANCE_CACHE      = {}
+PRICE_TTL          = 60
+BALANCE_TTL        = 30
 
-ETHERSCAN_API_KEY = os.environ.get("ETHERSCAN_API_KEY", "")
-DATA_FILE  = os.path.join(os.path.dirname(__file__), "pakd_data.json")
-AUDIT_FILE = os.path.join(os.path.dirname(__file__), "audit_log.json")
+ETHERSCAN_API_KEY  = os.environ.get("ETHERSCAN_API_KEY", "")
+DATA_FILE          = os.path.join(os.path.dirname(__file__), "pakd_data.json")
+AUDIT_FILE         = os.path.join(os.path.dirname(__file__), "audit_log.json")
+
+# ---------------------------------------------------------------------------
+# ERC-20 contract constants (Day 4)
+# USDT: Tether USD — 6 decimals
+# USDC: USD Coin   — 6 decimals
+# Source: Etherscan token tracker, verified contracts on Ethereum mainnet
+# ---------------------------------------------------------------------------
+USDT_CONTRACT      = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+USDC_CONTRACT      = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+STABLECOIN_DECIMALS = 6
+
+# Fallback IDR/USD rate used only when CoinGecko is unreachable.
+# Conservative estimate — updated manually per quarter.
+# Current reference: Bank Indonesia Kurs Tengah, April 2026.
+FALLBACK_STABLECOIN_IDR = 16_350.0
 
 WALLET_RE = {
     "ethereum": re.compile(r"^0x[0-9a-fA-F]{40}$"),
@@ -52,7 +67,7 @@ PAKD_DEFAULT = [
 
 
 # ---------------------------------------------------------------------------
-# Data helpers (Day 1 — unchanged)
+# Data helpers
 # ---------------------------------------------------------------------------
 
 def _normalize_wallet_entry(w, default_network="ethereum"):
@@ -137,7 +152,46 @@ def validate_wallet_address(network, address):
 
 
 # ---------------------------------------------------------------------------
-# Ethereum fetchers (Day 1 — unchanged)
+# Cache helpers
+# ---------------------------------------------------------------------------
+
+def get_cached_price(network, fetch_fn):
+    """
+    Return cached price for network. Calls fetch_fn only when cache is
+    cold or older than PRICE_TTL seconds.
+    """
+    now = time.time()
+    if network in PRICE_CACHE:
+        cached_at, price = PRICE_CACHE[network]
+        if now - cached_at < PRICE_TTL:
+            return price
+    price = fetch_fn()
+    PRICE_CACHE[network] = (now, price)
+    return price
+
+
+def get_cached_balance(cache_key, address, fetch_fn):
+    """
+    Return cached balance for (cache_key, address). cache_key is the
+    network identifier — for ERC-20 tokens, pass a namespaced key like
+    "usdt_erc20" or "usdc_erc20" to avoid collisions with native ETH
+    balances on the same address.
+
+    Calls fetch_fn only when cache is cold or older than BALANCE_TTL seconds.
+    """
+    now = time.time()
+    key = (cache_key, address)
+    if key in BALANCE_CACHE:
+        cached_at, balance = BALANCE_CACHE[key]
+        if now - cached_at < BALANCE_TTL:
+            return balance
+    balance = fetch_fn()
+    BALANCE_CACHE[key] = (now, balance)
+    return balance
+
+
+# ---------------------------------------------------------------------------
+# Ethereum — native ETH fetchers
 # ---------------------------------------------------------------------------
 
 def get_eth_price_idr():
@@ -163,54 +217,115 @@ def get_eth_balance(address):
         return 0
 
 
-def get_total_eth_balance(wallets):
-    total = 0
-    for w in wallets:
-        if isinstance(w, dict) and w.get("network") == "ethereum":
-            total += get_eth_balance(w["address"])
-        elif isinstance(w, str):
-            total += get_eth_balance(w)
-    return total
-
-
 # ---------------------------------------------------------------------------
-# Cache helpers (Day 2)
+# ERC-20 token fetchers (Day 4)
 # ---------------------------------------------------------------------------
 
-def get_cached_price(network, fetch_fn):
+def fetch_erc20_balance(address, contract_address, decimals=STABLECOIN_DECIMALS):
     """
-    Return cached price for network. Calls fetch_fn only when cache is
-    cold or older than PRICE_TTL seconds. Protects against CoinGecko
-    rate limits during back-to-back reconciliations.
+    Fetch ERC-20 token balance via Etherscan V2 API.
+
+    Uses tag=latest to match the confirmed chain state. Unconfirmed
+    (pending) token transfers are excluded — same reasoning as BTC
+    mempool and SOL processed commitment: unsettled transfers must not
+    count toward regulatory reserve.
+
+    Args:
+        address          : Ethereum wallet address (checksummed or lowercase)
+        contract_address : ERC-20 token contract address
+        decimals         : Token decimal places (USDT=6, USDC=6, WETH=18)
+
+    Returns:
+        float — token balance in human-readable units (e.g. 1000.50 USDT)
+
+    Source:
+        https://docs.etherscan.io/v2/api-endpoints/accounts#get-erc20-token-account-balance-for-tokencontractaddress
     """
+    url = (
+        f"https://api.etherscan.io/v2/api"
+        f"?chainid=1"
+        f"&module=account"
+        f"&action=tokenbalance"
+        f"&contractaddress={contract_address}"
+        f"&address={address}"
+        f"&tag=latest"
+        f"&apikey={ETHERSCAN_API_KEY}"
+    )
+    resp = requests.get(url, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
+    if data["status"] == "1":
+        return int(data["result"]) / (10 ** decimals)
+    # status "0" with result "0" means zero balance, not an error.
+    # Other status "0" cases (invalid address, etc.) return 0 and let
+    # the caller surface the issue via reconciliation output.
+    return 0.0
+
+
+def fetch_stablecoin_prices_idr():
+    """
+    Fetch USDT and USDC prices in IDR from CoinGecko in a single request.
+
+    Stablecoins are not guaranteed to be 1:1 with USD — USDC depegged
+    to USD 0.87 on 11 March 2023 (SVB collapse). Fetching live prices
+    matters for an accurate stress test baseline.
+
+    Populates PRICE_CACHE["tether"] and PRICE_CACHE["usd-coin"] as a
+    side effect, so subsequent get_cached_price calls for either token
+    will hit cache without a second request.
+
+    Returns:
+        (usdt_price_idr: float, usdc_price_idr: float)
+    """
+    url = "https://api.coingecko.com/api/v3/simple/price"
+    resp = requests.get(
+        url,
+        params={"ids": "tether,usd-coin", "vs_currencies": "idr"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    usdt_price = float(data.get("tether",   {}).get("idr", FALLBACK_STABLECOIN_IDR))
+    usdc_price = float(data.get("usd-coin", {}).get("idr", FALLBACK_STABLECOIN_IDR))
+
+    # Populate cache for both tokens atomically from this single response.
     now = time.time()
-    if network in PRICE_CACHE:
-        cached_at, price = PRICE_CACHE[network]
-        if now - cached_at < PRICE_TTL:
-            return price
-    price = fetch_fn()
-    PRICE_CACHE[network] = (now, price)
-    return price
+    PRICE_CACHE["tether"]   = (now, usdt_price)
+    PRICE_CACHE["usd-coin"] = (now, usdc_price)
+
+    return usdt_price, usdc_price
 
 
-def get_cached_balance(network, address, fetch_fn):
+def _get_stablecoin_prices_idr():
     """
-    Return cached balance for (network, address). Calls fetch_fn only
-    when cache is cold or older than BALANCE_TTL seconds.
+    Return (usdt_price_idr, usdc_price_idr) using cache when fresh.
+
+    Checks PRICE_CACHE for both tokens. If either is stale or absent,
+    calls fetch_stablecoin_prices_idr() which refills both in one request.
+    This prevents the caller from issuing two separate CoinGecko calls.
     """
-    now = time.time()
-    key = (network, address)
-    if key in BALANCE_CACHE:
-        cached_at, balance = BALANCE_CACHE[key]
-        if now - cached_at < BALANCE_TTL:
-            return balance
-    balance = fetch_fn()
-    BALANCE_CACHE[key] = (now, balance)
-    return balance
+    now  = time.time()
+    usdt = PRICE_CACHE.get("tether")
+    usdc = PRICE_CACHE.get("usd-coin")
+
+    both_fresh = (
+        usdt is not None and (now - usdt[0]) < PRICE_TTL and
+        usdc is not None and (now - usdc[0]) < PRICE_TTL
+    )
+    if both_fresh:
+        return usdt[1], usdc[1]
+
+    try:
+        return fetch_stablecoin_prices_idr()
+    except Exception:
+        usdt_fallback = usdt[1] if usdt else FALLBACK_STABLECOIN_IDR
+        usdc_fallback = usdc[1] if usdc else FALLBACK_STABLECOIN_IDR
+        return usdt_fallback, usdc_fallback
 
 
 # ---------------------------------------------------------------------------
-# Bitcoin fetchers (Day 2)
+# Bitcoin fetchers
 # ---------------------------------------------------------------------------
 
 def fetch_btc_balance(address):
@@ -242,6 +357,11 @@ def fetch_btc_price_idr():
     resp.raise_for_status()
     return float(resp.json()["bitcoin"]["idr"])
 
+
+# ---------------------------------------------------------------------------
+# Solana fetchers
+# ---------------------------------------------------------------------------
+
 def fetch_sol_balance(address):
     """
     Fetch confirmed SOL balance via Solana JSON-RPC getBalance.
@@ -249,8 +369,8 @@ def fetch_sol_balance(address):
 
     Uses commitment='confirmed' — finalized would add ~30s latency and is
     unnecessary for regulatory monitoring snapshots. Unconfirmed (processed)
-    is explicitly excluded for the same reason BTC mempool is excluded:
-    unsettled transactions must not count toward regulatory reserve.
+    is explicitly excluded: unsettled transactions must not count toward
+    regulatory reserve.
 
     Source: https://solana.com/docs/rpc/http/getbalance
     """
@@ -287,27 +407,38 @@ def fetch_sol_price_idr():
     resp.raise_for_status()
     return float(resp.json()["solana"]["idr"])
 
+
 # ---------------------------------------------------------------------------
-# Unified multi-network balance fetcher (Day 2)
+# Unified multi-network balance fetcher (updated Day 4)
 # ---------------------------------------------------------------------------
 
-def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_price_idr=None):
+def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_price_idr=None,
+                           usdt_price_idr=None, usdc_price_idr=None):
     """
-    Fetch on-chain balance for all wallets across Ethereum, Bitcoin, and Solana.
+    Fetch on-chain balance for all wallets across Ethereum (native ETH
+    + USDT + USDC), Bitcoin, and Solana.
+
+    Ethereum wallet breakdown now includes:
+      eth_native_idr : IDR value of native ETH
+      usdt_balance   : USDT balance in token units
+      usdt_idr       : IDR value of USDT
+      usdc_balance   : USDC balance in token units
+      usdc_idr       : IDR value of USDC
 
     Returns dict:
-      total_idr       : float  — combined IDR value, all networks
-      eth_balance_idr : float  — ETH wallets subtotal in IDR
-      btc_balance_idr : float  — BTC wallets subtotal in IDR
-      sol_balance_idr : float  — SOL wallets subtotal in IDR
-      breakdown       : list   — per-wallet detail
+      total_idr          : float  — combined IDR value, all networks and tokens
+      eth_balance_idr    : float  — ETH wallets subtotal (native + ERC-20) in IDR
+      eth_native_idr     : float  — native ETH subtotal only
+      eth_usdt_idr       : float  — USDT subtotal across ETH wallets
+      eth_usdc_idr       : float  — USDC subtotal across ETH wallets
+      btc_balance_idr    : float  — BTC wallets subtotal in IDR
+      sol_balance_idr    : float  — SOL wallets subtotal in IDR
+      breakdown          : list   — per-wallet detail
     """
+    # --- Resolve prices (use provided values or fetch/cache) ---
     if eth_price_idr is None:
         try:
-            eth_price_idr = get_cached_price(
-                "ethereum",
-                lambda: get_eth_price_idr()[0]
-            )
+            eth_price_idr = get_cached_price("ethereum", lambda: get_eth_price_idr()[0])
         except Exception:
             eth_price_idr = 39_910_503
 
@@ -323,11 +454,27 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         except Exception:
             sol_price_idr = 0.0
 
-    total_idr     = 0.0
-    eth_total_idr = 0.0
-    btc_total_idr = 0.0
-    sol_total_idr = 0.0
-    breakdown     = []
+    # Stablecoins: always batch in one call via _get_stablecoin_prices_idr().
+    if usdt_price_idr is None or usdc_price_idr is None:
+        try:
+            _usdt, _usdc = _get_stablecoin_prices_idr()
+            if usdt_price_idr is None:
+                usdt_price_idr = _usdt
+            if usdc_price_idr is None:
+                usdc_price_idr = _usdc
+        except Exception:
+            usdt_price_idr = usdt_price_idr or FALLBACK_STABLECOIN_IDR
+            usdc_price_idr = usdc_price_idr or FALLBACK_STABLECOIN_IDR
+
+    # --- Accumulate across wallets ---
+    total_idr      = 0.0
+    eth_total_idr  = 0.0
+    eth_native_sum = 0.0
+    eth_usdt_sum   = 0.0
+    eth_usdc_sum   = 0.0
+    btc_total_idr  = 0.0
+    sol_total_idr  = 0.0
+    breakdown      = []
 
     for wallet in wallets:
         network  = wallet.get("network", "ethereum")
@@ -340,6 +487,12 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             "balance_native": 0.0,
             "native_unit":    "",
             "balance_idr":    0.0,
+            # ERC-20 fields — populated for ethereum wallets, None for others
+            "eth_native_idr": None,
+            "usdt_balance":   None,
+            "usdt_idr":       None,
+            "usdc_balance":   None,
+            "usdc_idr":       None,
             "verified":       verified,
             "error":          None,
         }
@@ -347,13 +500,42 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         if network == "ethereum":
             entry["native_unit"] = "ETH"
             try:
-                bal = get_cached_balance(
-                    network, address,
+                # Native ETH
+                eth_bal = get_cached_balance(
+                    "ethereum", address,
                     lambda a=address: get_eth_balance(a)
                 )
-                entry["balance_native"] = bal
-                entry["balance_idr"]    = bal * eth_price_idr
-                eth_total_idr          += entry["balance_idr"]
+                eth_native_idr_val = eth_bal * eth_price_idr
+
+                # USDT (cache key namespaced to avoid collision with native ETH)
+                usdt_bal = get_cached_balance(
+                    "usdt_erc20", address,
+                    lambda a=address: fetch_erc20_balance(a, USDT_CONTRACT)
+                )
+                usdt_idr_val = usdt_bal * usdt_price_idr
+
+                # USDC
+                usdc_bal = get_cached_balance(
+                    "usdc_erc20", address,
+                    lambda a=address: fetch_erc20_balance(a, USDC_CONTRACT)
+                )
+                usdc_idr_val = usdc_bal * usdc_price_idr
+
+                wallet_total_idr = eth_native_idr_val + usdt_idr_val + usdc_idr_val
+
+                entry["balance_native"] = eth_bal
+                entry["balance_idr"]    = wallet_total_idr
+                entry["eth_native_idr"] = round(eth_native_idr_val)
+                entry["usdt_balance"]   = round(usdt_bal, 6)
+                entry["usdt_idr"]       = round(usdt_idr_val)
+                entry["usdc_balance"]   = round(usdc_bal, 6)
+                entry["usdc_idr"]       = round(usdc_idr_val)
+
+                eth_total_idr  += wallet_total_idr
+                eth_native_sum += eth_native_idr_val
+                eth_usdt_sum   += usdt_idr_val
+                eth_usdc_sum   += usdc_idr_val
+
             except Exception as e:
                 entry["error"] = f"ETH fetch error: {e}"
 
@@ -361,7 +543,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             entry["native_unit"] = "BTC"
             try:
                 bal = get_cached_balance(
-                    network, address,
+                    "bitcoin", address,
                     lambda a=address: fetch_btc_balance(a)
                 )
                 entry["balance_native"] = round(bal, 8)
@@ -374,10 +556,10 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             entry["native_unit"] = "SOL"
             try:
                 bal = get_cached_balance(
-                    network, address,
+                    "solana", address,
                     lambda a=address: fetch_sol_balance(a)
                 )
-                entry["balance_native"] = round(bal, 9)   # lamport precision = 9 decimals
+                entry["balance_native"] = round(bal, 9)
                 entry["balance_idr"]    = bal * sol_price_idr
                 sol_total_idr          += entry["balance_idr"]
             except Exception as e:
@@ -393,6 +575,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     return {
         "total_idr":       total_idr,
         "eth_balance_idr": eth_total_idr,
+        "eth_native_idr":  eth_native_sum,
+        "eth_usdt_idr":    eth_usdt_sum,
+        "eth_usdc_idr":    eth_usdc_sum,
         "btc_balance_idr": btc_total_idr,
         "sol_balance_idr": sol_total_idr,
         "breakdown":       breakdown,
@@ -430,7 +615,7 @@ def index():
 
 @app.route("/api/status")
 def status():
-    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.2-multichain-btc"})
+    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.4-multichain-erc20"})
 
 
 @app.route("/api/reconciliation")
@@ -442,16 +627,15 @@ def reconciliation():
         for pakd in pakd_list:
             wallets = pakd["wallets"]
 
-            # Day 2: use unified multi-network fetcher
-            balance_result  = get_total_balance_idr(wallets)
+            balance_result   = get_total_balance_idr(wallets)
             aset_onchain_idr = balance_result["total_idr"]
             aset_dilaporkan  = pakd["aset_dilaporkan"]
 
             if aset_dilaporkan > 0:
-                selisih    = aset_onchain_idr - aset_dilaporkan
+                selisih     = aset_onchain_idr - aset_dilaporkan
                 deviasi_pct = selisih / aset_dilaporkan * 100
             else:
-                selisih    = 0
+                selisih     = 0
                 deviasi_pct = 0
 
             surplus = aset_onchain_idr >= aset_dilaporkan
@@ -473,6 +657,9 @@ def reconciliation():
                 "wallet_count":        len(wallets),
                 "aset_onchain_idr":    round(aset_onchain_idr),
                 "eth_balance_idr":     round(balance_result["eth_balance_idr"]),
+                "eth_native_idr":      round(balance_result["eth_native_idr"]),
+                "eth_usdt_idr":        round(balance_result["eth_usdt_idr"]),
+                "eth_usdc_idr":        round(balance_result["eth_usdc_idr"]),
                 "btc_balance_idr":     round(balance_result["btc_balance_idr"]),
                 "aset_dilaporkan_idr": aset_dilaporkan,
                 "deviasi_pct":         round(deviasi_pct, 2),
@@ -481,7 +668,7 @@ def reconciliation():
                 "breakdown":           balance_result["breakdown"],
             })
 
-        write_audit("REKONSILIASI", f"{len(hasil)} PAKD direkonsiliasi (multi-chain: ETH+BTC)")
+        write_audit("REKONSILIASI", f"{len(hasil)} PAKD direkonsiliasi (ETH native+USDT+USDC, BTC, SOL)")
         return jsonify({"data": hasil, "total_pakd": len(hasil)})
 
     except Exception as e:
@@ -490,38 +677,89 @@ def reconciliation():
 
 @app.route("/api/stress-test")
 def stress_test():
+    """
+    Stress test solvabilitas tiga skenario.
+
+    Volatile assets (ETH, BTC, SOL): -30% / -55% / -80%
+    Stablecoin assets (USDT, USDC):  -3%  / -8%  / -15%
+
+    Historical basis:
+      ETH/BTC: CoinMarketCap historical, Nov 2017 ATH to Dec 2018 bottom (-84% BTC)
+      USDC: depegged to USD 0.87 on 11 March 2023 during SVB collapse (Reuters)
+      USDT: hit USD 0.95 during 2022 banking stress (CoinGecko historical)
+
+    Threshold lulus: post-stress aset_onchain >= 80% aset_dilaporkan
+    """
     try:
         eth_price, harga_fallback = get_eth_price_idr()
+        try:
+            btc_price = get_cached_price("bitcoin", fetch_btc_price_idr)
+        except Exception:
+            btc_price = 0.0
+        try:
+            sol_price = get_cached_price("solana", fetch_sol_price_idr)
+        except Exception:
+            sol_price = 0.0
+        try:
+            usdt_price, usdc_price = _get_stablecoin_prices_idr()
+        except Exception:
+            usdt_price = FALLBACK_STABLECOIN_IDR
+            usdc_price = FALLBACK_STABLECOIN_IDR
+
         pakd_list = load_pakd()
+
         skenario = {
-            "mild":     {"label": "Mild (-30%)",     "penurunan": 0.30},
-            "moderate": {"label": "Moderate (-55%)", "penurunan": 0.55},
-            "severe":   {"label": "Severe (-80%)",   "penurunan": 0.80},
+            "mild":     {"label": "Mild",     "volatile_drop": 0.30, "stable_drop": 0.03},
+            "moderate": {"label": "Moderate", "volatile_drop": 0.55, "stable_drop": 0.08},
+            "severe":   {"label": "Severe",   "volatile_drop": 0.80, "stable_drop": 0.15},
         }
         hasil = {}
         for key, s in skenario.items():
             lulus = gagal = 0
-            eth_price_stressed = eth_price * (1 - s["penurunan"])
+            eth_stressed  = eth_price  * (1 - s["volatile_drop"])
+            btc_stressed  = btc_price  * (1 - s["volatile_drop"])
+            sol_stressed  = sol_price  * (1 - s["volatile_drop"])
+            usdt_stressed = usdt_price * (1 - s["stable_drop"])
+            usdc_stressed = usdc_price * (1 - s["stable_drop"])
+
             for pakd in pakd_list:
-                # Day 2: pass stressed ETH price; BTC stress coming Day 4
                 balance_result = get_total_balance_idr(
                     pakd["wallets"],
-                    eth_price_idr=eth_price_stressed,
-                    btc_price_idr=None   # BTC stressed separately in Day 4
+                    eth_price_idr=eth_stressed,
+                    btc_price_idr=btc_stressed,
+                    sol_price_idr=sol_stressed,
+                    usdt_price_idr=usdt_stressed,
+                    usdc_price_idr=usdc_stressed,
                 )
                 aset_onchain_stressed = balance_result["total_idr"]
-                aset_dilaporkan = pakd["aset_dilaporkan"]
+                aset_dilaporkan       = pakd["aset_dilaporkan"]
                 rasio = aset_onchain_stressed / aset_dilaporkan if aset_dilaporkan > 0 else 0
                 if rasio >= 0.80:
                     lulus += 1
                 else:
                     gagal += 1
+
             hasil[key] = {
-                "label": s["label"], "lulus": lulus, "gagal": gagal,
-                "total": len(pakd_list), "eth_price_stressed": round(eth_price_stressed)
+                "label":         s["label"],
+                "lulus":         lulus,
+                "gagal":         gagal,
+                "total":         len(pakd_list),
+                "eth_stressed":  round(eth_stressed),
+                "btc_stressed":  round(btc_stressed),
+                "usdt_stressed": round(usdt_stressed, 2),
+                "usdc_stressed": round(usdc_stressed, 2),
             }
-        write_audit("STRESS TEST", f"Stress test dijalankan untuk {len(pakd_list)} PAKD")
-        return jsonify({"data": hasil, "eth_price_idr": eth_price, "harga_fallback": harga_fallback})
+
+        write_audit("STRESS TEST", f"Stress test multi-asset dijalankan untuk {len(pakd_list)} PAKD")
+        return jsonify({
+            "data":             hasil,
+            "eth_price_idr":    eth_price,
+            "btc_price_idr":    btc_price,
+            "usdt_price_idr":   usdt_price,
+            "usdc_price_idr":   usdc_price,
+            "harga_fallback":   harga_fallback,
+        })
+
     except Exception as e:
         return jsonify({"status": "error", "message": "Stress test gagal", "detail": str(e)}), 500
 
