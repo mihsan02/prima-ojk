@@ -12,6 +12,7 @@ app = Flask(__name__)
 CORS(app)
 
 SATOSHI_PER_BTC = 100_000_000
+LAMPORTS_PER_SOL = 1_000_000_000
 PRICE_CACHE     = {}
 BALANCE_CACHE   = {}
 PRICE_TTL       = 60
@@ -241,31 +242,74 @@ def fetch_btc_price_idr():
     resp.raise_for_status()
     return float(resp.json()["bitcoin"]["idr"])
 
+def fetch_sol_balance(address):
+    """
+    Fetch confirmed SOL balance via Solana JSON-RPC getBalance.
+    Returns float in SOL.
+
+    Uses commitment='confirmed' — finalized would add ~30s latency and is
+    unnecessary for regulatory monitoring snapshots. Unconfirmed (processed)
+    is explicitly excluded for the same reason BTC mempool is excluded:
+    unsettled transactions must not count toward regulatory reserve.
+
+    Source: https://solana.com/docs/rpc/http/getbalance
+    """
+    payload = {
+        "jsonrpc": "2.0",
+        "id":      1,
+        "method":  "getBalance",
+        "params":  [address, {"commitment": "confirmed"}],
+    }
+    resp = requests.post(
+        "https://api.mainnet-beta.solana.com",
+        json=payload,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if "error" in data:
+        raise ValueError(f"Solana RPC error: {data['error']}")
+    lamports = data["result"]["value"]
+    return lamports / LAMPORTS_PER_SOL
+
+
+def fetch_sol_price_idr():
+    """
+    Fetch current SOL/IDR price from CoinGecko public API.
+    Returns float (IDR per 1 SOL).
+    """
+    url  = "https://api.coingecko.com/api/v3/simple/price"
+    resp = requests.get(
+        url,
+        params={"ids": "solana", "vs_currencies": "idr"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return float(resp.json()["solana"]["idr"])
 
 # ---------------------------------------------------------------------------
 # Unified multi-network balance fetcher (Day 2)
 # ---------------------------------------------------------------------------
 
-def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None):
+def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_price_idr=None):
     """
-    Fetch on-chain balance for all wallets across Ethereum and Bitcoin.
-    Solana wallets are recorded with balance=0 and a note (Day 3 scope).
+    Fetch on-chain balance for all wallets across Ethereum, Bitcoin, and Solana.
 
     Returns dict:
-      total_idr       : float  — combined IDR value all networks
+      total_idr       : float  — combined IDR value, all networks
       eth_balance_idr : float  — ETH wallets subtotal in IDR
       btc_balance_idr : float  — BTC wallets subtotal in IDR
+      sol_balance_idr : float  — SOL wallets subtotal in IDR
       breakdown       : list   — per-wallet detail
     """
-    # Fetch prices once; injected values used in tests / stress-test caller
     if eth_price_idr is None:
         try:
             eth_price_idr = get_cached_price(
                 "ethereum",
-                lambda: get_eth_price_idr()[0]   # unwrap (price, fallback) tuple
+                lambda: get_eth_price_idr()[0]
             )
         except Exception:
-            eth_price_idr = 39_910_503            # fallback same as get_eth_price_idr
+            eth_price_idr = 39_910_503
 
     if btc_price_idr is None:
         try:
@@ -273,9 +317,16 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None):
         except Exception:
             btc_price_idr = 0.0
 
+    if sol_price_idr is None:
+        try:
+            sol_price_idr = get_cached_price("solana", fetch_sol_price_idr)
+        except Exception:
+            sol_price_idr = 0.0
+
     total_idr     = 0.0
     eth_total_idr = 0.0
     btc_total_idr = 0.0
+    sol_total_idr = 0.0
     breakdown     = []
 
     for wallet in wallets:
@@ -319,10 +370,22 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None):
             except Exception as e:
                 entry["error"] = f"BTC fetch error: {e}"
 
-        else:
-            # Solana — Day 3
+        elif network == "solana":
             entry["native_unit"] = "SOL"
-            entry["error"]       = "Solana support: Day 3"
+            try:
+                bal = get_cached_balance(
+                    network, address,
+                    lambda a=address: fetch_sol_balance(a)
+                )
+                entry["balance_native"] = round(bal, 9)   # lamport precision = 9 decimals
+                entry["balance_idr"]    = bal * sol_price_idr
+                sol_total_idr          += entry["balance_idr"]
+            except Exception as e:
+                entry["error"] = f"SOL fetch error: {e}"
+
+        else:
+            entry["native_unit"] = network.upper()
+            entry["error"]       = f"Network '{network}' belum didukung"
 
         total_idr += entry["balance_idr"]
         breakdown.append(entry)
@@ -331,6 +394,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None):
         "total_idr":       total_idr,
         "eth_balance_idr": eth_total_idr,
         "btc_balance_idr": btc_total_idr,
+        "sol_balance_idr": sol_total_idr,
         "breakdown":       breakdown,
     }
 
