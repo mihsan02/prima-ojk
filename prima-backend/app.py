@@ -11,6 +11,14 @@ import time
 app = Flask(__name__)
 CORS(app)
 
+DATA_FILE = "pakd_data.json"
+API_KEY = os.getenv("ETHERSCAN_API_KEY")
+SATOSHI_PER_BTC = 100_000_000
+PRICE_CACHE     = {}
+BALANCE_CACHE   = {}
+PRICE_TTL       = 60
+BALANCE_TTL     = 30
+
 ETHERSCAN_API_KEY = os.environ.get("ETHERSCAN_API_KEY", "")
 DATA_FILE = os.path.join(os.path.dirname(__file__), "pakd_data.json")
 AUDIT_FILE = os.path.join(os.path.dirname(__file__), "audit_log.json")
