@@ -194,13 +194,18 @@ tr:hover td{background:rgba(14,165,201,0.03)}
       <div class="panel">
         <div class="panel-body">
           <div style="font-size:11px;color:var(--txt3);margin-bottom:14px">Gunakan form ini jika API E-reporting OJK belum tersedia. Data akan disimpan dan direkonsiliasi otomatis.</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:10px">
             <div><label class="form-label">Nama PAKD</label><input id="f-nama" class="form-input" type="text" placeholder="PT Nama Exchange"></div>
             <div><label class="form-label">ID PAKD</label><input id="f-id" class="form-input mono" type="text" placeholder="PAKD-OJK-003"></div>
-            <div><label class="form-label">ETH Wallet Address</label><input id="f-wallet" class="form-input mono" type="text" placeholder="0x..."></div>
             <div><label class="form-label">Aset Dilaporkan (IDR)</label><input id="f-aset" class="form-input mono" type="number" placeholder="5000000000"></div>
-            <button class="btn-primary" onclick="submitManual()">+ Tambah PAKD</button>
+            <div></div>
           </div>
+          <div style="margin-bottom:6px">
+            <label class="form-label">Wallet Addresses</label>
+            <div id="wallet-rows"></div>
+            <button onclick="addWalletRow()" style="margin-top:6px;background:transparent;border:1px dashed var(--border2);color:var(--txt3);font-size:10px;padding:4px 10px;border-radius:var(--r);cursor:pointer;font-family:'IBM Plex Sans',sans-serif">+ Tambah Wallet</button>
+          </div>
+          <button class="btn-primary" onclick="submitManual()">+ Tambah PAKD</button>
           <div id="form-msg" style="margin-top:10px;font-size:11px;display:none;font-family:'IBM Plex Mono',monospace"></div>
         </div>
       </div>
@@ -517,27 +522,94 @@ async function loadStressTest() {
   }
 }
 
+const WALLET_RE = {
+  ethereum: /^0x[0-9a-fA-F]{40}$/,
+  bitcoin:  /^(bc1[a-zA-Z0-9]{6,87}|[13][a-km-zA-HJ-NP-Z0-9]{25,34})$/,
+  solana:   /^[1-9A-HJ-NP-Za-km-z]{32,44}$/,
+};
+const WALLET_PLACEHOLDER = {
+  ethereum: '0x...',
+  bitcoin:  'bc1q... atau 1... atau 3...',
+  solana:   '5K... (base58, 32-44 karakter)',
+};
+let walletRowCount = 0;
+
+function addWalletRow(defaultNetwork = 'ethereum') {
+  const container = document.getElementById('wallet-rows');
+  const idx = walletRowCount++;
+  const row = document.createElement('div');
+  row.id = 'wrow-' + idx;
+  row.style.cssText = 'display:grid;grid-template-columns:140px 1fr auto;gap:8px;align-items:center;margin-bottom:6px';
+  row.innerHTML = `
+    <select id="wnet-${idx}" class="form-input" onchange="updateWalletPlaceholder(${idx})" style="font-size:11px;padding:7px 8px">
+      <option value="ethereum"${defaultNetwork==='ethereum'?' selected':''}>Ethereum</option>
+      <option value="bitcoin"${defaultNetwork==='bitcoin'?' selected':''}>Bitcoin</option>
+      <option value="solana"${defaultNetwork==='solana'?' selected':''}>Solana</option>
+    </select>
+    <input id="waddr-${idx}" class="form-input mono" type="text" placeholder="${WALLET_PLACEHOLDER[defaultNetwork]}" style="font-size:10px">
+    <button onclick="removeWalletRow(${idx})" style="background:transparent;border:1px solid var(--border2);color:var(--red);font-size:11px;padding:4px 8px;border-radius:var(--r);cursor:pointer">x</button>
+  `;
+  container.appendChild(row);
+}
+
+function removeWalletRow(idx) {
+  const row = document.getElementById('wrow-' + idx);
+  if (row) row.remove();
+}
+
+function updateWalletPlaceholder(idx) {
+  const net = document.getElementById('wnet-' + idx).value;
+  document.getElementById('waddr-' + idx).placeholder = WALLET_PLACEHOLDER[net] || '...';
+}
+
+function collectWallets() {
+  const rows = document.querySelectorAll('[id^="wrow-"]');
+  if (rows.length === 0) return { wallets: null, err: 'Tambahkan minimal satu wallet address.' };
+  const wallets = [];
+  for (const row of rows) {
+    const idx = row.id.replace('wrow-', '');
+    const network = document.getElementById('wnet-' + idx).value;
+    const address = document.getElementById('waddr-' + idx).value.trim();
+    if (!address) return { wallets: null, err: 'Semua baris wallet harus diisi.' };
+    if (!WALLET_RE[network] || !WALLET_RE[network].test(address))
+      return { wallets: null, err: 'Alamat tidak valid untuk network ' + network + ': ' + address };
+    wallets.push({ network, address });
+  }
+  return { wallets, err: null };
+}
+
+function resetForm() {
+  ['f-nama','f-id','f-aset'].forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  document.getElementById('wallet-rows').innerHTML = '';
+  walletRowCount = 0;
+  addWalletRow('ethereum');
+}
+
 async function submitManual() {
   const nama = document.getElementById('f-nama').value.trim();
-  const id = document.getElementById('f-id').value.trim();
-  const wallet = document.getElementById('f-wallet').value.trim();
+  const id   = document.getElementById('f-id').value.trim();
   const aset = parseInt(document.getElementById('f-aset').value) || 0;
-  const msg = document.getElementById('form-msg');
-  if (!nama || !id || !wallet) {
+  const msg  = document.getElementById('form-msg');
+  const { wallets, err: walletErr } = collectWallets();
+  if (!nama || !id) {
     msg.style.display = 'block'; msg.style.color = 'var(--red)';
-    msg.textContent = 'Nama, ID, dan wallet wajib diisi.'; return;
+    msg.textContent = 'Nama dan ID PAKD wajib diisi.'; return;
+  }
+  if (walletErr) {
+    msg.style.display = 'block'; msg.style.color = 'var(--red)';
+    msg.textContent = walletErr; return;
   }
   try {
     const res = await fetch('/api/input-manual', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({nama, id, eth_wallet: wallet, aset_dilaporkan: aset})
+      body: JSON.stringify({ nama, id, wallets, aset_dilaporkan: aset })
     });
     const json = await res.json();
     if (!res.ok) { msg.style.color = 'var(--red)'; msg.textContent = json.message; }
     else {
       msg.style.color = 'var(--green)';
-      msg.textContent = json.message + ' — rekonsiliasi diperbarui.';
-      ['f-nama','f-id','f-wallet','f-aset'].forEach(id => document.getElementById(id).value = '');
+      msg.textContent = json.message + ' - rekonsiliasi diperbarui.';
+      resetForm();
       loadAll();
     }
     msg.style.display = 'block';
@@ -568,6 +640,7 @@ async function loadAudit() {
 
 function loadAll() { loadData(); loadAudit(); }
 loadAll();
+addWalletRow('ethereum');
 </script>
 </body>
 </html>
