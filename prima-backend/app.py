@@ -30,6 +30,8 @@ AUDIT_FILE         = os.path.join(os.path.dirname(__file__), "audit_log.json")
 # ---------------------------------------------------------------------------
 USDT_CONTRACT      = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
 USDC_CONTRACT      = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+USDT_MINT_SOL = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+USDC_MINT_SOL = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 STABLECOIN_DECIMALS = 6
 
 # Fallback IDR/USD rate used only when CoinGecko is unreachable.
@@ -407,6 +409,49 @@ def fetch_sol_price_idr():
     resp.raise_for_status()
     return float(resp.json()["solana"]["idr"])
 
+def fetch_spl_token_balance(address, mint_address):
+    """
+    Fetch SPL token balance for a given mint via Solana JSON-RPC
+    getTokenAccountsByOwner.
+
+    Uses jsonParsed encoding so uiAmount is already in human-readable
+    units (e.g. 1000.50 USDC, not raw integer). Sums across all token
+    accounts for the same mint — a wallet can technically have multiple
+    accounts for the same mint, though uncommon for exchange wallets.
+
+    Uses commitment='confirmed' for consistency with fetch_sol_balance().
+
+    Source: https://solana.com/docs/rpc/http/gettokenaccountsbyowner
+    """
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getTokenAccountsByOwner",
+        "params": [
+            address,
+            {"mint": mint_address},
+            {"encoding": "jsonParsed", "commitment": "confirmed"}
+        ]
+    }
+    resp = requests.post(
+        "https://api.mainnet-beta.solana.com",
+        json=payload,
+        timeout=10
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if "error" in data:
+        raise ValueError(f"Solana RPC error: {data['error']}")
+
+    total = 0.0
+    for account in data["result"]["value"]:
+        ui_amount = (
+            account["account"]["data"]["parsed"]
+            ["info"]["tokenAmount"]["uiAmount"]
+        )
+        if ui_amount:
+            total += ui_amount
+    return total
 
 # ---------------------------------------------------------------------------
 # Unified multi-network balance fetcher (updated Day 4)
