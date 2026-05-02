@@ -878,6 +878,7 @@ def stress_test():
             "data":             hasil,
             "eth_price_idr":    eth_price,
             "btc_price_idr":    btc_price,
+            "sol_price_idr":    sol_price,
             "usdt_price_idr":   usdt_price,
             "usdc_price_idr":   usdc_price,
             "harga_fallback":   harga_fallback,
