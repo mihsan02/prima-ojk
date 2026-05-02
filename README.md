@@ -9,7 +9,7 @@
 
 > Prototype MVP · Dibangun untuk DIGDAYA X Hackathon 2026 · Pusat Inovasi Digital Indonesia
 
-**[→ Lihat Landing Page](https://mihsan02.github.io/prima-ojk)** · **[→ Repositori](https://github.com/mihsan02/prima-ojk)**
+**[→ Lihat Landing Page](https://prima-ojk.onrender.com/)** · **[→ Repositori](https://github.com/mihsan02/prima-ojk)**
 
 > Dashboard monitoring memerlukan Flask backend. Lihat bagian [Cara Menjalankan](#cara-menjalankan) untuk instruksi lengkap.
 
