@@ -12,6 +12,10 @@ from datetime import datetime, timezone
 from eth_account import Account
 from eth_account.messages import encode_defunct
 
+import base58
+import nacl.signing
+import nacl.exceptions
+
 app = Flask(__name__)
 CORS(app)
 
@@ -55,23 +59,44 @@ SUPPORTED_NETWORKS = set(WALLET_RE.keys())
 
 PAKD_DEFAULT = [
     {
-        "id": "PAKD-OJK-001",
+        "id":   "PAKD-OJK-001",
         "nama": "PT Indodax Nasional Indonesia",
         "wallets": [
-            {"network": "ethereum", "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-             "verified": False, "verified_at": None}
+            {
+                "network":     "ethereum",
+                "address":     "0x28C6c06298d514Db089934071355E5743bf21d60",
+                "verified":    False,
+                "verified_at": None,
+            }
         ],
-        "aset_dilaporkan": 9814800000
+        "aset_dilaporkan": 4_500_000_000_000,
     },
     {
-        "id": "PAKD-OJK-002",
+        "id":   "PAKD-OJK-002",
         "nama": "PT Tokocrypto",
         "wallets": [
-            {"network": "ethereum", "address": "0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe",
-             "verified": False, "verified_at": None}
+            {
+                "network":     "ethereum",
+                "address":     "0x71660c4005BA85c37ccec55d0C4493E66Fe775d3",
+                "verified":    False,
+                "verified_at": None,
+            }
         ],
-        "aset_dilaporkan": 3421000000
-    }
+        "aset_dilaporkan": 1_200_000_000_000,
+    },
+    {
+        "id":   "PAKD-OJK-003",
+        "nama": "PT Pintu Kemana Saja",
+        "wallets": [
+            {
+                "network":     "ethereum",
+                "address":     "0x2910543Af39abA0CD09dBb2D50200b3E800A63D2",
+                "verified":    False,
+                "verified_at": None,
+            }
+        ],
+        "aset_dilaporkan": 850_000_000_000,
+    },
 ]
 
 
@@ -870,8 +895,6 @@ def audit_log():
     except Exception as e:
         return jsonify({"status": "error", "message": "Gagal memuat audit log", "detail": str(e)}), 500
 
-
-
 @app.route("/api/wallet-challenge", methods=["POST"])
 def wallet_challenge():
     body = request.get_json(silent=True)
@@ -881,22 +904,66 @@ def wallet_challenge():
     network = (body.get("network") or "ethereum").strip().lower()
     if not address:
         return jsonify({"status": "error", "message": "Field address wajib diisi"}), 400
-    if network != "ethereum":
-        return jsonify({"status": "error", "message": f"Network '{network}' belum didukung untuk wallet challenge. Gunakan network: ethereum"}), 400
+
+    SUPPORTED_PROOF_NETWORKS = {"ethereum", "solana"}
+    if network not in SUPPORTED_PROOF_NETWORKS:
+        return jsonify({
+            "status":  "error",
+            "message": f"Network '{network}' belum didukung untuk wallet challenge. "
+                       f"Gunakan network: {', '.join(sorted(SUPPORTED_PROOF_NETWORKS))}",
+        }), 400
+
     ok, err = validate_wallet_address(network, address)
     if not ok:
         return jsonify({"status": "error", "message": err}), 400
+
     nonce     = secrets.token_hex(16)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    challenge = (
-        "PRIMA OJK — Bukti Kepemilikan Wallet\n"
-        f"Address  : {address}\n"
-        f"Network  : {network}\n"
-        f"Nonce    : {nonce}\n"
-        f"Timestamp: {timestamp}\n"
-        "Pesan ini digunakan untuk membuktikan kepemilikan wallet kepada OJK PRIMA.\n"
-        "Tanda tangan ini tidak mengotorisasi transaksi apapun."
-    )
+
+    if network == "ethereum":
+        challenge = (
+            "PRIMA OJK — Bukti Kepemilikan Wallet\n"
+            f"Address  : {address}\n"
+            f"Network  : {network}\n"
+            f"Nonce    : {nonce}\n"
+            f"Timestamp: {timestamp}\n"
+            "Pesan ini digunakan untuk membuktikan kepemilikan wallet kepada OJK PRIMA.\n"
+            "Tanda tangan ini tidak mengotorisasi transaksi apapun."
+        )
+        instruction = (
+            "Tandatangani field challenge menggunakan private key wallet Anda "
+            "(EIP-191 personal_sign / MetaMask eth_sign), "
+            "lalu kirim ke POST /api/wallet-verify."
+        )
+    else:  # solana
+        challenge = (
+            "PRIMA OJK — Bukti Kepemilikan Wallet Solana\n"
+            f"Address  : {address}\n"
+            f"Network  : {network}\n"
+            f"Nonce    : {nonce}\n"
+            f"Timestamp: {timestamp}\n"
+            "Pesan ini digunakan untuk membuktikan kepemilikan wallet kepada OJK PRIMA.\n"
+            "Tanda tangan ini tidak mengotorisasi transaksi apapun."
+        )
+        instruction = (
+            "Tandatangani field challenge sebagai UTF-8 bytes menggunakan Ed25519 private key "
+            "(Phantom signMessage / Solana wallet adapter signMessage). "
+            "Kirim signature sebagai hex (128 karakter) ke POST /api/wallet-verify."
+        )
+
+    CHALLENGE_STORE[address.lower()] = {
+        "challenge": challenge,
+        "network":   network,
+        "expires":   time.time() + CHALLENGE_TTL,
+    }
+    write_audit("WALLET CHALLENGE ISSUED", f"Address {address} ({network}) pada {timestamp}")
+    return jsonify({
+        "address":     address,
+        "network":     network,
+        "challenge":   challenge,
+        "expires_in":  CHALLENGE_TTL,
+        "instruction": instruction,
+    })
     CHALLENGE_STORE[address.lower()] = {"challenge": challenge, "expires": time.time() + CHALLENGE_TTL}
     write_audit("WALLET CHALLENGE ISSUED", f"Address {address} pada {timestamp}")
     return jsonify({"address": address, "challenge": challenge, "expires_in": CHALLENGE_TTL, "instruction": "Tandatangani field challenge menggunakan private key wallet Anda, lalu kirim ke POST /api/wallet-verify."})
@@ -907,27 +974,93 @@ def wallet_verify():
     body = request.get_json(silent=True)
     if not body:
         return jsonify({"status": "error", "message": "Request body tidak valid atau bukan JSON"}), 400
+
     address   = (body.get("address")   or "").strip()
     signature = (body.get("signature") or "").strip()
     pakd_id   = (body.get("pakd_id")   or "").strip()
+
     if not address or not signature:
         return jsonify({"status": "error", "message": "Field address dan signature wajib diisi"}), 400
+
     stored = CHALLENGE_STORE.get(address.lower())
     if not stored:
-        return jsonify({"status": "error", "message": "Tidak ada challenge aktif untuk address ini. Minta challenge baru melalui POST /api/wallet-challenge terlebih dahulu."}), 400
+        return jsonify({
+            "status":  "error",
+            "message": "Tidak ada challenge aktif untuk address ini. "
+                       "Minta challenge baru melalui POST /api/wallet-challenge terlebih dahulu.",
+        }), 400
+
     if time.time() > stored["expires"]:
         del CHALLENGE_STORE[address.lower()]
         return jsonify({"status": "error", "message": "Challenge sudah expired. Minta challenge baru."}), 400
+
     challenge = stored["challenge"]
-    try:
-        signable  = encode_defunct(text=challenge)
-        recovered = Account.recover_message(signable, signature=signature)
-    except Exception as exc:
-        return jsonify({"status": "error", "message": f"Signature tidak dapat diparsing: {exc}"}), 400
-    if recovered.lower() != address.lower():
-        write_audit("WALLET VERIFY GAGAL", f"Claimed: {address} | Recovered: {recovered}")
-        return jsonify({"verified": False, "address": address, "recovered": recovered, "message": "Signature valid tetapi ditandatangani oleh address yang berbeda."}), 400
+    network   = stored.get("network", "ethereum")
+
+    if network == "ethereum":
+        try:
+            signable  = encode_defunct(text=challenge)
+            recovered = Account.recover_message(signable, signature=signature)
+        except Exception as exc:
+            return jsonify({"status": "error", "message": f"Signature tidak dapat diparsing: {exc}"}), 400
+
+        if recovered.lower() != address.lower():
+            write_audit("WALLET VERIFY GAGAL", f"Claimed: {address} | Recovered: {recovered}")
+            return jsonify({
+                "verified":  False,
+                "address":   address,
+                "recovered": recovered,
+                "message":   "Signature valid tetapi ditandatangani oleh address yang berbeda.",
+            }), 400
+
+        signer_display = recovered
+
+    elif network == "solana":
+        try:
+            pubkey_bytes = base58.b58decode(address)
+            if len(pubkey_bytes) != 32:
+                raise ValueError(f"Decoded pubkey length {len(pubkey_bytes)}, expected 32")
+            verify_key = nacl.signing.VerifyKey(pubkey_bytes)
+        except Exception as exc:
+            return jsonify({
+                "status":  "error",
+                "message": f"Address Solana tidak dapat diparse sebagai Ed25519 pubkey: {exc}",
+            }), 400
+
+        try:
+            if len(signature) == 128:
+                sig_bytes = bytes.fromhex(signature)
+            else:
+                import base64
+                sig_bytes = base64.b64decode(signature)
+            if len(sig_bytes) != 64:
+                raise ValueError(f"Signature length {len(sig_bytes)}, expected 64 bytes")
+        except Exception as exc:
+            return jsonify({
+                "status":  "error",
+                "message": f"Signature tidak dapat diparse (kirim sebagai 128-char hex atau base64): {exc}",
+            }), 400
+
+        try:
+            verify_key.verify(challenge.encode("utf-8"), sig_bytes)
+        except nacl.exceptions.BadSignatureError:
+            CHALLENGE_STORE.pop(address.lower(), None)
+            write_audit("WALLET VERIFY GAGAL", f"Claimed Solana: {address} — bad Ed25519 sig")
+            return jsonify({
+                "verified": False,
+                "address":  address,
+                "message":  "Ed25519 signature tidak valid untuk address ini.",
+            }), 400
+        except Exception as exc:
+            return jsonify({"status": "error", "message": f"Verifikasi Ed25519 gagal: {exc}"}), 400
+
+        signer_display = address
+
+    else:
+        return jsonify({"status": "error", "message": f"Network '{network}' tidak dikenali dalam challenge store"}), 400
+
     del CHALLENGE_STORE[address.lower()]
+
     pakd_list    = load_pakd()
     wallet_found = False
     matched_pakd = None
@@ -940,10 +1073,22 @@ def wallet_verify():
                 wallet["verified_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                 wallet_found = True
                 matched_pakd = pakd["id"]
+
     if wallet_found:
         save_pakd(pakd_list)
-        write_audit("WALLET VERIFIED", f"Address {address} terverifikasi milik {matched_pakd}")
-    return jsonify({"verified": True, "address": address, "recovered": recovered, "wallet_found": wallet_found, "pakd_id": matched_pakd, "message": "Kepemilikan wallet berhasil dibuktikan." + (" Status wallet diperbarui menjadi verified." if wallet_found else " Address tidak ditemukan di data PAKD.")})
+        write_audit("WALLET VERIFIED", f"Address {address} ({network}) terverifikasi milik {matched_pakd}")
+
+    return jsonify({
+        "verified":     True,
+        "address":      address,
+        "network":      network,
+        "signer":       signer_display,
+        "wallet_found": wallet_found,
+        "pakd_id":      matched_pakd,
+        "message":      "Kepemilikan wallet berhasil dibuktikan."
+                        + (" Status wallet diperbarui menjadi verified." if wallet_found
+                           else " Address tidak ditemukan di data PAKD."),
+    })
 
 if __name__ == "__main__":
     init_data()
