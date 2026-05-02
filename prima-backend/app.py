@@ -551,6 +551,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     eth_usdc_sum   = 0.0
     btc_total_idr  = 0.0
     sol_total_idr  = 0.0
+    sol_native_sum = 0.0
+    sol_usdt_sum   = 0.0
+    sol_usdc_sum   = 0.0
     breakdown      = []
 
     for wallet in wallets:
@@ -565,12 +568,18 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             "native_unit":    "",
             "balance_idr":    0.0,
             # ERC-20 fields — populated for ethereum wallets, None for others
-            "eth_native_idr": None,
-            "usdt_balance":   None,
-            "usdt_idr":       None,
-            "usdc_balance":   None,
-            "usdc_idr":       None,
-            "verified":       verified,
+            "eth_native_idr":   None,
+            "usdt_balance":     None,
+            "usdt_idr":         None,
+            "usdc_balance":     None,
+            "usdc_idr":         None,
+            # SPL fields — populated for solana wallets, None for others
+            "sol_native_idr":   None,
+            "sol_usdt_balance": None,
+            "sol_usdt_idr":     None,
+            "sol_usdc_balance": None,
+            "sol_usdc_idr":     None,
+            "verified":         verified,
             "error":          None,
         }
 
@@ -632,13 +641,42 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         elif network == "solana":
             entry["native_unit"] = "SOL"
             try:
-                bal = get_cached_balance(
+                # Native SOL
+                sol_bal = get_cached_balance(
                     "solana", address,
                     lambda a=address: fetch_sol_balance(a)
                 )
-                entry["balance_native"] = round(bal, 9)
-                entry["balance_idr"]    = bal * sol_price_idr
-                sol_total_idr          += entry["balance_idr"]
+                sol_native_idr_val = sol_bal * sol_price_idr
+
+                # USDT SPL (cache key namespaced to avoid collision with native SOL)
+                sol_usdt_bal = get_cached_balance(
+                    "sol_usdt_spl", address,
+                    lambda a=address: fetch_spl_token_balance(a, USDT_MINT_SOL)
+                )
+                sol_usdt_idr_val = sol_usdt_bal * usdt_price_idr
+
+                # USDC SPL
+                sol_usdc_bal = get_cached_balance(
+                    "sol_usdc_spl", address,
+                    lambda a=address: fetch_spl_token_balance(a, USDC_MINT_SOL)
+                )
+                sol_usdc_idr_val = sol_usdc_bal * usdc_price_idr
+
+                wallet_total_idr = sol_native_idr_val + sol_usdt_idr_val + sol_usdc_idr_val
+
+                entry["balance_native"]   = round(sol_bal, 9)
+                entry["balance_idr"]      = wallet_total_idr
+                entry["sol_native_idr"]   = round(sol_native_idr_val)
+                entry["sol_usdt_balance"] = round(sol_usdt_bal, 6)
+                entry["sol_usdt_idr"]     = round(sol_usdt_idr_val)
+                entry["sol_usdc_balance"] = round(sol_usdc_bal, 6)
+                entry["sol_usdc_idr"]     = round(sol_usdc_idr_val)
+
+                sol_total_idr  += wallet_total_idr
+                sol_native_sum += sol_native_idr_val
+                sol_usdt_sum   += sol_usdt_idr_val
+                sol_usdc_sum   += sol_usdc_idr_val
+
             except Exception as e:
                 entry["error"] = f"SOL fetch error: {e}"
 
@@ -657,6 +695,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         "eth_usdc_idr":    eth_usdc_sum,
         "btc_balance_idr": btc_total_idr,
         "sol_balance_idr": sol_total_idr,
+        "sol_native_idr":  sol_native_sum,
+        "sol_usdt_idr":    sol_usdt_sum,
+        "sol_usdc_idr":    sol_usdc_sum,
         "breakdown":       breakdown,
     }
 
@@ -692,7 +733,7 @@ def index():
 
 @app.route("/api/status")
 def status():
-    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.4-multichain-erc20"})
+    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.7-multichain-full"})
 
 
 @app.route("/api/reconciliation")
@@ -738,6 +779,10 @@ def reconciliation():
                 "eth_usdt_idr":        round(balance_result["eth_usdt_idr"]),
                 "eth_usdc_idr":        round(balance_result["eth_usdc_idr"]),
                 "btc_balance_idr":     round(balance_result["btc_balance_idr"]),
+                "sol_balance_idr":     round(balance_result["sol_balance_idr"]),
+                "sol_native_idr":      round(balance_result["sol_native_idr"]),
+                "sol_usdt_idr":        round(balance_result["sol_usdt_idr"]),
+                "sol_usdc_idr":        round(balance_result["sol_usdc_idr"]),
                 "aset_dilaporkan_idr": aset_dilaporkan,
                 "deviasi_pct":         round(deviasi_pct, 2),
                 "surplus":             surplus,
@@ -823,6 +868,7 @@ def stress_test():
                 "total":         len(pakd_list),
                 "eth_stressed":  round(eth_stressed),
                 "btc_stressed":  round(btc_stressed),
+                "sol_stressed":  round(sol_stressed),
                 "usdt_stressed": round(usdt_stressed, 2),
                 "usdc_stressed": round(usdc_stressed, 2),
             }
