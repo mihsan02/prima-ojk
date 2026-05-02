@@ -177,7 +177,7 @@ tr:hover td{background:rgba(14,165,201,0.03)}
               <th>Aset On-Chain (IDR)</th>
               <th>Aset Dilaporkan (IDR)</th>
               <th>Deviasi</th>
-              <th>ETH Balance</th>
+             <th>Breakdown Aset</th>
             </tr>
           </thead>
           <tbody id="pakd-tbody">
@@ -473,7 +473,7 @@ async function loadData() {
         <td class="mono-val" style="color:var(--txt1)">${formatIDR(d.aset_onchain_idr)}</td>
         <td class="mono-val" style="color:var(--txt2)">${formatIDR(d.aset_dilaporkan_idr)}</td>
         <td>${deviDisplay(d)}</td>
-        <td class="mono-val" style="color:var(--txt3)">${d.eth_balance} ETH</td>
+        <td style="line-height:1.6">${renderBreakdown(d)}</td>
       </tr>`).join('');
   } catch (err) {
     tbody.innerHTML = '<tr class="error-row"><td colspan="7">Gagal mengambil data: ' + err.message + '</td></tr>';
@@ -489,8 +489,11 @@ async function loadStressTest() {
     const json = await res.json();
     const d = json.data;
     const ethPrice = json.eth_price_idr;
+    const btcPrice = json.btc_price_idr || 0;
+    const solPrice = json.sol_price_idr || 0;
     document.getElementById('stress-price-note').textContent =
-      'Harga ETH live: ' + formatRpCompact(ethPrice) + ' · Basis data: ' + d.mild.total + ' PAKD terdaftar';
+      'ETH ' + formatRpCompact(ethPrice) + ' · BTC ' + formatRpCompact(btcPrice) +
+      ' · SOL ' + formatRpCompact(solPrice) + ' · Basis: ' + d.mild.total + ' PAKD terdaftar';
     document.getElementById('st-kpi-eth-sub').textContent =
       json.harga_fallback ? 'sumber: CoinGecko (fallback)' : 'sumber: CoinGecko';
     document.getElementById('st-kpi-mild').textContent = d.mild.lulus + '/' + d.mild.total;
@@ -501,10 +504,15 @@ async function loadStressTest() {
       const row = document.getElementById('stress-' + key);
       const bar = row.querySelector('.stress-bar');
       const count = row.querySelector('.stress-count');
+      const pctLabel = row.querySelector('.stress-pct-label');
       const pct = d[key].total > 0 ? d[key].lulus / d[key].total * 100 : 0;
       bar.style.width = pct + '%';
       count.innerHTML = `${d[key].lulus}/${d[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`;
       count.style.color = color;
+      pctLabel.innerHTML =
+        `ETH <span style="color:var(--txt1)">${formatRpCompact(d[key].eth_stressed)}</span>` +
+        ` · BTC <span style="color:var(--txt1)">${formatRpCompact(d[key].btc_stressed)}</span>` +
+        ` · SOL <span style="color:var(--txt1)">${formatRpCompact(d[key].sol_stressed)}</span>`;
     });
     const noteEl = document.getElementById('stress-note');
     const gagalSevere = d.severe.gagal;
@@ -638,6 +646,27 @@ async function loadAudit() {
   }
 }
 
+function renderBreakdown(d) {
+  const parts = [];
+  if (d.eth_balance_idr > 0) {
+    let s = `<div style="margin-bottom:3px"><span style="color:var(--teal);font-family:'IBM Plex Mono',monospace;font-size:9px;margin-right:4px;letter-spacing:0.05em">ETH</span>`;
+    s += `<span style="color:var(--txt2)">${formatRpCompact(d.eth_native_idr)}</span>`;
+    if (d.eth_usdt_idr > 0) s += `<span style="color:var(--txt3)"> · USDT ${formatRpCompact(d.eth_usdt_idr)}</span>`;
+    if (d.eth_usdc_idr > 0) s += `<span style="color:var(--txt3)"> · USDC ${formatRpCompact(d.eth_usdc_idr)}</span>`;
+    parts.push(s + '</div>');
+  }
+  if (d.btc_balance_idr > 0) {
+    parts.push(`<div style="margin-bottom:3px"><span style="color:var(--amber);font-family:'IBM Plex Mono',monospace;font-size:9px;margin-right:4px;letter-spacing:0.05em">BTC</span><span style="color:var(--txt2)">${formatRpCompact(d.btc_balance_idr)}</span></div>`);
+  }
+  if (d.sol_balance_idr > 0) {
+    let s = `<div><span style="color:var(--green);font-family:'IBM Plex Mono',monospace;font-size:9px;margin-right:4px;letter-spacing:0.05em">SOL</span>`;
+    s += `<span style="color:var(--txt2)">${formatRpCompact(d.sol_native_idr)}</span>`;
+    if (d.sol_usdt_idr > 0) s += `<span style="color:var(--txt3)"> · USDT ${formatRpCompact(d.sol_usdt_idr)}</span>`;
+    if (d.sol_usdc_idr > 0) s += `<span style="color:var(--txt3)"> · USDC ${formatRpCompact(d.sol_usdc_idr)}</span>`;
+    parts.push(s + '</div>');
+  }
+  return parts.length ? parts.join('') : '<span style="color:var(--txt3)">—</span>';
+}
 function loadAll() { loadData(); loadAudit(); }
 loadAll();
 addWalletRow('ethereum');
