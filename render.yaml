@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: prima-ojk
+    env: python
+    rootDir: prima-backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: ETHERSCAN_API_KEY
+        sync: false
+      - key: FLASK_DEBUG
+        value: "false"

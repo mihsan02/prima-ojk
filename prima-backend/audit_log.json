@@ -1,47 +1,252 @@
 [
   {
-    "waktu": "24 Apr 2026, 08:00",
-    "aksi": "STRESS TEST",
-    "detail": "Stress test dijalankan untuk 3 PAKD"
+    "waktu": "02 May 2026, 14:51",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address FJqpyskxToUkf9h823SrLJurduKdSyTz6KvkZG2Xn4VV (solana) pada 2026-05-02T14:51:52Z"
   },
   {
-    "waktu": "24 Apr 2026, 08:00",
-    "aksi": "STRESS TEST",
-    "detail": "Stress test dijalankan untuk 3 PAKD"
+    "waktu": "02 May 2026, 14:51",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address EzfCEQgeFckV2buEimzKTdJ2ZAMqfweT8XNxCNzHm1NA (solana) pada 2026-05-02T14:51:52Z"
   },
   {
-    "waktu": "24 Apr 2026, 08:00",
-    "aksi": "REKONSILIASI",
-    "detail": "3 PAKD direkonsiliasi, harga ETH: Rp 39,830,972"
+    "waktu": "02 May 2026, 14:51",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 3HqE1uCKsUh9Xfzc9pvt5r1C6DGnD5mNNFcviYsW4UYm (solana) pada 2026-05-02T14:51:52Z"
   },
   {
-    "waktu": "24 Apr 2026, 07:21",
-    "aksi": "STRESS TEST",
-    "detail": "Stress test dijalankan untuk 3 PAKD"
+    "waktu": "02 May 2026, 14:51",
+    "aksi": "WALLET VERIFY GAGAL",
+    "detail": "Claimed Solana: Do1qXz2TxSXBuhnDz9zvwnLhZmFDwapV74TxGkAw6K4r \u2014 bad Ed25519 sig"
   },
   {
-    "waktu": "24 Apr 2026, 07:21",
-    "aksi": "REKONSILIASI",
-    "detail": "3 PAKD direkonsiliasi, harga ETH: Rp 39,910,192"
+    "waktu": "02 May 2026, 14:51",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address Do1qXz2TxSXBuhnDz9zvwnLhZmFDwapV74TxGkAw6K4r (solana) pada 2026-05-02T14:51:52Z"
   },
   {
-    "waktu": "24 Apr 2026, 07:20",
-    "aksi": "STRESS TEST",
-    "detail": "Stress test dijalankan untuk 3 PAKD"
+    "waktu": "02 May 2026, 14:51",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address hw9LhyY4JJR6SchtHw4pYJj2T3STv53cu6PsSu6dbyd (solana) pada 2026-05-02T14:51:52Z"
   },
   {
-    "waktu": "24 Apr 2026, 07:15",
-    "aksi": "STRESS TEST",
-    "detail": "Stress test dijalankan untuk 3 PAKD"
+    "waktu": "02 May 2026, 14:51",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address Asr3wSZzfFSVABAqre64YGzquB9maswZX5jtpteuHEXu (solana) pada 2026-05-02T14:51:52Z"
   },
   {
-    "waktu": "24 Apr 2026, 07:13",
-    "aksi": "REKONSILIASI",
-    "detail": "3 PAKD direkonsiliasi, harga ETH: Rp 39,971,851"
+    "waktu": "02 May 2026, 14:51",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address J4RMZoNkHXn8BoJ8NsDons2H3XYoYDA5ot6AoFR3oTLc (solana) pada 2026-05-02T14:51:52Z"
   },
   {
-    "waktu": "24 Apr 2026, 03:59",
+    "waktu": "02 May 2026, 14:18",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address DicvXvjXXNzEF2nnzTr4iEE2J4CUvAoLu9THnwwWpbiD (solana) pada 2026-05-02T14:18:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:18",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address GC1LFTc1wda57Zy6hKSB9gHLJeqePqnQ4adV3wTm3xzf (solana) pada 2026-05-02T14:18:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:18",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 7gKmZxfEkzm4q4gRvJwSBDgcKFoFsvXMA3svKdsta9Sc (solana) pada 2026-05-02T14:18:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:18",
+    "aksi": "WALLET VERIFY GAGAL",
+    "detail": "Claimed Solana: FoJDHSbWVmtiKiRijLBdWrVtRyvz7xPzb5yQLEQpRXKE \u2014 bad Ed25519 sig"
+  },
+  {
+    "waktu": "02 May 2026, 14:18",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address FoJDHSbWVmtiKiRijLBdWrVtRyvz7xPzb5yQLEQpRXKE (solana) pada 2026-05-02T14:18:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:18",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 47yu9LHFM31fCXJsabiJcWcGUS2dSYaZLrUxGDosvAJV (solana) pada 2026-05-02T14:18:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:18",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 8ogKyGACfPMNkcXuSSkrzPkPepsoVswEuT2VEdkpkixX (solana) pada 2026-05-02T14:18:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:18",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address CPmVbpErwoz8pNK2qHshHZZvj57xdrTkBLjUptdirZfZ (solana) pada 2026-05-02T14:18:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:09",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 5HxURnEStkpjJEcRHHgUMwZL8d18uRM7LQDUWouszT5G (solana) pada 2026-05-02T14:09:44Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:09",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address GxaMPSPkGdBKwhGCkxjA9PT9wgXQkGgGupTmWeprNxrG (solana) pada 2026-05-02T14:09:44Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:09",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address HvMExtNQZ8GEyLcmGK64yksvfiGTh4iiX4pTB6P3wV8E (solana) pada 2026-05-02T14:09:44Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:09",
+    "aksi": "WALLET VERIFY GAGAL",
+    "detail": "Claimed Solana: DDvmhmKXDTpikPpWpUpRXZmUmNrDtncEZNSBiG5tJYpq \u2014 bad Ed25519 sig"
+  },
+  {
+    "waktu": "02 May 2026, 14:09",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address DDvmhmKXDTpikPpWpUpRXZmUmNrDtncEZNSBiG5tJYpq (solana) pada 2026-05-02T14:09:44Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:09",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address EhwMJr9GhCddi5o714SX9Jtkovis53jDJ85BZcWymVc5 (solana) pada 2026-05-02T14:09:44Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:09",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address HbZ7mG9uNyjH29TBNFhAxW8GaHSq3Bzdi4qvYujPH1Rj (solana) pada 2026-05-02T14:09:44Z"
+  },
+  {
+    "waktu": "02 May 2026, 14:09",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address BW5HM1FgknWggV7hoMq8zpPLnK86HeEUvR4FFooExTnU (solana) pada 2026-05-02T14:09:44Z"
+  },
+  {
+    "waktu": "02 May 2026, 11:03",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address EHGobKbNQVhQjK34cQ7G4MRhzuwD88PUMSyCBtNqvmgH (solana) pada 2026-05-02T11:03:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 11:03",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address G6uvcDaddNFAXRvKzBVxvdSkcDKFA3iKoMgvt7wnfFKo (solana) pada 2026-05-02T11:03:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 11:03",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 8Cd8dSTruofGg1gmrFNUVUPyNXakrzsUJT4ta21kJZxh (solana) pada 2026-05-02T11:03:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 11:03",
+    "aksi": "WALLET VERIFY GAGAL",
+    "detail": "Claimed Solana: GcNXzqB5vUXjzkbc4R8Dz7RWDJP47SegQgJG5n8bptXb \u2014 bad Ed25519 sig"
+  },
+  {
+    "waktu": "02 May 2026, 11:03",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address GcNXzqB5vUXjzkbc4R8Dz7RWDJP47SegQgJG5n8bptXb (solana) pada 2026-05-02T11:03:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 11:03",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 9SYQdDTmkR5iS2sZvZvMWJpUHFremdRQivEx27Z41kv3 (solana) pada 2026-05-02T11:03:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 11:03",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address GXEvuFL3i9PApU59yhGS2X5Kp96co5EuobrEBNFiMxK2 (solana) pada 2026-05-02T11:03:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 11:03",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 5V8PEGeu7y2PRpeUvYB1YFnKKSJg1LP69kUiWnNVngoK (solana) pada 2026-05-02T11:03:19Z"
+  },
+  {
+    "waktu": "02 May 2026, 10:23",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address ARokshLZLvExZUDok4TQhVsA1HfCsUkvGwbMfqknYTao (solana) pada 2026-05-02T10:23:39Z"
+  },
+  {
+    "waktu": "02 May 2026, 10:23",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address D5xEFg9HarCf76rN9Yi7jWjwupXQxHYevgNEdjMqYgpK (solana) pada 2026-05-02T10:23:39Z"
+  },
+  {
+    "waktu": "02 May 2026, 10:23",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 6tv54eg1BLEZ5bLeadKfcdwi3apgkhMyTyXQE1MmGkYi (solana) pada 2026-05-02T10:23:39Z"
+  },
+  {
+    "waktu": "02 May 2026, 10:23",
+    "aksi": "WALLET VERIFY GAGAL",
+    "detail": "Claimed Solana: 5jEKLWtsZLeiH5C4J97m6ZRfUEG2qqQKkkjWJNNQuWiF \u2014 bad Ed25519 sig"
+  },
+  {
+    "waktu": "02 May 2026, 10:23",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 5jEKLWtsZLeiH5C4J97m6ZRfUEG2qqQKkkjWJNNQuWiF (solana) pada 2026-05-02T10:23:39Z"
+  },
+  {
+    "waktu": "02 May 2026, 10:23",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address B5dZ1tMT7H2KsaN7kqeq2zvm8Tnw4vj3w7rgPrCVvSZ7 (solana) pada 2026-05-02T10:23:39Z"
+  },
+  {
+    "waktu": "02 May 2026, 10:23",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 3PcMwvhXnu9pFnJ1ZVPxKw6MeEjbd9EvvdpEmSEkiJmf (solana) pada 2026-05-02T10:23:39Z"
+  },
+  {
+    "waktu": "02 May 2026, 10:23",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address EgrxcaAAReiq77YK9rCSEHTwZqD53NpQRAAijsthNcFN (solana) pada 2026-05-02T10:23:39Z"
+  },
+  {
+    "waktu": "30 Apr 2026, 15:31",
+    "aksi": "WALLET VERIFY GAGAL",
+    "detail": "Claimed: 0x08D700eF2Eb7b6E7E49ED4A2b661522e1Da0df28 | Recovered: 0xd6f70e4506ce165089AA62EF1Da550aAAfA6af1b"
+  },
+  {
+    "waktu": "30 Apr 2026, 15:31",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 0x08D700eF2Eb7b6E7E49ED4A2b661522e1Da0df28 pada 2026-04-30T15:31:15Z"
+  },
+  {
+    "waktu": "30 Apr 2026, 15:31",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 0x08D700eF2Eb7b6E7E49ED4A2b661522e1Da0df28 pada 2026-04-30T15:31:15Z"
+  },
+  {
+    "waktu": "30 Apr 2026, 15:31",
+    "aksi": "WALLET VERIFY GAGAL",
+    "detail": "Claimed: 0xD3821380e02C1E5828F8eB7eE7Ec3437D93a2F16 | Recovered: 0x83A1ee0A03Fc3e3C8E18667Cc1aE3f7a910B44B5"
+  },
+  {
+    "waktu": "30 Apr 2026, 15:31",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 0xD3821380e02C1E5828F8eB7eE7Ec3437D93a2F16 pada 2026-04-30T15:31:15Z"
+  },
+  {
+    "waktu": "30 Apr 2026, 15:31",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 0xF0EC0Cd430234563F6C85127d11d244d9711e85d pada 2026-04-30T15:31:15Z"
+  },
+  {
+    "waktu": "30 Apr 2026, 15:31",
+    "aksi": "WALLET VERIFIED",
+    "detail": "Address 0xf02be78dF4D3c091954aD277F97b8E1b557EE38c terverifikasi milik PAKD-T4-7EE38c"
+  },
+  {
+    "waktu": "30 Apr 2026, 15:31",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 0xf02be78dF4D3c091954aD277F97b8E1b557EE38c pada 2026-04-30T15:31:15Z"
+  },
+  {
+    "waktu": "30 Apr 2026, 15:31",
     "aksi": "INPUT MANUAL",
-    "detail": "PT ABCD (xx/xx/xx) ditambahkan oleh OJK"
+    "detail": "PT Test Wallet Proof T4 (PAKD-T4-7EE38c) ditambahkan oleh OJK"
+  },
+  {
+    "waktu": "30 Apr 2026, 15:31",
+    "aksi": "WALLET CHALLENGE ISSUED",
+    "detail": "Address 0x4a59b378a17f523c299E4735c9be3d3c48eE817F pada 2026-04-30T15:31:15Z"
   }
 ]

@@ -3,7 +3,12 @@
     "id": "PAKD-OJK-001",
     "nama": "PT Indodax Nasional Indonesia",
     "wallets": [
-      "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+      {
+        "network": "ethereum",
+        "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+        "verified": false,
+        "verified_at": null
+      }
     ],
     "aset_dilaporkan": 9814800000
   },
@@ -11,7 +16,12 @@
     "id": "PAKD-OJK-002",
     "nama": "PT Tokocrypto",
     "wallets": [
-      "0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe"
+      {
+        "network": "ethereum",
+        "address": "0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe",
+        "verified": false,
+        "verified_at": null
+      }
     ],
     "aset_dilaporkan": 3421000000
   },
@@ -19,8 +29,78 @@
     "id": "xx/xx/xx",
     "nama": "PT ABCD",
     "wallets": [
-      "0x71Fc1179fd50C9384bAA7AE8Bb4bdF9434Ed85a2"
+      {
+        "network": "ethereum",
+        "address": "0x71Fc1179fd50C9384bAA7AE8Bb4bdF9434Ed85a2",
+        "verified": false,
+        "verified_at": null
+      }
     ],
     "aset_dilaporkan": 300000000
+  },
+  {
+    "id": "PAKD-T4-AEc69f",
+    "nama": "PT Test Wallet Proof T4",
+    "wallets": [
+      {
+        "network": "ethereum",
+        "address": "0x442802267CCD4D040ce4d8a5079A0C9169AEc69f",
+        "verified": false,
+        "verified_at": null
+      }
+    ],
+    "aset_dilaporkan": 1000000000
+  },
+  {
+    "id": "PAKD-T4-2c36b0",
+    "nama": "PT Test Wallet Proof T4",
+    "wallets": [
+      {
+        "network": "ethereum",
+        "address": "0xDA9838391D7e46742A8547233B3A3FEed62c36b0",
+        "verified": false,
+        "verified_at": null
+      }
+    ],
+    "aset_dilaporkan": 1000000000
+  },
+  {
+    "id": "PAKD-T4-08e517",
+    "nama": "PT Test Wallet Proof T4",
+    "wallets": [
+      {
+        "network": "ethereum",
+        "address": "0xbE59afE0e7828d44656447BC44a92b27B008e517",
+        "verified": false,
+        "verified_at": null
+      }
+    ],
+    "aset_dilaporkan": 1000000000
+  },
+  {
+    "id": "PAKD-T4-6E87d5",
+    "nama": "PT Test Wallet Proof T4",
+    "wallets": [
+      {
+        "network": "ethereum",
+        "address": "0x4e9fb2C4F427B9F5D63E82ED1E4FF31a356E87d5",
+        "verified": false,
+        "verified_at": null
+      }
+    ],
+    "aset_dilaporkan": 1000000000
+  },
+  {
+    "id": "PAKD-T4-7EE38c",
+    "nama": "PT Test Wallet Proof T4",
+    "wallets": [
+      {
+        "network": "ethereum",
+        "address": "0xf02be78dF4D3c091954aD277F97b8E1b557EE38c",
+        "verified": true,
+        "verified_at": "2026-04-30T15:31:15Z"
+      }
+    ],
+    "aset_dilaporkan": 1000000000
   }
 ]
