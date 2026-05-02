@@ -436,7 +436,7 @@ tr:hover td{background:rgba(14,165,201,0.03)}
         <div class="panel-body">
           <div class="setting-row">
             <div><div class="setting-label">Versi PRIMA</div><div class="setting-desc">Versi sistem yang sedang berjalan</div></div>
-            <span class="setting-val">v1.0 MVP</span>
+            <span class="setting-val" id="versi-sistem">Memuat...</span>
           </div>
           <div class="setting-row">
             <div><div class="setting-label">Regulasi Acuan</div><div class="setting-desc">Dasar hukum pengawasan PAKD</div></div>
@@ -466,6 +466,7 @@ function showPage(id) {
   event.currentTarget.classList.add('active');
   if (id === 'stresstest') loadStressTest();
   if (id === 'auditlog') loadAudit();
+  if (id === 'pengaturan') loadPengaturan();
 }
 
 function formatIDR(n) {
@@ -783,6 +784,15 @@ function showVpResult(success, message) {
   el.style.border = success ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(239,68,68,0.25)';
   el.style.color = success ? 'var(--green)' : 'var(--red)';
   el.textContent = message;
+}
+async function loadPengaturan() {
+    try {
+        const resp = await fetch('/api/status');
+        const data = await resp.json();
+        document.getElementById('versi-sistem').textContent = data.versi || 'N/A';
+    } catch (e) {
+        document.getElementById('versi-sistem').textContent = 'Tidak dapat dijangkau';
+    }
 }
 function loadAll() { loadData(); loadAudit(); }
 loadAll();

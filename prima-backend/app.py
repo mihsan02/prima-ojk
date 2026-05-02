@@ -791,7 +791,14 @@ def reconciliation():
             })
 
         write_audit("REKONSILIASI", f"{len(hasil)} PAKD direkonsiliasi (ETH native+USDT+USDC, BTC, SOL)")
-        return jsonify({"data": hasil, "total_pakd": len(hasil)})
+        # Resolve harga_fallback flag from ETH price fetch
+        _, eth_fallback = get_eth_price_idr()
+        write_audit("REKONSILIASI", f"{len(hasil)} PAKD direkonsiliasi (ETH native+USDT+USDC, BTC, SOL)")
+        return jsonify({
+            "data":          hasil,
+            "total_pakd":    len(hasil),
+            "harga_fallback": eth_fallback,
+        })
 
     except Exception as e:
         return jsonify({"status": "error", "message": "Rekonsiliasi gagal", "detail": str(e)}), 500
