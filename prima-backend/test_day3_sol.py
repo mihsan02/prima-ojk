@@ -57,7 +57,13 @@ def test_fetch_sol_price_idr(mock_get):
 @patch("app.get_cached_price")
 def test_total_balance_single_sol_wallet(mock_price, mock_balance):
     mock_price.return_value = 2_850_000.0
-    mock_balance.return_value = 10.0
+    mock_balance.side_effect = lambda k, a, f: 10.0 if k == "solana" else 0.0
+    wallets = [{"network": "solana", "address": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", "verified": False}]
+    result = get_total_balance_idr(wallets, eth_price_idr=0, btc_price_idr=0, sol_price_idr=2_850_000.0, usdt_price_idr=0, usdc_price_idr=0)
+    assert result["sol_balance_idr"] == pytest.approx(28_500_000.0)
+    assert result["total_idr"]       == pytest.approx(28_500_000.0)
+    assert result["eth_balance_idr"] == 0.0
+    assert result["btc_balance_idr"] == 0.0
 
     wallets = [{"network": "solana", "address": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", "verified": False}]
     result = get_total_balance_idr(wallets, eth_price_idr=0, btc_price_idr=0, sol_price_idr=2_850_000.0)
@@ -70,8 +76,26 @@ def test_total_balance_single_sol_wallet(mock_price, mock_balance):
 
 @patch("app.get_cached_balance")
 def test_total_balance_multichain_combined(mock_balance):
-    def side_effect(network, address, fetch_fn):
-        return {"ethereum": 2.0, "bitcoin": 0.1, "solana": 50.0}[network]
+    def side_effect(cache_key, address, fetch_fn):
+        return {"ethereum": 2.0, "bitcoin": 0.1, "solana": 50.0}.get(cache_key, 0.0)
+    mock_balance.side_effect = side_effect
+    wallets = [
+        {"network": "ethereum", "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", "verified": False},
+        {"network": "bitcoin",  "address": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", "verified": False},
+        {"network": "solana",   "address": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", "verified": False},
+    ]
+    result = get_total_balance_idr(
+        wallets,
+        eth_price_idr=40_000_000,
+        btc_price_idr=1_600_000_000,
+        sol_price_idr=2_850_000,
+        usdt_price_idr=0,
+        usdc_price_idr=0,
+    )
+    assert result["eth_balance_idr"] == pytest.approx(80_000_000.0)
+    assert result["btc_balance_idr"] == pytest.approx(160_000_000.0)
+    assert result["sol_balance_idr"] == pytest.approx(142_500_000.0)
+    assert result["total_idr"]       == pytest.approx(382_500_000.0)
 
     mock_balance.side_effect = side_effect
 
