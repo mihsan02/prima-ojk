@@ -211,6 +211,62 @@ tr:hover td{background:rgba(14,165,201,0.03)}
       </div>
     </div>
 
+    <!-- WALLET PROOF SECTION -->
+<div>
+  <div class="section-header">
+    <div class="section-title">Verifikasi Kepemilikan Wallet</div>
+  </div>
+  <div class="panel">
+    <div class="panel-body">
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:14px">
+        Minta PAKD menandatangani challenge untuk membuktikan kepemilikan wallet 
+        on-chain. Verifikasi kriptografis tanpa memerlukan akses private key.
+      </div>
+      <div style="display:grid;grid-template-columns:160px 1fr auto;gap:10px;align-items:end;margin-bottom:10px">
+        <div>
+          <label class="form-label">Network</label>
+          <select id="vp-network" class="form-input" style="font-size:11px;padding:7px 8px">
+            <option value="ethereum">Ethereum</option>
+            <option value="solana">Solana</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Wallet Address</label>
+          <input id="vp-address" class="form-input mono" type="text" placeholder="0x... atau alamat Solana">
+        </div>
+        <button class="btn-primary" onclick="requestChallenge()">Minta Challenge</button>
+      </div>
+
+      <div id="vp-challenge-box" style="display:none;margin-bottom:10px">
+        <label class="form-label">Challenge Text (kirim ke PAKD untuk ditandatangani)</label>
+        <textarea id="vp-challenge-text" class="form-input mono" rows="8" readonly
+          style="font-size:10px;resize:none;line-height:1.6;white-space:pre"></textarea>
+        <div style="font-size:10px;color:var(--txt3);margin-top:4px">
+          Challenge berlaku 5 menit. PAKD menandatangani menggunakan MetaMask 
+          (Ethereum) atau Phantom (Solana), lalu kirim signature ke OJK.
+        </div>
+      </div>
+
+      <div id="vp-verify-box" style="display:none;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 160px auto;gap:10px;align-items:end">
+          <div>
+            <label class="form-label">Signature dari PAKD</label>
+            <input id="vp-signature" class="form-input mono" type="text" 
+              placeholder="0x... (Ethereum) atau hex 128 karakter (Solana)">
+          </div>
+          <div>
+            <label class="form-label">PAKD ID (opsional)</label>
+            <input id="vp-pakd-id" class="form-input mono" type="text" placeholder="PAKD-OJK-001">
+          </div>
+          <button class="btn-primary" onclick="verifyChallenge()">Verifikasi</button>
+        </div>
+      </div>
+
+      <div id="vp-result" style="display:none;margin-top:10px;padding:10px;border-radius:var(--r);font-size:11px;font-family:'IBM Plex Mono',monospace"></div>
+    </div>
+  </div>
+  </div>
+
     <div class="dash-footer">
       <span class="dash-footer-txt">PRIMA v1.0 · Sistem Pemantauan Transparansi Aset PAKD Berbasis Blockchain · OJK © 2026</span>
       <span class="dash-footer-txt" id="footer-time">—</span>
@@ -666,6 +722,67 @@ function renderBreakdown(d) {
     parts.push(s + '</div>');
   }
   return parts.length ? parts.join('') : '<span style="color:var(--txt3)">—</span>';
+}
+
+async function requestChallenge() {
+  const network = document.getElementById('vp-network').value;
+  const address = document.getElementById('vp-address').value.trim();
+  const resultEl = document.getElementById('vp-result');
+  resultEl.style.display = 'none';
+
+  if (!address) {
+    showVpResult(false, 'Isi wallet address terlebih dahulu.'); return;
+  }
+  try {
+    const res = await fetch('/api/wallet-challenge', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ address, network })
+    });
+    const json = await res.json();
+    if (!res.ok) { showVpResult(false, json.message); return; }
+
+    document.getElementById('vp-challenge-text').value = json.challenge;
+    document.getElementById('vp-challenge-box').style.display = 'block';
+    document.getElementById('vp-verify-box').style.display = 'block';
+  } catch (err) {
+    showVpResult(false, 'Gagal menghubungi server: ' + err.message);
+  }
+}
+
+async function verifyChallenge() {
+  const address   = document.getElementById('vp-address').value.trim();
+  const signature = document.getElementById('vp-signature').value.trim();
+  const pakd_id   = document.getElementById('vp-pakd-id').value.trim();
+
+  if (!signature) { showVpResult(false, 'Isi signature dari PAKD.'); return; }
+  try {
+    const res = await fetch('/api/wallet-verify', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ address, signature, pakd_id })
+    });
+    const json = await res.json();
+    if (json.verified) {
+      showVpResult(true, '✓ ' + json.message);
+      document.getElementById('vp-challenge-box').style.display = 'none';
+      document.getElementById('vp-verify-box').style.display = 'none';
+      loadAll();
+    } else {
+      showVpResult(false, '✗ ' + (json.message || 'Verifikasi gagal.'));
+    }
+  } catch (err) {
+    showVpResult(false, 'Gagal menghubungi server: ' + err.message);
+  }
+}
+
+function showVpResult(success, message) {
+  const el = document.getElementById('vp-result');
+  el.style.display = 'block';
+  el.style.background = success ? 'var(--green-bg)' : 'var(--red-bg)';
+  el.style.border = success ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(239,68,68,0.25)';
+  el.style.color = success ? 'var(--green)' : 'var(--red)';
+  el.textContent = message;
 }
 function loadAll() { loadData(); loadAudit(); }
 loadAll();
