@@ -114,6 +114,41 @@ tr:hover td{background:var(--bg2)}
 .chain-line{width:14px;height:1px;background:var(--blue)}
 .num-row{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--txt4);font-weight:500}
 .info-chip{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt3);background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;margin-bottom:16px}
+.wallet-mini-row{display:flex;align-items:center;gap:8px;font-size:10px;font-family:'JetBrains Mono',monospace;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)}
+.wallet-mini-row:first-of-type{margin-top:10px}
+.wallet-chain-tag{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:0.05em;flex-shrink:0}
+.wallet-chain-tag.eth{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border)}
+.wallet-chain-tag.btc{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border)}
+.wallet-chain-tag.sol{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+.wallet-addr{color:var(--txt2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.verify-badge{padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;letter-spacing:0.03em;font-family:'JetBrains Mono',monospace;flex-shrink:0;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.verify-badge.unverified{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+.verify-badge.pending{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border)}
+.verify-badge.verified{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+.verify-badge.unsupported{background:var(--bg2);color:var(--txt3);border:1px solid var(--border2)}
+.verify-mini-btn{background:var(--blue);color:#fff;border:none;font-size:10px;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:600;font-family:'Inter',sans-serif;flex-shrink:0;transition:background 0.15s}
+.verify-mini-btn:hover{background:#2D6FAE}
+.verify-mini-btn:disabled{background:var(--txt4);cursor:not-allowed}
+.modal-backdrop{position:fixed;inset:0;background:rgba(20,32,48,0.5);display:none;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(3px)}
+.modal-backdrop.show{display:flex}
+.modal-card{background:var(--bg1);border-radius:12px;box-shadow:0 24px 60px rgba(20,32,48,0.25);width:680px;max-width:92vw;max-height:88vh;overflow-y:auto;border:1px solid var(--border)}
+.modal-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.modal-title{font-size:15px;font-weight:700;color:var(--txt1)}
+.modal-subtitle{font-size:11px;color:var(--txt3);margin-top:4px;font-family:'JetBrains Mono',monospace;word-break:break-all}
+.modal-close{background:transparent;border:none;font-size:18px;color:var(--txt3);cursor:pointer;padding:4px 10px;border-radius:4px;line-height:1;flex-shrink:0}
+.modal-close:hover{background:var(--bg2);color:var(--txt1)}
+.modal-body{padding:20px 24px;display:flex;flex-direction:column;gap:18px}
+.modal-step{display:flex;align-items:flex-start;gap:12px}
+.modal-step-num{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace}
+.modal-step-content{flex:1;min-width:0}
+.modal-step-title{font-size:12px;font-weight:600;color:var(--txt1);margin-bottom:6px}
+.modal-step-desc{font-size:11px;color:var(--txt3);margin-bottom:8px;line-height:1.5}
+.modal-footer{padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.btn-secondary{padding:9px 16px;border-radius:var(--r);background:transparent;color:var(--txt2);border:1px solid var(--border2);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
+.btn-secondary:hover{background:var(--bg2)}
+.copy-btn{background:transparent;border:1px solid var(--border2);color:var(--txt2);padding:5px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;margin-top:8px;transition:all 0.15s}
+.copy-btn:hover{background:var(--bg2);color:var(--txt1)}
+.copy-btn.copied{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
 </style>
 </head>
 <body>
@@ -262,16 +297,16 @@ tr:hover td{background:var(--bg2)}
       </div>
     </div>
 
-    <!-- WALLET PROOF SECTION -->
+    <!-- WALLET PROOF SECTION (ad-hoc / fallback flow; primary flow is per-row Verify button in tabel di atas) -->
     <div>
       <div class="section-header">
-        <div class="section-title"><div class="section-title-bar"></div>Verifikasi Kepemilikan Wallet</div>
+        <div class="section-title"><div class="section-title-bar"></div>Verifikasi Kepemilikan Wallet (Ad-hoc)</div>
       </div>
       <div class="panel">
         <div class="panel-body">
           <div class="info-chip">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.2"></circle><line x1="5" y1="4" x2="5" y2="7" stroke="currentColor" stroke-width="1.2"></line><circle cx="5" cy="3" r="0.5" fill="currentColor"></circle></svg>
-            Verifikasi kriptografis tanpa memerlukan akses private key
+            Untuk verifikasi cepat di luar tabel PAKD, gunakan tombol Verify per baris pada tabel.
           </div>
           <div style="display:grid;grid-template-columns:160px 1fr auto;gap:10px;align-items:end;margin-bottom:10px">
             <div>
@@ -501,6 +536,43 @@ tr:hover td{background:var(--bg2)}
 </main>
 </div>
 
+<div id="verify-modal" class="modal-backdrop" onclick="onModalBackdrop(event)">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Verifikasi Kepemilikan Wallet</div>
+        <div class="modal-subtitle" id="verify-modal-sub">—</div>
+      </div>
+      <button class="modal-close" onclick="closeVerifyModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="verify-modal-error" style="display:none;padding:10px 12px;background:var(--red-bg);border:1px solid var(--red-border);color:var(--red);border-radius:var(--r);font-size:11px;font-family:'JetBrains Mono',monospace"></div>
+      <div class="modal-step">
+        <div class="modal-step-num">1</div>
+        <div class="modal-step-content">
+          <div class="modal-step-title">Salin challenge text dan kirim ke PAKD untuk ditandatangani</div>
+          <div class="modal-step-desc" id="verify-modal-instruction">PAKD menandatangani challenge dengan private key wallet (signing only, tidak mengotorisasi transaksi).</div>
+          <textarea id="verify-modal-challenge" class="form-input mono" rows="9" readonly style="font-size:10px;line-height:1.6;white-space:pre;resize:none"></textarea>
+          <button class="copy-btn" id="verify-modal-copy" onclick="copyChallengeFromModal()">Salin Challenge</button>
+        </div>
+      </div>
+      <div class="modal-step">
+        <div class="modal-step-num">2</div>
+        <div class="modal-step-content">
+          <div class="modal-step-title">Tempel signature dari PAKD</div>
+          <div class="modal-step-desc" id="verify-modal-sig-hint">Format signature tergantung network.</div>
+          <input id="verify-modal-signature" class="form-input mono" type="text" placeholder="0x... atau hex / base64" style="font-size:11px" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span style="font-size:10px;color:var(--txt4);font-family:'JetBrains Mono',monospace;margin-right:auto">Challenge berlaku 5 menit</span>
+      <button class="btn-secondary" onclick="closeVerifyModal()">Batal</button>
+      <button class="btn-primary" id="verify-modal-submit" onclick="submitVerifyFromModal()">Verifikasi</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function showPage(id, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -567,13 +639,17 @@ async function loadData() {
     document.getElementById('kpi-max-dev').textContent = defisits.length ? Math.max(...defisits).toFixed(2) + '%' : '0%';
     tbody.innerHTML = data.map((d, i) => `
       <tr style="background:${d.status==='Kritis'?'rgba(192,57,43,0.03)':d.status==='Deviasi'?'rgba(194,124,26,0.03)':''}">
-        <td class="num-row">${String(i+1).padStart(2,'0')}</td>
-        <td><span class="pakd-name">${d.nama}</span><span class="pakd-id">${d.id} · Berizin</span></td>
-        <td><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
-        <td class="mono-val" style="color:var(--txt1)">${formatIDR(d.aset_onchain_idr)}</td>
-        <td class="mono-val" style="color:var(--txt2)">${formatIDR(d.aset_dilaporkan_idr)}</td>
-        <td>${deviDisplay(d)}</td>
-        <td style="line-height:1.6">${renderBreakdown(d)}</td>
+        <td class="num-row" style="vertical-align:top;padding-top:18px">${String(i+1).padStart(2,'0')}</td>
+        <td style="vertical-align:top;padding-top:14px;min-width:280px">
+          <span class="pakd-name">${d.nama}</span>
+          <span class="pakd-id">${d.id} · Berizin</span>
+          ${renderWalletsCell(d)}
+        </td>
+        <td style="vertical-align:top;padding-top:18px"><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
+        <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${formatIDR(d.aset_onchain_idr)}</td>
+        <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
+        <td style="vertical-align:top;padding-top:18px">${deviDisplay(d)}</td>
+        <td style="line-height:1.6;vertical-align:top;padding-top:14px">${renderBreakdown(d)}</td>
       </tr>`).join('');
   } catch (err) {
     tbody.innerHTML = '<tr class="error-row"><td colspan="7">Gagal mengambil data: ' + err.message + '</td></tr>';
@@ -767,6 +843,182 @@ function renderBreakdown(d) {
   }
   return parts.length ? parts.join('') : '<span style="color:var(--txt4)">—</span>';
 }
+
+const CHAIN_LABEL = { ethereum: 'ETH', bitcoin: 'BTC', solana: 'SOL' };
+const CHAIN_CSS   = { ethereum: 'eth', bitcoin: 'btc', solana: 'sol' };
+const PROOF_SUPPORTED = new Set(['ethereum', 'solana']);
+
+function shortAddr(a) {
+  if (!a) return '';
+  return a.length > 14 ? a.slice(0, 8) + '…' + a.slice(-6) : a;
+}
+
+function chainTagHtml(network) {
+  const label = CHAIN_LABEL[network] || network.toUpperCase();
+  const cls   = CHAIN_CSS[network]   || 'eth';
+  return `<span class="wallet-chain-tag ${cls}">${label}</span>`;
+}
+
+function formatVerifyTimestamp(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
+  } catch (e) { return ''; }
+}
+
+function verifyBadgeHtml(wallet) {
+  if (wallet.verified) {
+    const ts = formatVerifyTimestamp(wallet.verified_at);
+    const title = wallet.verified_at ? `Diverifikasi ${wallet.verified_at}` : 'Verified';
+    return `<span class="verify-badge verified" title="${title}">✓ Verified${ts ? ' ' + ts : ''}</span>`;
+  }
+  if (!PROOF_SUPPORTED.has(wallet.network)) {
+    return `<span class="verify-badge unsupported" title="Proof of ownership untuk network ini belum diimplementasikan">N/A</span>`;
+  }
+  return `<span class="verify-badge unverified">Unverified</span>`;
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderWalletsCell(d) {
+  if (!d.wallets || !d.wallets.length) return '';
+  return d.wallets.map(w => {
+    const canVerify = PROOF_SUPPORTED.has(w.network) && !w.verified;
+    const action = canVerify
+      ? `<button class="verify-mini-btn" onclick="openVerifyModal('${escapeAttr(w.address)}','${w.network}','${escapeAttr(d.id)}')">Verify</button>`
+      : '';
+    return `<div class="wallet-mini-row">${chainTagHtml(w.network)}<span class="wallet-addr" title="${escapeAttr(w.address)}">${shortAddr(w.address)}</span>${verifyBadgeHtml(w)}${action}</div>`;
+  }).join('');
+}
+
+let modalState = { address: null, network: null, pakdId: null, challenge: null };
+
+function onModalBackdrop(ev) {
+  if (ev.target && ev.target.id === 'verify-modal') closeVerifyModal();
+}
+
+function modalShowError(msg) {
+  const el = document.getElementById('verify-modal-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function modalClearError() {
+  document.getElementById('verify-modal-error').style.display = 'none';
+}
+
+function setModalSubmitState(disabled, label) {
+  const btn = document.getElementById('verify-modal-submit');
+  btn.disabled = disabled;
+  if (label !== undefined) btn.textContent = label;
+}
+
+async function openVerifyModal(address, network, pakdId) {
+  modalState = { address, network, pakdId, challenge: null };
+  const modal = document.getElementById('verify-modal');
+  document.getElementById('verify-modal-sub').textContent = `${(CHAIN_LABEL[network] || network)} · ${address}`;
+  document.getElementById('verify-modal-challenge').value = 'Mengambil challenge dari server...';
+  document.getElementById('verify-modal-signature').value = '';
+  const sigHint = document.getElementById('verify-modal-sig-hint');
+  if (network === 'ethereum') {
+    sigHint.textContent = 'Ethereum (EIP-191): hex 0x... panjang 132 karakter, hasil personal_sign / MetaMask eth_sign.';
+  } else {
+    sigHint.textContent = 'Solana (Ed25519): hex 128 karakter atau base64, hasil signMessage Phantom / wallet adapter.';
+  }
+  modalClearError();
+  setModalSubmitState(true, 'Verifikasi');
+  modal.classList.add('show');
+
+  try {
+    const res = await fetch('/api/wallet-challenge', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, network })
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      document.getElementById('verify-modal-challenge').value = '';
+      modalShowError(json.message || 'Gagal mengambil challenge.');
+      return;
+    }
+    modalState.challenge = json.challenge;
+    document.getElementById('verify-modal-challenge').value = json.challenge;
+    if (json.instruction) {
+      document.getElementById('verify-modal-instruction').textContent = json.instruction;
+    }
+    setModalSubmitState(false, 'Verifikasi');
+    setTimeout(() => document.getElementById('verify-modal-signature').focus(), 50);
+  } catch (err) {
+    document.getElementById('verify-modal-challenge').value = '';
+    modalShowError('Gagal menghubungi server: ' + err.message);
+  }
+}
+
+function closeVerifyModal() {
+  document.getElementById('verify-modal').classList.remove('show');
+  modalState = { address: null, network: null, pakdId: null, challenge: null };
+}
+
+async function submitVerifyFromModal() {
+  const signature = document.getElementById('verify-modal-signature').value.trim();
+  if (!signature) {
+    modalShowError('Tempel signature dari PAKD terlebih dahulu.');
+    return;
+  }
+  if (!modalState.challenge) {
+    modalShowError('Challenge belum siap. Tunggu sampai challenge text muncul.');
+    return;
+  }
+  modalClearError();
+  setModalSubmitState(true, 'Memverifikasi...');
+  try {
+    const res = await fetch('/api/wallet-verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address:   modalState.address,
+        signature,
+        pakd_id:   modalState.pakdId,
+      })
+    });
+    const json = await res.json();
+    if (json.verified) {
+      closeVerifyModal();
+      loadAll();
+    } else {
+      modalShowError(json.message || 'Verifikasi gagal.');
+      setModalSubmitState(false, 'Verifikasi');
+    }
+  } catch (err) {
+    modalShowError('Gagal menghubungi server: ' + err.message);
+    setModalSubmitState(false, 'Verifikasi');
+  }
+}
+
+function copyChallengeFromModal() {
+  const text = document.getElementById('verify-modal-challenge').value;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('verify-modal-copy');
+    btn.classList.add('copied');
+    btn.textContent = 'Tersalin';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.textContent = 'Salin Challenge';
+    }, 1600);
+  }).catch(() => {
+    const ta = document.getElementById('verify-modal-challenge');
+    ta.select();
+    document.execCommand('copy');
+  });
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.getElementById('verify-modal').classList.contains('show')) {
+    closeVerifyModal();
+  }
+});
 
 async function requestChallenge() {
   const network = document.getElementById('vp-network').value;

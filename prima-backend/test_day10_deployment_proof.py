@@ -1,3 +1,4 @@
+
 # test_day10_deployment_proof.py
 # Day 10 — 6 tests: deployment health + wallet proof flow (unit, mocked)
 # Target: 6/6 pass — brings suite to 55/55
@@ -23,7 +24,7 @@ def test_status_version():
     data   = resp.get_json()
     assert resp.status_code == 200
     assert data["status"]  == "ok"
-    assert data["versi"]   == "1.7-multichain-full"
+    assert data["versi"]   == "1.8-wallet-proof-ui"
 
 
 # ---------------------------------------------------------------------------

@@ -733,7 +733,7 @@ def index():
 
 @app.route("/api/status")
 def status():
-    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.7-multichain-full"})
+    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.8-wallet-proof-ui"})
 
 
 @app.route("/api/reconciliation")
@@ -793,7 +793,6 @@ def reconciliation():
         write_audit("REKONSILIASI", f"{len(hasil)} PAKD direkonsiliasi (ETH native+USDT+USDC, BTC, SOL)")
         # Resolve harga_fallback flag from ETH price fetch
         _, eth_fallback = get_eth_price_idr()
-        write_audit("REKONSILIASI", f"{len(hasil)} PAKD direkonsiliasi (ETH native+USDT+USDC, BTC, SOL)")
         return jsonify({
             "data":          hasil,
             "total_pakd":    len(hasil),
@@ -1018,9 +1017,6 @@ def wallet_challenge():
         "expires_in":  CHALLENGE_TTL,
         "instruction": instruction,
     })
-    CHALLENGE_STORE[address.lower()] = {"challenge": challenge, "expires": time.time() + CHALLENGE_TTL}
-    write_audit("WALLET CHALLENGE ISSUED", f"Address {address} pada {timestamp}")
-    return jsonify({"address": address, "challenge": challenge, "expires_in": CHALLENGE_TTL, "instruction": "Tandatangani field challenge menggunakan private key wallet Anda, lalu kirim ke POST /api/wallet-verify."})
 
 
 @app.route("/api/wallet-verify", methods=["POST"])

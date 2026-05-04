@@ -10,7 +10,7 @@ Coverage:
        sol_native_idr with non-zero values
   [F2] aset_onchain_idr for SOL PAKD > sol_native_idr alone (SPL counted)
   [F3] /api/stress-test — sol_stressed present in mild, moderate, severe
-  [F4] /api/status — versi == "1.7-multichain-full"
+  [F4] /api/status — versi == "1.8-wallet-proof-ui"
   [F5] /api/reconciliation — ETH wallet still returns eth_native_idr,
        eth_usdt_idr, eth_usdc_idr (regression check after frontend edits)
 
@@ -395,8 +395,8 @@ class TestF4StatusVersion:
         resp = client.get("/api/status")
         assert resp.status_code == 200
         data = resp.get_json()
-        assert data.get("versi") == "1.7-multichain-full", (
-            f"[F4] Expected versi='1.7-multichain-full', got '{data.get('versi')}'"
+        assert data.get("versi") == "1.8-wallet-proof-ui", (
+            f"[F4] Expected versi='1.8-wallet-proof-ui', got '{data.get('versi')}'"
         )
 
     def test_status_fields_complete(self, client):
