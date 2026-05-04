@@ -59,6 +59,19 @@ SUPPORTED_NETWORKS = set(WALLET_RE.keys())
 
 PAKD_DEFAULT = [
     {
+        "id":   "PAKD-DEMO-001",
+        "nama": "PT Demo Aset Digital Indonesia",
+        "wallets": [
+            {
+                "network":     "ethereum",
+                "address":     "0xB6da511B4550B440415f8c640E986Ec41d9020C0",
+                "verified":    False,
+                "verified_at": None,
+            }
+        ],
+        "aset_dilaporkan": 5_000_000_000,
+    },
+    {
         "id":   "PAKD-OJK-001",
         "nama": "PT Indodax Nasional Indonesia",
         "wallets": [

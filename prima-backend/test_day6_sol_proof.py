@@ -228,12 +228,24 @@ def test_w10_verify_accepts_base64_signature(client):
 VITALIK  = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
 ETH_FOUND = "0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe"
 
-def test_w11_pakd_default_has_three_entries():
-    """[W11] Demo data upgraded from 2 to 3 PAKD entities."""
-    assert len(PAKD_DEFAULT) == 3, (
-        f"Expected 3 PAKD entries, got {len(PAKD_DEFAULT)}. "
-        "Tambahkan entitas ketiga ke PAKD_DEFAULT."
+def test_w11_pakd_default_has_required_entries():
+    """[W11] PAKD_DEFAULT contains at least 3 valid entries with required fields."""
+    assert len(PAKD_DEFAULT) >= 3, (
+        f"Expected at least 3 PAKD entries, got {len(PAKD_DEFAULT)}. "
+        "Tambahkan entitas ke PAKD_DEFAULT."
     )
+    required_fields = {"id", "nama", "wallets", "aset_dilaporkan"}
+    for idx, pakd in enumerate(PAKD_DEFAULT):
+        missing = required_fields - set(pakd.keys())
+        assert not missing, (
+            f"PAKD_DEFAULT[{idx}] missing fields: {missing}"
+        )
+        assert isinstance(pakd["wallets"], list) and len(pakd["wallets"]) >= 1, (
+            f"PAKD_DEFAULT[{idx}] ({pakd.get('id')}) must have at least 1 wallet"
+        )
+        assert isinstance(pakd["aset_dilaporkan"], int) and pakd["aset_dilaporkan"] >= 0, (
+            f"PAKD_DEFAULT[{idx}] ({pakd.get('id')}) aset_dilaporkan must be non-negative int"
+        )
 
 
 def test_w12_pakd_default_no_vitalik_addresses():
