@@ -559,8 +559,16 @@ tr:hover td{background:var(--bg2)}
       <div class="modal-step">
         <div class="modal-step-num">2</div>
         <div class="modal-step-content">
-          <div class="modal-step-title">Tempel signature dari PAKD</div>
-          <div class="modal-step-desc" id="verify-modal-sig-hint">Format signature tergantung network.</div>
+          <div class="modal-step-title">Tandatangani challenge sebagai bukti kepemilikan</div>
+          <div class="modal-step-desc">PAKD dapat menandatangani via MetaMask (in-browser) atau menggunakan signing tool eksternal lalu paste signature.</div>
+          <button class="btn-primary" id="verify-modal-mm-btn" onclick="signWithMetaMask()" style="width:100%;margin-top:8px;display:none" disabled>Sign with MetaMask</button>
+          <div id="verify-modal-mm-status" style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--txt4);margin-top:6px;display:none">—</div>
+          <div id="verify-modal-mm-divider" style="display:none;align-items:center;gap:8px;margin:14px 0 8px 0;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--txt4)">
+            <div style="flex:1;height:1px;background:var(--border)"></div>
+            <span>atau paste manual</span>
+            <div style="flex:1;height:1px;background:var(--border)"></div>
+          </div>
+          <div class="modal-step-desc" id="verify-modal-sig-hint" style="margin-top:6px">Format signature tergantung network.</div>
           <input id="verify-modal-signature" class="form-input mono" type="text" placeholder="0x... atau hex / base64" style="font-size:11px" autocomplete="off" spellcheck="false">
         </div>
       </div>
@@ -928,6 +936,7 @@ async function openVerifyModal(address, network, pakdId) {
   } else {
     sigHint.textContent = 'Solana (Ed25519): hex 128 karakter atau base64, hasil signMessage Phantom / wallet adapter.';
   }
+  setupMetaMaskUI(network);
   modalClearError();
   setModalSubmitState(true, 'Verifikasi');
   modal.classList.add('show');
@@ -995,6 +1004,85 @@ async function submitVerifyFromModal() {
     setModalSubmitState(false, 'Verifikasi');
   }
 }
+
+function setupMetaMaskUI(network) {
+  const btn      = document.getElementById('verify-modal-mm-btn');
+  const status   = document.getElementById('verify-modal-mm-status');
+  const divider  = document.getElementById('verify-modal-mm-divider');
+  if (network !== 'ethereum') {
+    btn.style.display = 'none';
+    status.style.display = 'none';
+    divider.style.display = 'none';
+    return;
+  }
+  btn.style.display = 'block';
+  status.style.display = 'block';
+  divider.style.display = 'flex';
+  if (typeof window.ethereum === 'undefined') {
+    btn.disabled = true;
+    btn.textContent = 'MetaMask tidak terdeteksi';
+    status.textContent = 'Install MetaMask atau gunakan paste manual di bawah.';
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Sign with MetaMask';
+    status.textContent = 'MetaMask terdeteksi. Pastikan account aktif sesuai address yang diverifikasi.';
+  }
+}
+
+async function signWithMetaMask() {
+  modalClearError();
+  if (typeof window.ethereum === 'undefined') {
+    modalShowError('MetaMask tidak terdeteksi di browser ini.');
+    return;
+  }
+  if (!modalState.challenge) {
+    modalShowError('Challenge belum siap. Tunggu sampai challenge text muncul.');
+    return;
+  }
+  const btn = document.getElementById('verify-modal-mm-btn');
+  const status = document.getElementById('verify-modal-mm-status');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Menunggu MetaMask...';
+  status.textContent = 'Buka MetaMask popup dan setujui signature request.';
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    if (!accounts || accounts.length === 0) {
+      modalShowError('Tidak ada account aktif di MetaMask.');
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+      return;
+    }
+    const activeAccount = accounts[0].toLowerCase();
+    const targetAddress = modalState.address.toLowerCase();
+    if (activeAccount !== targetAddress) {
+      modalShowError('Account aktif di MetaMask (' + accounts[0] + ') tidak match dengan address yang diverifikasi (' + modalState.address + '). Switch account di MetaMask, lalu klik Sign with MetaMask lagi.');
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+      status.textContent = 'MetaMask terdeteksi. Pastikan account aktif sesuai address yang diverifikasi.';
+      return;
+    }
+    const signature = await window.ethereum.request({
+      method: 'personal_sign',
+      params: [modalState.challenge, modalState.address],
+    });
+    document.getElementById('verify-modal-signature').value = signature;
+    status.textContent = 'Signature diterima. Mengirim ke server...';
+    await submitVerifyFromModal();
+  } catch (err) {
+    if (err && err.code === 4001) {
+      modalShowError('Anda menolak signature di MetaMask. Coba lagi atau gunakan paste manual.');
+    } else if (err && err.code === 4900) {
+      modalShowError('MetaMask disconnected. Pastikan extension aktif dan unlock vault.');
+    } else {
+      modalShowError('Gagal sign dengan MetaMask: ' + (err.message || 'unknown error'));
+    }
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+    status.textContent = 'MetaMask terdeteksi. Pastikan account aktif sesuai address yang diverifikasi.';
+  }
+}
+
 
 function copyChallengeFromModal() {
   const text = document.getElementById('verify-modal-challenge').value;
