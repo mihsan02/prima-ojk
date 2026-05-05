@@ -746,7 +746,7 @@ def index():
 
 @app.route("/api/status")
 def status():
-    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.8-wallet-proof-ui"})
+    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.9-mm-frontend"})
 
 
 @app.route("/api/reconciliation")
