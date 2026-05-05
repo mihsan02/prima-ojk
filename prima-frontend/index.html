@@ -1046,6 +1046,14 @@ async function signWithMetaMask() {
   btn.textContent = 'Menunggu MetaMask...';
   status.textContent = 'Buka MetaMask popup dan setujui signature request.';
   try {
+    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+    if (chainId !== '0x1') {
+      modalShowError('MetaMask aktif di chain ' + chainId + ' (bukan Ethereum Mainnet 0x1). Switch ke Ethereum Mainnet di MetaMask, lalu klik Sign with MetaMask lagi.');
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+      status.textContent = 'MetaMask terdeteksi. Switch ke Ethereum Mainnet sebelum sign.';
+      return;
+    }
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     if (!accounts || accounts.length === 0) {
       modalShowError('Tidak ada account aktif di MetaMask.');
