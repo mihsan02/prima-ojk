@@ -29,3 +29,6 @@ venv/
 challenge.txt
 prima-backend/audit_log.json
 prima-backend/pakd_data.json
+
+# Local backup files (timestamped pre-edit copies)
+*.bak.*
