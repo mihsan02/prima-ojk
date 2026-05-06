@@ -70,6 +70,10 @@ PAKD_DEFAULT = [
             }
         ],
         "aset_dilaporkan": 5_000_000_000,
+        "equity_idr": None,
+        "persediaan_akd_idr": None,
+        "simpanan_pedagang_akd_idr": None,
+        "customer_akd_idr": None,
     },
     {
         "id":   "PAKD-OJK-001",
@@ -83,6 +87,10 @@ PAKD_DEFAULT = [
             }
         ],
         "aset_dilaporkan": 4_500_000_000_000,
+        "equity_idr": None,
+        "persediaan_akd_idr": None,
+        "simpanan_pedagang_akd_idr": None,
+        "customer_akd_idr": None,
     },
     {
         "id":   "PAKD-OJK-002",
@@ -96,6 +104,10 @@ PAKD_DEFAULT = [
             }
         ],
         "aset_dilaporkan": 1_200_000_000_000,
+        "equity_idr": None,
+        "persediaan_akd_idr": None,
+        "simpanan_pedagang_akd_idr": None,
+        "customer_akd_idr": None,
     },
     {
         "id":   "PAKD-OJK-003",
@@ -109,6 +121,10 @@ PAKD_DEFAULT = [
             }
         ],
         "aset_dilaporkan": 850_000_000_000,
+        "equity_idr": None,
+        "persediaan_akd_idr": None,
+        "simpanan_pedagang_akd_idr": None,
+        "customer_akd_idr": None,
     },
 ]
 
@@ -143,6 +159,10 @@ def _migrate_record(p):
             if entry:
                 normalized.append(entry)
         p["wallets"] = normalized
+    p.setdefault("equity_idr", None)
+    p.setdefault("persediaan_akd_idr", None)
+    p.setdefault("simpanan_pedagang_akd_idr", None)
+    p.setdefault("customer_akd_idr", None)
     return p
 
 
