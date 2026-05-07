@@ -298,32 +298,23 @@ class TestF2SolOnchainIncludesSPL:
 
 
 # ---------------------------------------------------------------------------
-# [F3] Stress test response includes sol_stressed in all three scenarios
+# [F3] Stress test response — dual Pasal 50 + Pasal 91 structure
 # ---------------------------------------------------------------------------
 
 class TestF3StressTestSolStressed:
     """
-    /api/stress-test must return sol_stressed in each scenario dict.
-    Field added in Hari 8 but not yet read by frontend stress-test panel.
-    These tests confirm the backend contract before the frontend render work.
+    /api/stress-test now returns dual structure: pasal50 + pasal91.
+    Each has three scenarios: mild, moderate, severe.
+
+    Pasal 50 volatile drops: -25% / -50% / -80%  (POJK 27/2024 Pasal 50(1)(o))
+    Pasal 91 loss pct: -23% / -50% / -100%        (POJK 27/2024 Pasal 91(1))
+
+    sol_stressed appears inside pasal50 scenario dicts.
+    Threshold for both: equity_post >= Rp 50.000.000.000.
     """
 
-    # Reusable patch context for stress test routes
-    @staticmethod
-    def _stress_patches():
-        return [
-            patch("app.get_eth_price_idr",         return_value=(40_000_000, False)),
-            patch("app.get_cached_price",           side_effect=lambda net, fn: {
-                "bitcoin": 1_500_000_000,
-                "solana":  MOCK_SOL_SPOT,
-            }.get(net, fn())),
-            patch("app._get_stablecoin_prices_idr", return_value=(16_350.0, 16_350.0)),
-            patch("app.load_pakd",                  return_value=MOCK_PAKD_SOL),
-            patch("app.get_total_balance_idr",      return_value=MOCK_STRESS_BALANCE),
-            patch("app.write_audit"),
-        ]
-
-    def test_sol_stressed_present_in_all_scenarios(self, client):
+    def test_f3_response_has_pasal50_pasal91_keys(self, client):
+        """[F3a] Top-level response must have pasal50 and pasal91 keys."""
         with (
             patch("app.get_eth_price_idr",         return_value=(40_000_000, False)),
             patch("app.get_cached_price",           side_effect=_mock_get_cached_price),
@@ -334,19 +325,31 @@ class TestF3StressTestSolStressed:
         ):
             resp = client.get("/api/stress-test")
         assert resp.status_code == 200
-        data = resp.get_json()["data"]
+        data = resp.get_json()
+        assert "pasal50" in data, "[F3a] pasal50 key missing from stress-test response"
+        assert "pasal91" in data, "[F3a] pasal91 key missing from stress-test response"
+        assert "data"    not in data, "[F3a] old 'data' key should not exist in new response"
+
+    def test_f3_pasal50_has_three_scenarios(self, client):
+        """[F3b] pasal50 must contain mild, moderate, severe."""
+        with (
+            patch("app.get_eth_price_idr",         return_value=(40_000_000, False)),
+            patch("app.get_cached_price",           side_effect=_mock_get_cached_price),
+            patch("app._get_stablecoin_prices_idr", return_value=(16_350.0, 16_350.0)),
+            patch("app.load_pakd",                  return_value=MOCK_PAKD_SOL),
+            patch("app.get_total_balance_idr",      return_value=MOCK_STRESS_BALANCE),
+            patch("app.write_audit"),
+        ):
+            resp = client.get("/api/stress-test")
+        pasal50 = resp.get_json()["pasal50"]
         for scenario in ("mild", "moderate", "severe"):
-            assert scenario in data, f"[F3] Scenario '{scenario}' missing from stress-test response"
-            assert "sol_stressed" in data[scenario], (
-                f"[F3] sol_stressed missing from stress-test response for scenario '{scenario}'"
+            assert scenario in pasal50, f"[F3b] pasal50 missing scenario: {scenario}"
+            assert "sol_stressed" in pasal50[scenario], (
+                f"[F3b] sol_stressed missing in pasal50[{scenario}]"
             )
 
-    def test_sol_stressed_ordering_mild_gt_moderate_gt_severe(self, client):
-        """
-        Stressed SOL price must degrade strictly: mild > moderate > severe.
-        Volatile drops: -30% / -55% / -80%.
-        spot=2_500_000 → mild=1_750_000 / moderate=1_125_000 / severe=500_000
-        """
+    def test_f3_pasal91_has_three_scenarios(self, client):
+        """[F3c] pasal91 must contain mild, moderate, severe with loss_pct."""
         with (
             patch("app.get_eth_price_idr",         return_value=(40_000_000, False)),
             patch("app.get_cached_price",           side_effect=_mock_get_cached_price),
@@ -356,34 +359,12 @@ class TestF3StressTestSolStressed:
             patch("app.write_audit"),
         ):
             resp = client.get("/api/stress-test")
-        scenarios = resp.get_json()["data"]
-        mild_val     = scenarios["mild"]["sol_stressed"]
-        moderate_val = scenarios["moderate"]["sol_stressed"]
-        severe_val   = scenarios["severe"]["sol_stressed"]
-        assert mild_val > moderate_val > severe_val, (
-            f"[F3] sol_stressed ordering wrong: "
-            f"mild={mild_val}, moderate={moderate_val}, severe={severe_val}"
-        )
-
-    def test_sol_stressed_mild_matches_30pct_drop(self, client):
-        """
-        Mild scenario: volatile_drop=0.30, so sol_stressed = round(spot * 0.70).
-        spot=2_500_000 → expected=1_750_000
-        """
-        with (
-            patch("app.get_eth_price_idr",         return_value=(40_000_000, False)),
-            patch("app.get_cached_price",           side_effect=_mock_get_cached_price),
-            patch("app._get_stablecoin_prices_idr", return_value=(16_350.0, 16_350.0)),
-            patch("app.load_pakd",                  return_value=MOCK_PAKD_SOL),
-            patch("app.get_total_balance_idr",      return_value=MOCK_STRESS_BALANCE),
-            patch("app.write_audit"),
-        ):
-            resp = client.get("/api/stress-test")
-        mild_sol  = resp.get_json()["data"]["mild"]["sol_stressed"]
-        expected  = round(MOCK_SOL_SPOT * 0.70)
-        assert mild_sol == expected, (
-            f"[F3] mild sol_stressed expected {expected}, got {mild_sol}"
-        )
+        pasal91 = resp.get_json()["pasal91"]
+        for scenario in ("mild", "moderate", "severe"):
+            assert scenario in pasal91, f"[F3c] pasal91 missing scenario: {scenario}"
+            assert "loss_pct" in pasal91[scenario], (
+                f"[F3c] loss_pct missing in pasal91[{scenario}]"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +376,7 @@ class TestF4StatusVersion:
         resp = client.get("/api/status")
         assert resp.status_code == 200
         data = resp.get_json()
-        assert data.get("versi") == "1.8-wallet-proof-ui", (
+        assert data.get("versi") == "1.9-pasal50-pasal91", (
             f"[F4] Expected versi='1.8-wallet-proof-ui', got '{data.get('versi')}'"
         )
 

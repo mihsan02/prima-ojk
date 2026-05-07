@@ -24,7 +24,7 @@ def test_status_version():
     data   = resp.get_json()
     assert resp.status_code == 200
     assert data["status"]  == "ok"
-    assert data["versi"]   == "1.8-wallet-proof-ui"
+    assert data["versi"]   == "1.9-pasal50-pasal91"
 
 
 # ---------------------------------------------------------------------------

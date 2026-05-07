@@ -50,6 +50,34 @@ STABLECOIN_DECIMALS = 6
 # Current reference: Bank Indonesia Kurs Tengah, April 2026.
 FALLBACK_STABLECOIN_IDR = 16_350.0
 
+# ---------------------------------------------------------------------------
+# Regulatory thresholds and stress test scenarios
+# ---------------------------------------------------------------------------
+
+# Source: POJK No. 27 Tahun 2024, Pasal 50 ayat (1) huruf o
+# "mempertahankan ekuitas paling sedikit Rp50.000.000.000,00"
+EQUITY_MINIMUM_IDR = 50_000_000_000
+
+# Pasal 50 (Risiko Pasar) — price drop applied to volatile and stable assets.
+# Volatile basis: BTC -64% in 2022 (Chainalysis Crypto Crime Report 2024);
+#                 BTC -84% from Nov 2017 ATH to Dec 2018 (CoinMarketCap historical).
+# Stablecoin basis: USDC depeg to USD 0.87 on 11 Mar 2023 / SVB collapse (Reuters).
+SKENARIO_PASAL50 = {
+    "mild":     {"label": "Mild (-25%)",     "volatile_drop": 0.25, "stable_drop": 0.03},
+    "moderate": {"label": "Moderate (-50%)", "volatile_drop": 0.50, "stable_drop": 0.08},
+    "severe":   {"label": "Severe (-80%)",   "volatile_drop": 0.80, "stable_drop": 0.13},
+}
+
+# Pasal 91 (Risiko Siber) — % of AKD lost to cyber incident.
+# Source: GDAC Apr 2023 -23% (BeInCrypto / Chainalysis 2024);
+#         WazirX Jul 2024 -50% (Elliptic / Reuters Jul 2024);
+#         Mt Gox 2014 -100% customer AKD (public record).
+SKENARIO_PASAL91 = {
+    "mild":     {"label": "Mild (-23%)",     "loss": 0.23},
+    "moderate": {"label": "Moderate (-50%)", "loss": 0.50},
+    "severe":   {"label": "Severe (-100%)",  "loss": 1.00},
+}
+
 WALLET_RE = {
     "ethereum": re.compile(r"^0x[0-9a-fA-F]{40}$"),
     "bitcoin":  re.compile(r"^(bc1[a-zA-Z0-9]{6,87}|[13][a-km-zA-HJ-NP-Z0-9]{25,34})$"),
@@ -766,7 +794,7 @@ def index():
 
 @app.route("/api/status")
 def status():
-    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.9-mm-frontend"})
+    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.9-pasal50-pasal91"})
 
 
 @app.route("/api/reconciliation")
@@ -839,17 +867,24 @@ def reconciliation():
 @app.route("/api/stress-test")
 def stress_test():
     """
-    Stress test solvabilitas tiga skenario.
+    Dual stress test: Pasal 50 (Risiko Pasar) + Pasal 91 (Risiko Siber).
 
-    Volatile assets (ETH, BTC, SOL): -30% / -55% / -80%
-    Stablecoin assets (USDT, USDC):  -3%  / -8%  / -15%
+    Pasal 50 (Risiko Pasar) — POJK No. 27 Tahun 2024, Pasal 50(1)(o):
+      Threshold: equity_post >= EQUITY_MINIMUM_IDR (Rp 50.000.000.000)
+      Volatile drop: mild -25%, moderate -50%, severe -80%
+      Stablecoin drop: mild -3%, moderate -8%, severe -13%
+      Historical basis:
+        BTC -64% in 2022 (Chainalysis Crypto Crime Report 2024)
+        BTC -84% Nov 2017 ATH to Dec 2018 bottom (CoinMarketCap historical)
+        USDC depeg to USD 0.87 on 11 Mar 2023 / SVB collapse (Reuters)
 
-    Historical basis:
-      ETH/BTC: CoinMarketCap historical, Nov 2017 ATH to Dec 2018 bottom (-84% BTC)
-      USDC: depegged to USD 0.87 on 11 March 2023 during SVB collapse (Reuters)
-      USDT: hit USD 0.95 during 2022 banking stress (CoinGecko historical)
-
-    Threshold lulus: post-stress aset_onchain >= 80% aset_dilaporkan
+    Pasal 91 (Risiko Siber) — POJK No. 27 Tahun 2024, Pasal 91(1):
+      Threshold: equity_post >= EQUITY_MINIMUM_IDR (Rp 50.000.000.000)
+      Loss base: customer_akd_idr if available, else aset_onchain_idr (proxy)
+      Historical basis:
+        mild  -23%: GDAC April 2023, $13M of $57M lost (Chainalysis 2024)
+        mod   -50%: WazirX July 2024, $235M of ~$500M lost (Elliptic/Reuters)
+        severe -100%: Mt Gox 2014, 850,000 BTC, 100% customer AKD (public record)
     """
     try:
         eth_price, harga_fallback = get_eth_price_idr()
@@ -869,22 +904,37 @@ def stress_test():
 
         pakd_list = load_pakd()
 
-        skenario = {
-            "mild":     {"label": "Mild",     "volatile_drop": 0.30, "stable_drop": 0.03},
-            "moderate": {"label": "Moderate", "volatile_drop": 0.55, "stable_drop": 0.08},
-            "severe":   {"label": "Severe",   "volatile_drop": 0.80, "stable_drop": 0.15},
-        }
-        hasil = {}
-        for key, s in skenario.items():
+        # Baseline on-chain balances at current prices (used by Pasal 91)
+        baseline_idr = {}
+        for pakd in pakd_list:
+            result = get_total_balance_idr(
+                pakd["wallets"],
+                eth_price_idr=eth_price,
+                btc_price_idr=btc_price,
+                sol_price_idr=sol_price,
+                usdt_price_idr=usdt_price,
+                usdc_price_idr=usdc_price,
+            )
+            baseline_idr[pakd["id"]] = result["total_idr"]
+
+        # ----------------------------------------------------------------
+        # Pasal 50: Risiko Pasar
+        # ----------------------------------------------------------------
+        hasil_pasal50 = {}
+        for key, s in SKENARIO_PASAL50.items():
+            v_drop = s["volatile_drop"]
+            s_drop = s["stable_drop"]
+            eth_stressed  = eth_price  * (1 - v_drop)
+            btc_stressed  = btc_price  * (1 - v_drop)
+            sol_stressed  = sol_price  * (1 - v_drop)
+            usdt_stressed = usdt_price * (1 - s_drop)
+            usdc_stressed = usdc_price * (1 - s_drop)
+
             lulus = gagal = 0
-            eth_stressed  = eth_price  * (1 - s["volatile_drop"])
-            btc_stressed  = btc_price  * (1 - s["volatile_drop"])
-            sol_stressed  = sol_price  * (1 - s["volatile_drop"])
-            usdt_stressed = usdt_price * (1 - s["stable_drop"])
-            usdc_stressed = usdc_price * (1 - s["stable_drop"])
+            per_pakd = []
 
             for pakd in pakd_list:
-                balance_result = get_total_balance_idr(
+                result = get_total_balance_idr(
                     pakd["wallets"],
                     eth_price_idr=eth_stressed,
                     btc_price_idr=btc_stressed,
@@ -892,16 +942,38 @@ def stress_test():
                     usdt_price_idr=usdt_stressed,
                     usdc_price_idr=usdc_stressed,
                 )
-                aset_onchain_stressed = balance_result["total_idr"]
-                aset_dilaporkan       = pakd["aset_dilaporkan"]
-                rasio = aset_onchain_stressed / aset_dilaporkan if aset_dilaporkan > 0 else 0
-                if rasio >= 0.80:
-                    lulus += 1
-                else:
-                    gagal += 1
+                aset_stressed = result["total_idr"]
+                aset_baseline = baseline_idr[pakd["id"]]
 
-            hasil[key] = {
+                equity_idr = pakd.get("equity_idr")
+                if equity_idr is not None:
+                    # equity_post = equity + perubahan nilai aset kripto
+                    equity_post  = equity_idr + (aset_stressed - aset_baseline)
+                    equity_sumber = "dilaporkan"
+                else:
+                    # Proxy konservatif: treat aset_onchain sebagai equity
+                    equity_post  = aset_stressed
+                    equity_sumber = "proxy_onchain"
+
+                lulus_flag = equity_post >= EQUITY_MINIMUM_IDR
+                lulus += 1 if lulus_flag else 0
+                gagal += 0 if lulus_flag else 1
+
+                per_pakd.append({
+                    "id":               pakd["id"],
+                    "nama":             pakd["nama"],
+                    "aset_onchain_idr": round(aset_baseline),
+                    "aset_stressed":    round(aset_stressed),
+                    "equity_post":      round(equity_post),
+                    "equity_sumber":    equity_sumber,
+                    "threshold":        EQUITY_MINIMUM_IDR,
+                    "lulus":            lulus_flag,
+                })
+
+            hasil_pasal50[key] = {
                 "label":         s["label"],
+                "volatile_drop": v_drop,
+                "stable_drop":   s_drop,
                 "lulus":         lulus,
                 "gagal":         gagal,
                 "total":         len(pakd_list),
@@ -910,17 +982,75 @@ def stress_test():
                 "sol_stressed":  round(sol_stressed),
                 "usdt_stressed": round(usdt_stressed, 2),
                 "usdc_stressed": round(usdc_stressed, 2),
+                "per_pakd":      per_pakd,
             }
 
-        write_audit("STRESS TEST", f"Stress test multi-asset dijalankan untuk {len(pakd_list)} PAKD")
+        # ----------------------------------------------------------------
+        # Pasal 91: Risiko Siber
+        # ----------------------------------------------------------------
+        hasil_pasal91 = {}
+        for key, s in SKENARIO_PASAL91.items():
+            loss_pct = s["loss"]
+            lulus = gagal = 0
+            per_pakd = []
+
+            for pakd in pakd_list:
+                aset_onchain = baseline_idr[pakd["id"]]
+
+                customer_akd = pakd.get("customer_akd_idr")
+                if customer_akd is not None:
+                    loss_idr   = customer_akd * loss_pct
+                    loss_sumber = "customer_akd"
+                else:
+                    loss_idr   = aset_onchain * loss_pct
+                    loss_sumber = "proxy_onchain"
+
+                equity_idr = pakd.get("equity_idr")
+                if equity_idr is not None:
+                    equity_post   = equity_idr - loss_idr
+                    equity_sumber = "dilaporkan"
+                else:
+                    equity_post   = aset_onchain - loss_idr
+                    equity_sumber = "proxy_onchain"
+
+                lulus_flag = equity_post >= EQUITY_MINIMUM_IDR
+                lulus += 1 if lulus_flag else 0
+                gagal += 0 if lulus_flag else 1
+
+                per_pakd.append({
+                    "id":                pakd["id"],
+                    "nama":              pakd["nama"],
+                    "aset_onchain_idr":  round(aset_onchain),
+                    "customer_akd_idr":  round(customer_akd) if customer_akd is not None else None,
+                    "loss_idr":          round(loss_idr),
+                    "loss_sumber":       loss_sumber,
+                    "equity_post":       round(equity_post),
+                    "equity_sumber":     equity_sumber,
+                    "threshold":         EQUITY_MINIMUM_IDR,
+                    "lulus":             lulus_flag,
+                })
+
+            hasil_pasal91[key] = {
+                "label":    s["label"],
+                "loss_pct": loss_pct,
+                "lulus":    lulus,
+                "gagal":    gagal,
+                "total":    len(pakd_list),
+                "per_pakd": per_pakd,
+            }
+
+        write_audit("STRESS TEST", f"Dual stress test (Pasal 50 + Pasal 91) untuk {len(pakd_list)} PAKD")
         return jsonify({
-            "data":             hasil,
-            "eth_price_idr":    eth_price,
-            "btc_price_idr":    btc_price,
-            "sol_price_idr":    sol_price,
-            "usdt_price_idr":   usdt_price,
-            "usdc_price_idr":   usdc_price,
-            "harga_fallback":   harga_fallback,
+            "pasal50":        hasil_pasal50,
+            "pasal91":        hasil_pasal91,
+            "eth_price_idr":  eth_price,
+            "btc_price_idr":  btc_price,
+            "sol_price_idr":  sol_price,
+            "usdt_price_idr": usdt_price,
+            "usdc_price_idr": usdc_price,
+            "harga_fallback": harga_fallback,
+            "threshold_idr":  EQUITY_MINIMUM_IDR,
+            "threshold_ref":  "POJK No. 27 Tahun 2024, Pasal 50 ayat (1) huruf o",
         })
 
     except Exception as e:
@@ -961,7 +1091,28 @@ def input_manual():
         for p in pakd_list:
             if p["id"] == pakd_id:
                 return jsonify({"status": "error", "message": f"ID {pakd_id} sudah terdaftar"}), 400
-        new_entry = {"id": pakd_id, "nama": nama, "wallets": canonical_wallets, "aset_dilaporkan": int(aset)}
+        equity_idr_val                 = body.get("equity_idr")
+        persediaan_akd_idr_val         = body.get("persediaan_akd_idr")
+        simpanan_pedagang_akd_idr_val  = body.get("simpanan_pedagang_akd_idr")
+        customer_akd_idr_val           = body.get("customer_akd_idr")
+        for field_name, field_val in [
+            ("equity_idr", equity_idr_val),
+            ("persediaan_akd_idr", persediaan_akd_idr_val),
+            ("simpanan_pedagang_akd_idr", simpanan_pedagang_akd_idr_val),
+            ("customer_akd_idr", customer_akd_idr_val),
+        ]:
+            if field_val is not None and (not isinstance(field_val, (int, float)) or field_val < 0):
+                return jsonify({"status": "error", "message": f"Field {field_name} harus angka non-negatif jika diisi"}), 400
+        new_entry = {
+            "id":                        pakd_id,
+            "nama":                      nama,
+            "wallets":                   canonical_wallets,
+            "aset_dilaporkan":           int(aset),
+            "equity_idr":                int(equity_idr_val) if equity_idr_val is not None else None,
+            "persediaan_akd_idr":        int(persediaan_akd_idr_val) if persediaan_akd_idr_val is not None else None,
+            "simpanan_pedagang_akd_idr": int(simpanan_pedagang_akd_idr_val) if simpanan_pedagang_akd_idr_val is not None else None,
+            "customer_akd_idr":          int(customer_akd_idr_val) if customer_akd_idr_val is not None else None,
+        }
         pakd_list.append(new_entry)
         save_pakd(pakd_list)
         write_audit("INPUT MANUAL", f"{nama} ({pakd_id}) ditambahkan oleh OJK")
