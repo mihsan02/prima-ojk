@@ -158,7 +158,7 @@ Rendah dalam konteks MVP. Skenario historis konsisten dengan praktik stress test
 
 ### Status saat ini
 
-Implementasi sedang transisi dari single-test framework (threshold rasio 80% aset on-chain vs aset dilaporkan, anchor proof-of-reserves industry practice) ke dual-test framework Pasal 50 plus Pasal 91. Target rilis: Mei 2026 sebelum pitch DIGDAYA X 2026.
+Dual-test framework Pasal 50 plus Pasal 91 telah diimplementasikan per versi 1.9-pasal50-pasal91 (Mei 2026). Pasal 50 (Risiko Pasar) mensimulasikan penurunan harga volatile -25%/-50%/-80% dengan threshold ekuitas minimum Rp 50.000.000.000 sesuai Pasal 50(1)(o) POJK No. 27 Tahun 2024. Pasal 91 (Risiko Siber) mensimulasikan kehilangan AKD konsumen -23%/-50%/-100% dengan basis historis GDAC 2023, WazirX 2024, dan Mt Gox 2014.
 
 ---
 
