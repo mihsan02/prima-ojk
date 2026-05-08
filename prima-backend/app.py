@@ -23,7 +23,7 @@ SATOSHI_PER_BTC    = 100_000_000
 LAMPORTS_PER_SOL   = 1_000_000_000
 PRICE_CACHE        = {}
 BALANCE_CACHE      = {}
-PRICE_TTL          = 60
+PRICE_TTL          = 300   # bumped from 60 (Day 15): CMC credit budget guard
 BALANCE_TTL        = 30
 
 CHALLENGE_STORE = {}
@@ -289,7 +289,88 @@ def get_cached_balance(cache_key, address, fetch_fn):
 # Ethereum — native ETH fetchers
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# CoinMarketCap primary price source (Day 15 cascade)
+# Rationale: Render shared IP-pool throttled by CoinGecko Cloudflare edge.
+# CMC authenticated requests bypass IP-based throttle.
+# Plan: 15K credits/month, 50 req/min. Single batched call covers all 5
+# assets at 1 credit per call.
+# ---------------------------------------------------------------------------
+
+CMC_ID_TO_CGKEY = {
+    "1":    "bitcoin",
+    "1027": "ethereum",
+    "5426": "solana",
+    "825":  "tether",
+    "3408": "usd-coin",
+}
+
+
+def _refresh_price_cache_from_cmc():
+    """
+    Attempt to populate PRICE_CACHE for all 5 assets via single CMC call.
+
+    Returns True if cache is fresh for all 5 assets after this call.
+    Returns False if CMC key absent or call failed; callers fall through
+    to existing CoinGecko per-asset logic.
+
+    Idempotent: skips network call when cache already fully fresh.
+    """
+    api_key = os.environ.get("COINMARKETCAP_API_KEY", "")
+    if not api_key:
+        return False
+
+    now = time.time()
+    cgkeys = list(CMC_ID_TO_CGKEY.values())
+    all_fresh = all(
+        k in PRICE_CACHE and (now - PRICE_CACHE[k][0]) < PRICE_TTL
+        for k in cgkeys
+    )
+    if all_fresh:
+        return True
+
+    try:
+        resp = requests.get(
+            "https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest",
+            headers={"X-CMC_PRO_API_KEY": api_key, "Accept": "application/json"},
+            params={
+                "id":      ",".join(CMC_ID_TO_CGKEY.keys()),
+                "convert": "IDR",
+                "aux":     "",
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json().get("data", {})
+
+        for cmc_id, cgkey in CMC_ID_TO_CGKEY.items():
+            entry = data.get(cmc_id)
+            # /v2 returns array per id; unwrap first element if list
+            if isinstance(entry, list):
+                entry = entry[0] if entry else None
+            if not entry:
+                continue
+            price = entry.get("quote", {}).get("IDR", {}).get("price")
+            if price is not None:
+                PRICE_CACHE[cgkey] = (now, float(price))
+
+        return all(k in PRICE_CACHE for k in cgkeys)
+    except Exception:
+        return False
+
+
 def get_eth_price_idr():
+    """
+    Fetch current ETH/IDR price.
+    Cascade: CMC primary, CoinGecko fallback, hardcoded final.
+    Returns (price_idr, harga_fallback_flag).
+    """
+    # Cascade Tier 1: CMC primary
+    if _refresh_price_cache_from_cmc():
+        cached = PRICE_CACHE.get("ethereum")
+        if cached and (time.time() - cached[0]) < PRICE_TTL:
+            return cached[1], False
+    # Cascade Tier 2: CoinGecko fallback
     try:
         url = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=idr"
         resp = requests.get(url, timeout=10)
@@ -372,6 +453,15 @@ def fetch_stablecoin_prices_idr():
     Returns:
         (usdt_price_idr: float, usdc_price_idr: float)
     """
+    # Cascade Tier 1: CMC primary
+    if _refresh_price_cache_from_cmc():
+        usdt_cached = PRICE_CACHE.get("tether")
+        usdc_cached = PRICE_CACHE.get("usd-coin")
+        now = time.time()
+        if (usdt_cached and (now - usdt_cached[0]) < PRICE_TTL and
+            usdc_cached and (now - usdc_cached[0]) < PRICE_TTL):
+            return usdt_cached[1], usdc_cached[1]
+    # Cascade Tier 2: CoinGecko (existing logic below)
     url = "https://api.coingecko.com/api/v3/simple/price"
     resp = requests.get(
         url,
@@ -444,9 +534,14 @@ def fetch_btc_balance(address):
 
 def fetch_btc_price_idr():
     """
-    Fetch current BTC/IDR price from CoinGecko public API.
+    Fetch current BTC/IDR price.
+    Cascade: CMC primary, CoinGecko fallback.
     Returns float (IDR per 1 BTC).
     """
+    if _refresh_price_cache_from_cmc():
+        cached = PRICE_CACHE.get("bitcoin")
+        if cached and (time.time() - cached[0]) < PRICE_TTL:
+            return cached[1]
     url = "https://api.coingecko.com/api/v3/simple/price"
     resp = requests.get(url, params={"ids": "bitcoin", "vs_currencies": "idr"}, timeout=10)
     resp.raise_for_status()
@@ -490,9 +585,14 @@ def fetch_sol_balance(address):
 
 def fetch_sol_price_idr():
     """
-    Fetch current SOL/IDR price from CoinGecko public API.
+    Fetch current SOL/IDR price.
+    Cascade: CMC primary, CoinGecko fallback.
     Returns float (IDR per 1 SOL).
     """
+    if _refresh_price_cache_from_cmc():
+        cached = PRICE_CACHE.get("solana")
+        if cached and (time.time() - cached[0]) < PRICE_TTL:
+            return cached[1]
     url  = "https://api.coingecko.com/api/v3/simple/price"
     resp = requests.get(
         url,
