@@ -318,6 +318,7 @@ def _refresh_price_cache_from_cmc():
     """
     api_key = os.environ.get("COINMARKETCAP_API_KEY", "")
     if not api_key:
+        print("[CMC] api_key absent, falling through to CoinGecko", flush=True)
         return False
 
     now = time.time()
@@ -354,8 +355,12 @@ def _refresh_price_cache_from_cmc():
             if price is not None:
                 PRICE_CACHE[cgkey] = (now, float(price))
 
-        return all(k in PRICE_CACHE for k in cgkeys)
-    except Exception:
+        success = all(k in PRICE_CACHE for k in cgkeys)
+        print(f"[CMC] refresh success={success}, populated={list(PRICE_CACHE.keys())}", flush=True)
+        return success
+    except Exception as e:
+        # Log to stdout for Render Logs visibility (Day 15 cascade debug)
+        print(f"[CMC] refresh failed: {type(e).__name__}: {e}", flush=True)
         return False
 
 
