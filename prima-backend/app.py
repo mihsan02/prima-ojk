@@ -104,7 +104,13 @@ PAKD_DEFAULT = [
                 "address":     "0xB6da511B4550B440415f8c640E986Ec41d9020C0",
                 "verified":    False,
                 "verified_at": None,
-            }
+            },
+            {
+                "network":     "solana",
+                "address":     "H13V5d2YdEvL9172K4jH5xfD7tGJN7UqEBR8y5Tb15B1",
+                "verified":    False,
+                "verified_at": None,
+            },
         ],
         "aset_dilaporkan": 5_000_000_000,
         "equity_idr": None,
