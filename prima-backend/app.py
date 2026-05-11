@@ -26,6 +26,13 @@ BALANCE_CACHE      = {}
 PRICE_TTL          = 300   # bumped from 60 (Day 15): CMC credit budget guard
 BALANCE_TTL        = 30
 
+# ---- Jupiter API constants (Day 16) ----
+JUPITER_API_BASE      = "https://api.jup.ag"
+JUPITER_API_KEY       = os.environ.get("JUPITER_API_KEY", "")
+JUPITER_STRICT_CACHE  = {}     # {"verified_set": (cached_at, set_of_mints)}
+JUPITER_PRICE_CACHE   = {}     # {mint: (cached_at, usd_price_or_None)}
+JUPITER_STRICT_TTL    = 86_400 # 24h cache for verified token list
+JUPITER_PRICE_TTL     = 300    # 5m cache aligned with PRICE_TTL
 CHALLENGE_STORE = {}
 CHALLENGE_TTL   = 300
 
@@ -43,6 +50,8 @@ USDT_CONTRACT      = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
 USDC_CONTRACT      = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 USDT_MINT_SOL = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
 USDC_MINT_SOL = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+SOL_NATIVE_SENTINEL  = "So11111111111111111111111111111111111111112"  # wrapped SOL mint
+SPL_TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"  # standard SPL, NOT Token-2022
 STABLECOIN_DECIMALS = 6
 
 # Fallback IDR/USD rate used only when CoinGecko is unreachable.
@@ -651,6 +660,165 @@ def fetch_spl_token_balance(address, mint_address):
             total += ui_amount
     return total
 
+def fetch_all_spl_balances(address):
+    """
+    Enumerate ALL non-zero SPL token accounts owned by `address` via Solana
+    JSON-RPC getTokenAccountsByOwner filtered by standard SPL program.
+
+    Limitation (Day 16 scope):
+        Token-2022 mints (program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb)
+        are NOT enumerated by this call. Documented in keterbatasan-sistem.md.
+
+    Returns:
+        list of {"mint": str, "ui_amount": float} with ui_amount > 0 only.
+
+    Source: https://solana.com/docs/rpc/http/gettokenaccountsbyowner
+    """
+    payload = {
+        "jsonrpc": "2.0",
+        "id":      1,
+        "method":  "getTokenAccountsByOwner",
+        "params": [
+            address,
+            {"programId": SPL_TOKEN_PROGRAM_ID},
+            {"encoding": "jsonParsed", "commitment": "confirmed"},
+        ],
+    }
+    resp = requests.post(
+        "https://api.mainnet-beta.solana.com",
+        json=payload,
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if "error" in data:
+        raise ValueError(f"Solana RPC error: {data['error']}")
+
+    holdings = []
+    for account in data["result"]["value"]:
+        info      = account["account"]["data"]["parsed"]["info"]
+        mint      = info["mint"]
+        ui_amount = info["tokenAmount"].get("uiAmount")
+        if ui_amount and ui_amount > 0:
+            holdings.append({"mint": mint, "ui_amount": float(ui_amount)})
+    return holdings
+
+
+def _get_jupiter_verified_set():
+    """
+    Return set of mint addresses tagged "verified" in Jupiter Tokens V2.
+
+    V1 tag "strict" was deprecated. V2 equivalent (per dev.jup.ag/docs/tokens/v2)
+    is "verified" plus "lst" only. "verified" carries the curatorship intent
+    that PRIMA needs as Gate 1 legitimacy proxy under POJK 23/2025 DAKD spirit.
+
+    Cache TTL 24h. On fetch failure returns last cached set (even stale)
+    to keep reconciliation operational; empty set only on cold start failure.
+    """
+    now = time.time()
+    cached = JUPITER_STRICT_CACHE.get("verified_set")
+    if cached and (now - cached[0]) < JUPITER_STRICT_TTL:
+        return cached[1]
+
+    headers = {}
+    base    = JUPITER_API_BASE
+    if JUPITER_API_KEY:
+        headers["x-api-key"] = JUPITER_API_KEY
+    else:
+        base = "https://lite-api.jup.ag"   # graceful fallback when key absent
+
+    try:
+        resp = requests.get(
+            f"{base}/tokens/v2/tag",
+            params={"query": "verified"},
+            headers=headers,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        verified_set = {
+            item["id"] for item in data
+            if isinstance(item, dict) and item.get("id")
+        }
+        JUPITER_STRICT_CACHE["verified_set"] = (now, verified_set)
+        return verified_set
+    except Exception as e:
+        print(f"[JUPITER] verified_set fetch failed: {type(e).__name__}: {e}", flush=True)
+        return cached[1] if cached else set()
+
+
+def _get_jupiter_prices(mints):
+    """
+    Return {mint: usd_price} for requested mints via Jupiter Price V3.
+
+    Per-mint cache TTL 300s. Only uncached mints trigger network call,
+    batched into one comma-separated GET. Mints with null/zero/missing
+    price are negative-cached (entry = None) so they are not re-fetched
+    every reconciliation cycle.
+
+    V3 response: {mint: {usdPrice: float, blockId, decimals, ...}}
+    Source: https://dev.jup.ag/docs/price/v3
+    """
+    now      = time.time()
+    result   = {}
+    to_fetch = []
+
+    for mint in mints:
+        cached = JUPITER_PRICE_CACHE.get(mint)
+        if cached and (now - cached[0]) < JUPITER_PRICE_TTL:
+            if cached[1] is not None and cached[1] > 0:
+                result[mint] = cached[1]
+        else:
+            to_fetch.append(mint)
+
+    if not to_fetch:
+        return result
+
+    headers = {}
+    base    = JUPITER_API_BASE
+    if JUPITER_API_KEY:
+        headers["x-api-key"] = JUPITER_API_KEY
+    else:
+        base = "https://lite-api.jup.ag"
+
+    try:
+        resp = requests.get(
+            f"{base}/price/v3",
+            params={"ids": ",".join(to_fetch)},
+            headers=headers,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        for mint in to_fetch:
+            entry = data.get(mint)
+            if entry and isinstance(entry, dict):
+                usd_price = entry.get("usdPrice")
+                if usd_price is not None and usd_price > 0:
+                    JUPITER_PRICE_CACHE[mint] = (now, float(usd_price))
+                    result[mint] = float(usd_price)
+                else:
+                    JUPITER_PRICE_CACHE[mint] = (now, None)
+            else:
+                JUPITER_PRICE_CACHE[mint] = (now, None)
+    except Exception as e:
+        print(f"[JUPITER] price fetch failed: {type(e).__name__}: {e}", flush=True)
+
+    return result
+
+
+def _get_usd_idr_rate():
+    """
+    Return USD-to-IDR rate via USDT IDR price (USDT is USD-pegged within
+    de-peg tolerance). No new API dependency: reuses _get_stablecoin_prices_idr.
+    Falls back to FALLBACK_STABLECOIN_IDR on cascade failure.
+    """
+    try:
+        usdt_idr, _ = _get_stablecoin_prices_idr()
+        return float(usdt_idr)
+    except Exception:
+        return float(FALLBACK_STABLECOIN_IDR)
 # ---------------------------------------------------------------------------
 # Unified multi-network balance fetcher (updated Day 4)
 # ---------------------------------------------------------------------------
@@ -720,6 +888,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     sol_native_sum = 0.0
     sol_usdt_sum   = 0.0
     sol_usdc_sum   = 0.0
+    sol_other_token_sum       = 0.0
+    sol_unvalued_count_total  = 0
+    sol_unvalued_mints_global = []
     breakdown      = []
 
     for wallet in wallets:
@@ -740,14 +911,18 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             "usdc_balance":     None,
             "usdc_idr":         None,
             # SPL fields — populated for solana wallets, None for others
-            "sol_native_idr":   None,
-            "sol_usdt_balance": None,
-            "sol_usdt_idr":     None,
-            "sol_usdc_balance": None,
-            "sol_usdc_idr":     None,
-            "verified":         verified,
-            "error":          None,
-        }
+            "sol_native_idr":      None,
+            "sol_usdt_balance":    None,
+            "sol_usdt_idr":        None,
+            "sol_usdc_balance":    None,
+            "sol_usdc_idr":        None,
+            # Day 16: full SPL enumeration fields, populated for solana wallets only
+            "sol_other_token_idr": None,
+            "sol_unvalued_count":  None,
+            "sol_unvalued_mints":  None,
+            "verified":            verified,
+            "error":               None,
+            }
 
         if network == "ethereum":
             entry["native_unit"] = "ETH"
@@ -807,41 +982,96 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         elif network == "solana":
             entry["native_unit"] = "SOL"
             try:
-                # Native SOL
+                # ---- Tier-1 logic UNTOUCHED: native SOL + USDT SPL + USDC SPL ----
                 sol_bal = get_cached_balance(
                     "solana", address,
                     lambda a=address: fetch_sol_balance(a)
                 )
                 sol_native_idr_val = sol_bal * sol_price_idr
 
-                # USDT SPL (cache key namespaced to avoid collision with native SOL)
                 sol_usdt_bal = get_cached_balance(
                     "sol_usdt_spl", address,
                     lambda a=address: fetch_spl_token_balance(a, USDT_MINT_SOL)
                 )
                 sol_usdt_idr_val = sol_usdt_bal * usdt_price_idr
 
-                # USDC SPL
                 sol_usdc_bal = get_cached_balance(
                     "sol_usdc_spl", address,
                     lambda a=address: fetch_spl_token_balance(a, USDC_MINT_SOL)
                 )
                 sol_usdc_idr_val = sol_usdc_bal * usdc_price_idr
 
-                wallet_total_idr = sol_native_idr_val + sol_usdt_idr_val + sol_usdc_idr_val
+                # ---- Day 16: full SPL enumeration + two-gate hybrid filter ----
+                # Gate 1 (POJK 23/2025 DAKD spirit): mint in verified set OR
+                #        has tradable price signal in Jupiter
+                # Gate 2 (valuation): Jupiter Price V3 returns non-null non-zero usdPrice
+                # Both gates required → contribute to other_token_idr
+                # Gate 1 fail OR Gate 2 fail → tracked in unvalued_mints
+                other_token_idr_val   = 0.0
+                unvalued_mints_local  = []
 
-                entry["balance_native"]   = round(sol_bal, 9)
-                entry["balance_idr"]      = wallet_total_idr
-                entry["sol_native_idr"]   = round(sol_native_idr_val)
-                entry["sol_usdt_balance"] = round(sol_usdt_bal, 6)
-                entry["sol_usdt_idr"]     = round(sol_usdt_idr_val)
-                entry["sol_usdc_balance"] = round(sol_usdc_bal, 6)
-                entry["sol_usdc_idr"]     = round(sol_usdc_idr_val)
+                try:
+                    all_holdings = fetch_all_spl_balances(address)
+                except Exception as enum_err:
+                    all_holdings = []
+                    print(f"[SPL_ENUM] fetch_all_spl_balances({address}) failed: "
+                          f"{type(enum_err).__name__}: {enum_err}", flush=True)
 
-                sol_total_idr  += wallet_total_idr
-                sol_native_sum += sol_native_idr_val
-                sol_usdt_sum   += sol_usdt_idr_val
-                sol_usdc_sum   += sol_usdc_idr_val
+                tier1_mints     = {USDT_MINT_SOL, USDC_MINT_SOL, SOL_NATIVE_SENTINEL}
+                candidate_mints = [h["mint"] for h in all_holdings if h["mint"] not in tier1_mints]
+
+                if candidate_mints:
+                    verified_set = _get_jupiter_verified_set()
+                    prices       = _get_jupiter_prices(candidate_mints)
+                    usd_idr_rate = _get_usd_idr_rate()
+
+                    for holding in all_holdings:
+                        mint = holding["mint"]
+                        if mint in tier1_mints:
+                            continue
+
+                        in_verified = mint in verified_set
+                        usd_price   = prices.get(mint)
+                        has_price   = usd_price is not None and usd_price > 0
+
+                        pass_gate1 = in_verified or has_price   # hybrid (option c)
+                        pass_gate2 = has_price                  # valuation gate
+
+                        if pass_gate1 and pass_gate2:
+                            token_idr = holding["ui_amount"] * usd_price * usd_idr_rate
+                            other_token_idr_val += token_idr
+                            # Distinct cache key per mint (prior bug class: collision)
+                            BALANCE_CACHE[(f"sol_other_token:{mint}", address)] = (
+                                time.time(), holding["ui_amount"]
+                            )
+                        else:
+                            unvalued_mints_local.append(mint)
+
+                wallet_total_idr = (
+                    sol_native_idr_val
+                    + sol_usdt_idr_val
+                    + sol_usdc_idr_val
+                    + other_token_idr_val
+                )
+
+                entry["balance_native"]      = round(sol_bal, 9)
+                entry["balance_idr"]         = wallet_total_idr
+                entry["sol_native_idr"]      = round(sol_native_idr_val)
+                entry["sol_usdt_balance"]    = round(sol_usdt_bal, 6)
+                entry["sol_usdt_idr"]        = round(sol_usdt_idr_val)
+                entry["sol_usdc_balance"]    = round(sol_usdc_bal, 6)
+                entry["sol_usdc_idr"]        = round(sol_usdc_idr_val)
+                entry["sol_other_token_idr"] = round(other_token_idr_val)
+                entry["sol_unvalued_count"]  = len(unvalued_mints_local)
+                entry["sol_unvalued_mints"]  = unvalued_mints_local
+
+                sol_total_idr             += wallet_total_idr
+                sol_native_sum            += sol_native_idr_val
+                sol_usdt_sum              += sol_usdt_idr_val
+                sol_usdc_sum              += sol_usdc_idr_val
+                sol_other_token_sum       += other_token_idr_val
+                sol_unvalued_count_total  += len(unvalued_mints_local)
+                sol_unvalued_mints_global.extend(unvalued_mints_local)
 
             except Exception as e:
                 entry["error"] = f"SOL fetch error: {e}"
@@ -864,6 +1094,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         "sol_native_idr":  sol_native_sum,
         "sol_usdt_idr":    sol_usdt_sum,
         "sol_usdc_idr":    sol_usdc_sum,
+        "sol_other_token_idr": sol_other_token_sum,
+        "sol_unvalued_count":  sol_unvalued_count_total,
+        "sol_unvalued_mints":  sol_unvalued_mints_global,
         "breakdown":       breakdown,
     }
 
@@ -949,6 +1182,9 @@ def reconciliation():
                 "sol_native_idr":      round(balance_result["sol_native_idr"]),
                 "sol_usdt_idr":        round(balance_result["sol_usdt_idr"]),
                 "sol_usdc_idr":        round(balance_result["sol_usdc_idr"]),
+                "sol_other_token_idr": round(balance_result["sol_other_token_idr"]),
+                "sol_unvalued_count":  balance_result["sol_unvalued_count"],
+                "sol_unvalued_mints":  balance_result["sol_unvalued_mints"],
                 "aset_dilaporkan_idr": aset_dilaporkan,
                 "deviasi_pct":         round(deviasi_pct, 2),
                 "surplus":             surplus,
