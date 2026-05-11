@@ -36,6 +36,11 @@ JUPITER_PRICE_TTL     = 300    # 5m cache aligned with PRICE_TTL
 CHALLENGE_STORE = {}
 CHALLENGE_TTL   = 300
 
+SOLANA_RPC_URL = os.environ.get(
+    "SOLANA_RPC_URL",
+    "https://api.mainnet-beta.solana.com"   # public fallback, rate-limited on cloud IPs
+)
+
 ETHERSCAN_API_KEY  = os.environ.get("ETHERSCAN_API_KEY", "")
 DATA_FILE          = os.path.join(os.path.dirname(__file__), "pakd_data.json")
 AUDIT_FILE         = os.path.join(os.path.dirname(__file__), "audit_log.json")
@@ -591,7 +596,7 @@ def fetch_sol_balance(address):
         "params":  [address, {"commitment": "confirmed"}],
     }
     resp = requests.post(
-        "https://api.mainnet-beta.solana.com",
+        SOLANA_RPC_URL,
         json=payload,
         timeout=10,
     )
@@ -647,7 +652,7 @@ def fetch_spl_token_balance(address, mint_address):
         ]
     }
     resp = requests.post(
-        "https://api.mainnet-beta.solana.com",
+        SOLANA_RPC_URL,
         json=payload,
         timeout=10
     )
@@ -691,7 +696,7 @@ def fetch_all_spl_balances(address):
         ],
     }
     resp = requests.post(
-        "https://api.mainnet-beta.solana.com",
+        SOLANA_RPC_URL,
         json=payload,
         timeout=15,
     )
@@ -1188,9 +1193,9 @@ def reconciliation():
                 "sol_native_idr":      round(balance_result["sol_native_idr"]),
                 "sol_usdt_idr":        round(balance_result["sol_usdt_idr"]),
                 "sol_usdc_idr":        round(balance_result["sol_usdc_idr"]),
-                "sol_other_token_idr": round(balance_result["sol_other_token_idr"]),
-                "sol_unvalued_count":  balance_result["sol_unvalued_count"],
-                "sol_unvalued_mints":  balance_result["sol_unvalued_mints"],
+                "sol_other_token_idr": round(balance_result.get("sol_other_token_idr", 0)),
+                "sol_unvalued_count":  balance_result.get("sol_unvalued_count", 0),
+                "sol_unvalued_mints":  balance_result.get("sol_unvalued_mints", []),
                 "aset_dilaporkan_idr": aset_dilaporkan,
                 "deviasi_pct":         round(deviasi_pct, 2),
                 "surplus":             surplus,
