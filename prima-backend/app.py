@@ -53,6 +53,76 @@ AUDIT_FILE         = os.path.join(os.path.dirname(__file__), "audit_log.json")
 # ---------------------------------------------------------------------------
 USDT_CONTRACT      = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
 USDC_CONTRACT      = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+
+# ---------------------------------------------------------------------------
+# Day 17: Curated ETH ERC-20 enumeration list (top-50)
+# ---------------------------------------------------------------------------
+# Verified 12 Mei 2026 via scripts/verify_curated_list.py:
+#   All 50 contracts return valid Etherscan V2 tokenbalance + active
+#   CoinGecko price feed (platform=ethereum).
+# Excluded:
+#   - MATIC (migrated to POL Sep 2024, see POL slot 7)
+#   - ARB (tracked primarily on arbitrum-one CG platform)
+#   - OP (Optimism L2 native, no canonical mainnet contract)
+# ---------------------------------------------------------------------------
+
+ETH_CURATED_TOKENS = [
+    {"symbol": "WBTC",   "contract": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", "decimals": 8},
+    {"symbol": "LINK",   "contract": "0x514910771AF9Ca656af840dff83E8264EcF986CA", "decimals": 18},
+    {"symbol": "UNI",    "contract": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", "decimals": 18},
+    {"symbol": "AAVE",   "contract": "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", "decimals": 18},
+    {"symbol": "SHIB",   "contract": "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", "decimals": 18},
+    {"symbol": "PEPE",   "contract": "0x6982508145454Ce325dDbE47a25d4ec3d2311933", "decimals": 18},
+    {"symbol": "POL",    "contract": "0x455e53CBB86018Ac2B8092FdCd39d8444aFFC3F6", "decimals": 18},
+    {"symbol": "BLUR",   "contract": "0x5283D291DBCF85356A21bA090E6db59121208b44", "decimals": 18},
+    {"symbol": "MKR",    "contract": "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2", "decimals": 18},
+    {"symbol": "LDO",    "contract": "0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32", "decimals": 18},
+    {"symbol": "CRV",    "contract": "0xD533a949740bb3306d119CC777fa900bA034cd52", "decimals": 18},
+    {"symbol": "SAND",   "contract": "0x3845badAde8e6dFF049820680d1F14bD3903a5d0", "decimals": 18},
+    {"symbol": "MANA",   "contract": "0x0F5D2fB29fb7d3CFeE444a200298f468908cC942", "decimals": 18},
+    {"symbol": "APE",    "contract": "0x4d224452801ACEd8B2F0aebE155379bb5D594381", "decimals": 18},
+    {"symbol": "GRT",    "contract": "0xc944E90C64B2c07662A292be6244BDf05Cda44a7", "decimals": 18},
+    {"symbol": "LRC",    "contract": "0xBBbbCA6A901c926F240b89EacB641d8Aec7AEafD", "decimals": 18},
+    {"symbol": "1INCH",  "contract": "0x111111111117dC0aa78b770fA6A738034120C302", "decimals": 18},
+    {"symbol": "COMP",   "contract": "0xc00e94Cb662C3520282E6f5717214004A7f26888", "decimals": 18},
+    {"symbol": "SNX",    "contract": "0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F", "decimals": 18},
+    {"symbol": "RNDR",   "contract": "0x6De037ef9aD2725EB40118Bb1702EBb27e4Aeb24", "decimals": 18},
+    {"symbol": "FLOKI",  "contract": "0xcf0C122c6b73ff809C693DB761e7BaeBe62b6a2E", "decimals": 9},
+    {"symbol": "INJ",    "contract": "0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30", "decimals": 18},
+    {"symbol": "IMX",    "contract": "0xF57e7e7C23978C3cAEC3C3548E3D615c346e79fF", "decimals": 18},
+    {"symbol": "AXS",    "contract": "0xBB0E17EF65F82Ab018d8EDd776e8DD940327B28b", "decimals": 18},
+    {"symbol": "CHZ",    "contract": "0x3506424F91fD33084466F402d5D97f05F8e3b4AF", "decimals": 18},
+    {"symbol": "GALA",   "contract": "0xd1d2Eb1B1e90B638588728b4130137D262C87cae", "decimals": 8},
+    {"symbol": "ENS",    "contract": "0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72", "decimals": 18},
+    {"symbol": "DYDX",   "contract": "0x92D6C1e31e14520e676a687F0a93788B716BEff5", "decimals": 18},
+    {"symbol": "BAT",    "contract": "0x0D8775F648430679A709E98d2b0Cb6250d2887EF", "decimals": 18},
+    {"symbol": "ZRX",    "contract": "0xE41d2489571d322189246DaFA5ebDe1F4699F498", "decimals": 18},
+    {"symbol": "ENJ",    "contract": "0xF629cBd94d3791C9250152BD8dfBDF380E2a3B9c", "decimals": 18},
+    {"symbol": "YFI",    "contract": "0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e", "decimals": 18},
+    {"symbol": "BAL",    "contract": "0xba100000625a3754423978a60c9317c58a424e3D", "decimals": 18},
+    {"symbol": "SUSHI",  "contract": "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2", "decimals": 18},
+    {"symbol": "OCEAN",  "contract": "0x967da4048cD07aB37855c090aAF366e4ce1b9F48", "decimals": 18},
+    {"symbol": "FET",    "contract": "0xaea46A60368A7bD060eec7DF8CBa43b7EF41Ad85", "decimals": 18},
+    {"symbol": "RPL",    "contract": "0xD33526068D116cE69F19A9ee46F0bd304F21A51f", "decimals": 18},
+    {"symbol": "FXS",    "contract": "0x3432B6A60D23Ca0dFCa7761B7ab56459D9C964D0", "decimals": 18},
+    {"symbol": "STG",    "contract": "0xAf5191B0De278C7286d6C7CC6ab6BB8A73bA2Cd6", "decimals": 18},
+    {"symbol": "PENDLE", "contract": "0x808507121B80c02388fAd14726482e061B8da827", "decimals": 18},
+    {"symbol": "METIS",  "contract": "0x9E32b13ce7f2E80A01932B42553652E053D6ed8e", "decimals": 18},
+    {"symbol": "BNT",    "contract": "0x1F573D6Fb3F13d689FF844B4cE37794d79a7FF1C", "decimals": 18},
+    {"symbol": "RLB",    "contract": "0x046EeE2cc3188071C02BfC1745A6b17c656e3f3d", "decimals": 18},
+    {"symbol": "TUSD",   "contract": "0x0000000000085d4780B73119b644AE5ecd22b376", "decimals": 18},
+    {"symbol": "DAI",    "contract": "0x6B175474E89094C44Da98b954EedeAC495271d0F", "decimals": 18},
+    {"symbol": "LUSD",   "contract": "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0", "decimals": 18},
+    {"symbol": "FRAX",   "contract": "0x853d955aCEf822Db058eb8505911ED77F175b99e", "decimals": 18},
+    {"symbol": "ONDO",   "contract": "0xfAbA6f8e4a5E8Ab82F62fe7C39859FA577269BE3", "decimals": 18},
+    {"symbol": "LPT",    "contract": "0x58b6A8A3302369DAEc383334672404Ee733aB239", "decimals": 18},
+    {"symbol": "NMR",    "contract": "0x1776e1F26f98b1A5dF9cD347953a26dd3Cb46671", "decimals": 18},
+]
+
+COINGECKO_TOKEN_CACHE = {}
+COINGECKO_TOKEN_CACHE_TS = 0
+COINGECKO_TOKEN_CACHE_TTL = 300
+
 USDT_MINT_SOL = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
 USDC_MINT_SOL = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 SOL_NATIVE_SENTINEL  = "So11111111111111111111111111111111111111112"  # wrapped SOL mint
@@ -834,6 +904,109 @@ def _get_usd_idr_rate():
 # Unified multi-network balance fetcher (updated Day 4)
 # ---------------------------------------------------------------------------
 
+
+
+def _get_coingecko_eth_token_prices(contracts):
+    """
+    Fetch USD prices for ERC-20 contracts via CoinGecko Demo API.
+
+    Chunked 25 contracts/request (Demo plan caps at 30). Cache TTL 300s.
+    Defensive: any exception returns partial dict, never crashes recon.
+
+    Args:
+        contracts: list of contract address strings (any case).
+
+    Returns:
+        dict mapping lowercase contract -> USD price (float).
+        Contracts without active CoinGecko entry omitted.
+    """
+    global COINGECKO_TOKEN_CACHE, COINGECKO_TOKEN_CACHE_TS
+
+    if not contracts:
+        return {}
+
+    now = time.time()
+    if COINGECKO_TOKEN_CACHE and (now - COINGECKO_TOKEN_CACHE_TS) < COINGECKO_TOKEN_CACHE_TTL:
+        requested_lc = {c.lower() for c in contracts}
+        return {k: v for k, v in COINGECKO_TOKEN_CACHE.items() if k in requested_lc}
+
+    cg_key  = os.getenv("COINGECKO_API_KEY")
+    headers = {"x-cg-demo-api-key": cg_key} if cg_key else {}
+    result  = {}
+
+    for i in range(0, len(contracts), 25):
+        batch = contracts[i:i+25]
+        csv   = ",".join(batch)
+        try:
+            r = requests.get(
+                "https://api.coingecko.com/api/v3/simple/token_price/ethereum",
+                params={"contract_addresses": csv, "vs_currencies": "usd"},
+                headers=headers,
+                timeout=10,
+            )
+            if r.status_code != 200:
+                print(f"[CG_TOKEN] batch {i//25 + 1} HTTP {r.status_code}", flush=True)
+                continue
+            data = r.json()
+            for contract_lc, price_obj in data.items():
+                usd = price_obj.get("usd") if isinstance(price_obj, dict) else None
+                if usd is not None:
+                    result[contract_lc.lower()] = float(usd)
+        except Exception as e:
+            print(f"[CG_TOKEN] batch {i//25 + 1} exception: {e}", flush=True)
+            continue
+
+    if result:
+        COINGECKO_TOKEN_CACHE    = result.copy()
+        COINGECKO_TOKEN_CACHE_TS = now
+
+    return result
+
+
+def fetch_curated_erc20_balances(address):
+    """
+    Enumerate non-zero balances across ETH_CURATED_TOKENS for `address`.
+
+    Uses ThreadPoolExecutor with max_workers=5 (Etherscan 5 req/sec ceiling).
+    Cache key namespace: 'erc20_curated_<contract>' via get_cached_balance.
+
+    Returns:
+        list of {"symbol", "contract", "balance", "decimals"} non-zero only.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _fetch_one(token):
+        symbol   = token["symbol"]
+        contract = token["contract"]
+        decimals = token["decimals"]
+        try:
+            bal = get_cached_balance(
+                f"erc20_curated_{contract.lower()}",
+                address,
+                lambda a=address, c=contract, d=decimals: fetch_erc20_balance(a, c, d),
+            )
+            if bal and bal > 0:
+                return {
+                    "symbol":   symbol,
+                    "contract": contract,
+                    "balance":  bal,
+                    "decimals": decimals,
+                }
+        except Exception as e:
+            print(f"[ERC20_CURATED] {symbol} {address[:8]} error: {e}", flush=True)
+        return None
+
+    holdings = []
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(_fetch_one, t) for t in ETH_CURATED_TOKENS]
+        for future in as_completed(futures):
+            res = future.result()
+            if res:
+                holdings.append(res)
+
+    return holdings
+
+
 def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_price_idr=None,
                            usdt_price_idr=None, usdc_price_idr=None):
     """
@@ -900,6 +1073,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     sol_usdt_sum   = 0.0
     sol_usdc_sum   = 0.0
     sol_other_token_sum       = 0.0
+    eth_other_token_sum       = 0.0
+    eth_unvalued_count_total  = 0
+    eth_unvalued_contracts_global = []
     sol_unvalued_count_total  = 0
     sol_unvalued_mints_global = []
     breakdown      = []
@@ -931,6 +1107,10 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             "sol_other_token_idr": None,
             "sol_unvalued_count":  None,
             "sol_unvalued_mints":  None,
+            # Day 17: ETH curated ERC-20 enumeration fields
+            "eth_other_token_idr":    None,
+            "eth_unvalued_count":     None,
+            "eth_unvalued_contracts": None,
             "verified":            verified,
             "error":               None,
             }
@@ -973,6 +1153,48 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 eth_native_sum += eth_native_idr_val
                 eth_usdt_sum   += usdt_idr_val
                 eth_usdc_sum   += usdc_idr_val
+
+                # Day 17: curated ERC-20 long-tail enumeration (top-50)
+                try:
+                    curated_balances = fetch_curated_erc20_balances(address)
+                    if curated_balances:
+                        contracts_to_price = [t["contract"] for t in curated_balances]
+                        curated_prices     = _get_coingecko_eth_token_prices(contracts_to_price)
+                        usd_idr_rate       = _get_usd_idr_rate()
+
+                        eth_other_idr_val           = 0.0
+                        unvalued_contracts_per_addr = []
+
+                        for token in curated_balances:
+                            contract_lc = token["contract"].lower()
+                            usd_price   = curated_prices.get(contract_lc)
+                            if usd_price and usd_price > 0:
+                                token_idr_val = token["balance"] * usd_price * usd_idr_rate
+                                eth_other_idr_val += token_idr_val
+                            else:
+                                unvalued_contracts_per_addr.append(token["contract"])
+
+                        entry["eth_other_token_idr"]    = round(eth_other_idr_val)
+                        entry["eth_unvalued_count"]     = len(unvalued_contracts_per_addr)
+                        entry["eth_unvalued_contracts"] = unvalued_contracts_per_addr
+
+                        wallet_total_idr               += eth_other_idr_val
+                        eth_total_idr                  += eth_other_idr_val
+                        eth_other_token_sum            += eth_other_idr_val
+                        eth_unvalued_count_total       += len(unvalued_contracts_per_addr)
+                        eth_unvalued_contracts_global.extend(unvalued_contracts_per_addr)
+
+                        entry["balance_idr"] = wallet_total_idr
+                    else:
+                        entry["eth_other_token_idr"]    = 0
+                        entry["eth_unvalued_count"]     = 0
+                        entry["eth_unvalued_contracts"] = []
+                except Exception as curated_err:
+                    print(f"[ETH_CURATED] {address[:8]} error: {curated_err}", flush=True)
+                    entry["eth_other_token_idr"]    = 0
+                    entry["eth_unvalued_count"]     = 0
+                    entry["eth_unvalued_contracts"] = []
+
 
             except Exception as e:
                 entry["error"] = f"ETH fetch error: {e}"
@@ -1108,6 +1330,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         "sol_other_token_idr": sol_other_token_sum,
         "sol_unvalued_count":  sol_unvalued_count_total,
         "sol_unvalued_mints":  sol_unvalued_mints_global,
+        "eth_other_token_idr":      eth_other_token_sum,
+        "eth_unvalued_count":       eth_unvalued_count_total,
+        "eth_unvalued_contracts":   eth_unvalued_contracts_global,
         "breakdown":       breakdown,
     }
 
@@ -1196,6 +1421,9 @@ def reconciliation():
                 "sol_other_token_idr": round(balance_result.get("sol_other_token_idr", 0)),
                 "sol_unvalued_count":  balance_result.get("sol_unvalued_count", 0),
                 "sol_unvalued_mints":  balance_result.get("sol_unvalued_mints", []),
+                "eth_other_token_idr":    balance_result.get("eth_other_token_idr", 0),
+                "eth_unvalued_count":     balance_result.get("eth_unvalued_count", 0),
+                "eth_unvalued_contracts": balance_result.get("eth_unvalued_contracts", []),
                 "aset_dilaporkan_idr": aset_dilaporkan,
                 "deviasi_pct":         round(deviasi_pct, 2),
                 "surplus":             surplus,

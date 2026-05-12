@@ -928,6 +928,8 @@ function renderBreakdown(d) {
     s += `<span style="color:var(--txt2)">${formatRpCompact(d.eth_native_idr)}</span>`;
     if (d.eth_usdt_idr > 0) s += `<span style="color:var(--txt3)"> · USDT ${formatRpCompact(d.eth_usdt_idr)}</span>`;
     if (d.eth_usdc_idr > 0) s += `<span style="color:var(--txt3)"> · USDC ${formatRpCompact(d.eth_usdc_idr)}</span>`;
+    if (d.eth_other_token_idr > 0) s += `<span style="color:var(--txt3)"> · OTHER ${formatRpCompact(d.eth_other_token_idr)}</span>`;
+    if (d.eth_unvalued_count > 0) s += `<span style="color:var(--amber);font-size:9px;margin-left:4px" title="Token terdeteksi tanpa harga di CoinGecko">⚠ ${d.eth_unvalued_count} unvalued</span>`;
     parts.push(s + '</div>');
   }
   if (d.btc_balance_idr > 0) {
@@ -938,6 +940,8 @@ function renderBreakdown(d) {
     s += `<span style="color:var(--txt2)">${formatRpCompact(d.sol_native_idr)}</span>`;
     if (d.sol_usdt_idr > 0) s += `<span style="color:var(--txt3)"> · USDT ${formatRpCompact(d.sol_usdt_idr)}</span>`;
     if (d.sol_usdc_idr > 0) s += `<span style="color:var(--txt3)"> · USDC ${formatRpCompact(d.sol_usdc_idr)}</span>`;
+    if (d.sol_other_token_idr > 0) s += `<span style="color:var(--txt3)"> · OTHER ${formatRpCompact(d.sol_other_token_idr)}</span>`;
+    if (d.sol_unvalued_count > 0) s += `<span style="color:var(--amber);font-size:9px;margin-left:4px" title="Mint terdeteksi tanpa harga di Jupiter">⚠ ${d.sol_unvalued_count} unvalued</span>`;
     parts.push(s + '</div>');
   }
   return parts.length ? parts.join('') : '<span style="color:var(--txt4)">—</span>';
