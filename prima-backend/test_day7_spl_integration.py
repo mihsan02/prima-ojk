@@ -44,6 +44,7 @@ def test_I3_spl_contributes_to_total_idr():
     with patch("app.get_cached_balance", side_effect=_sol_router):
         result = prima_app.get_total_balance_idr([SOL_WALLET],
             sol_price_idr=MOCK_SOL_PRICE,
+            eth_price_idr=MOCK_ETH_PRICE,
             usdt_price_idr=MOCK_USDT_PRICE,
             usdc_price_idr=MOCK_USDC_PRICE)
     expected = 5.0*MOCK_SOL_PRICE + 1_000.0*MOCK_USDT_PRICE + 500.0*MOCK_USDC_PRICE
@@ -104,6 +105,7 @@ def test_I8_stressed_price_bypasses_live_fetch():
          patch("app._get_stablecoin_prices_idr") as mock_fn:
         result = prima_app.get_total_balance_idr([SOL_WALLET],
             sol_price_idr=MOCK_SOL_PRICE,
+            eth_price_idr=MOCK_ETH_PRICE,
             usdt_price_idr=stressed_usdt,
             usdc_price_idr=MOCK_USDC_PRICE)
     mock_fn.assert_not_called()
