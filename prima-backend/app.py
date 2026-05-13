@@ -408,7 +408,8 @@ def _refresh_price_cache_from_cmc():
     """
     api_key = os.environ.get("COINMARKETCAP_API_KEY", "")
     if not api_key:
-        print("[CMC] api_key absent, falling through to CoinGecko", flush=True)
+        if os.environ.get('PRIMA_DEBUG'):
+            print("[CMC] api_key absent, falling through to CoinGecko", flush=True)
         return False
 
     now = time.time()
@@ -446,11 +447,13 @@ def _refresh_price_cache_from_cmc():
                 PRICE_CACHE[cgkey] = (now, float(price))
 
         success = all(k in PRICE_CACHE for k in cgkeys)
-        print(f"[CMC] refresh success={success}, populated={list(PRICE_CACHE.keys())}", flush=True)
+        if os.environ.get('PRIMA_DEBUG'):
+            print(f"[CMC] refresh success={success}, populated={list(PRICE_CACHE.keys())}", flush=True)
         return success
     except Exception as e:
         # Log to stdout for Render Logs visibility (Day 15 cascade debug)
-        print(f"[CMC] refresh failed: {type(e).__name__}: {e}", flush=True)
+        if os.environ.get('PRIMA_DEBUG'):
+            print(f"[CMC] refresh failed: {type(e).__name__}: {e}", flush=True)
         return False
 
 
@@ -824,7 +827,8 @@ def _get_jupiter_verified_set():
         JUPITER_STRICT_CACHE["verified_set"] = (now, verified_set)
         return verified_set
     except Exception as e:
-        print(f"[JUPITER] verified_set fetch failed: {type(e).__name__}: {e}", flush=True)
+        if os.environ.get('PRIMA_DEBUG'):
+            print(f"[JUPITER] verified_set fetch failed: {type(e).__name__}: {e}", flush=True)
         return cached[1] if cached else set()
 
 
@@ -884,7 +888,8 @@ def _get_jupiter_prices(mints):
             else:
                 JUPITER_PRICE_CACHE[mint] = (now, None)
     except Exception as e:
-        print(f"[JUPITER] price fetch failed: {type(e).__name__}: {e}", flush=True)
+        if os.environ.get('PRIMA_DEBUG'):
+            print(f"[JUPITER] price fetch failed: {type(e).__name__}: {e}", flush=True)
 
     return result
 
@@ -945,7 +950,8 @@ def _get_coingecko_eth_token_prices(contracts):
                 timeout=10,
             )
             if r.status_code != 200:
-                print(f"[CG_TOKEN] batch {i//25 + 1} HTTP {r.status_code}", flush=True)
+                if os.environ.get('PRIMA_DEBUG'):
+                    print(f"[CG_TOKEN] batch {i//25 + 1} HTTP {r.status_code}", flush=True)
                 continue
             data = r.json()
             for contract_lc, price_obj in data.items():
@@ -953,7 +959,8 @@ def _get_coingecko_eth_token_prices(contracts):
                 if usd is not None:
                     result[contract_lc.lower()] = float(usd)
         except Exception as e:
-            print(f"[CG_TOKEN] batch {i//25 + 1} exception: {e}", flush=True)
+            if os.environ.get('PRIMA_DEBUG'):
+                print(f"[CG_TOKEN] batch {i//25 + 1} exception: {e}", flush=True)
             continue
 
     if result:
@@ -1190,7 +1197,8 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                         entry["eth_unvalued_count"]     = 0
                         entry["eth_unvalued_contracts"] = []
                 except Exception as curated_err:
-                    print(f"[ETH_CURATED] {address[:8]} error: {curated_err}", flush=True)
+                    if os.environ.get('PRIMA_DEBUG'):
+                        print(f"[ETH_CURATED] {address[:8]} error: {curated_err}", flush=True)
                     entry["eth_other_token_idr"]    = 0
                     entry["eth_unvalued_count"]     = 0
                     entry["eth_unvalued_contracts"] = []
@@ -1247,7 +1255,8 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                     all_holdings = fetch_all_spl_balances(address)
                 except Exception as enum_err:
                     all_holdings = []
-                    print(f"[SPL_ENUM] fetch_all_spl_balances({address}) failed: "
+                    if os.environ.get('PRIMA_DEBUG'):
+                        print(f"[SPL_ENUM] fetch_all_spl_balances({address}) failed: "
                           f"{type(enum_err).__name__}: {enum_err}", flush=True)
 
                 tier1_mints     = {USDT_MINT_SOL, USDC_MINT_SOL, SOL_NATIVE_SENTINEL}
