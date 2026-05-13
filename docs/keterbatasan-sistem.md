@@ -215,7 +215,10 @@ Selain ephemeral filesystem, PRIMA bergantung pada API publik external:
 
 - Etherscan V2 (free tier 5 request per detik)
 - Blockstream Esplora (no formal limit publicly documented, rate-limit policies dapat berubah tanpa notice)
-- CoinGecko Public API (free tier kurang lebih 10 sampai 30 request per menit, bervariasi)
+- CoinGecko Demo API (30 contract address per call limit, digunakan untuk ETH ERC-20 curated price lookup)
+- Helius RPC (Solana SPL token enumeration via `getTokenAccountsByOwner`; dependency baru sejak Day 16)
+- Jupiter Tokens V2 (verified token set untuk SPL two-gate filter)
+- Jupiter Price V3 (harga SPL token untuk gate kedua two-gate filter; lite-api deprecation watch diperlukan)
 - Solana JSON-RPC mainnet-beta (public RPC, throttling tidak deterministik)
 
 Caching layer in-memory dengan TTL 60 detik untuk price dan 30 detik untuk balance mengurangi external API call selama window demo, tapi tidak menghilangkan dependency.
@@ -251,6 +254,45 @@ Quick polish di pre-pitch window: CSS button disabled state plus zombie `window.
 
 ---
 
+
+## 9. ETH ERC-20 Enumeration: Pendekatan Curated dan Scope Phase 2
+
+### Deskripsi
+
+PRIMA v1.9 mengimplementasikan enumeration token ERC-20 di Ethereum menggunakan daftar curated 50 token, bukan enumeration penuh dari seluruh token yang dipegang wallet. Pendekatan ini dipilih karena lima keterbatasan teknis pada pendekatan full enumeration (Reading C):
+
+1. Etherscan token transfer 10K cap. Endpoint `tokentx` Etherscan membatasi respons di 10.000 transaksi per query. Wallet dengan aktivitas tinggi tidak mendapat representasi lengkap token historis via endpoint ini.
+2. CoinGecko Demo API 30-address limit. Endpoint `simple/token_price` pada Demo plan membatasi request ke 30 contract address per call. Full enumeration wallet dengan lebih dari 30 token unik membutuhkan N+1 call pattern yang tidak efisien.
+3. N+1 call pattern. Full enumeration membutuhkan satu call per token untuk validasi harga, menghasilkan jumlah HTTP request yang tumbuh linear terhadap jumlah token unik per wallet per PAKD.
+4. Render timeout 30 detik. Instance Render free tier membatasi response time. Full enumeration dengan banyak token dapat melampaui batas ini pada wallet aktif dengan portofolio besar.
+5. Etherscan tokeninfo endpoint paid tier. Metadata token lengkap via endpoint `tokeninfo` membutuhkan Etherscan API paid plan. Demo plan tidak menyediakan akses ini secara reliable.
+
+Solusi yang diimplementasikan: daftar curated 50 token dipilih berdasarkan tiga kriteria: (1) terdaftar di Bappebti Keputusan No. 501 sebagai aset kripto yang diperdagangkan di Indonesia, (2) termasuk dalam top market cap global per CoinGecko ranking, (3) relevan untuk profil PAKD Indonesia berdasarkan data perdagangan historis Bappebti.
+
+Token yang tidak teridentifikasi oleh curated list tetap dilaporkan sebagai `eth_other_token_idr` dengan label UNVALUED di frontend. Supervisor OJK mengetahui adanya token di luar cakupan tanpa nilai rupiah yang dapat direkonsiliasi, sehingga dapat memutuskan perlu tidaknya investigasi manual.
+
+### Tingkat Risiko
+
+Menengah. PAKD dengan portofolio ERC-20 yang didominasi token di luar 50 token curated akan menampilkan nilai UNVALUED yang besar, sehingga saldo on-chain ETH yang direkonsiliasi undercount nilai sebenarnya.
+
+### Kondisi yang Memperburuk Risiko
+
+PAKD yang secara sengaja memegang aset di token long-tail di luar curated list dapat memanfaatkan celah ini untuk menyembunyikan nilai aset dari rekonsiliasi otomatis PRIMA.
+
+### Mitigasi Roadmap (v2.0)
+
+1. Migrasi ke Etherscan paid tier untuk akses `tokeninfo` endpoint dan higher rate limit.
+2. Upgrade CoinGecko ke paid plan untuk menghilangkan 30-address cap per call.
+3. Implementasi batch price lookup dengan queue dan retry untuk mengeliminasi N+1 pattern.
+4. Migrasi backend ke instance dengan response timeout lebih panjang.
+5. Caching contract address metadata persisten via PostgreSQL untuk mengurangi API call berulang per rekonsiliasi.
+
+### Status saat ini
+
+Curated 50-token list aktif di v1.9. Token di luar list dilaporkan sebagai UNVALUED. Full enumeration dijadwalkan Phase 2 setelah infrastruktur API berbayar tersedia.
+
+---
+
 ## Ringkasan Status Keterbatasan
 
 | Keterbatasan | Tingkat Risiko | Target Mitigasi |
@@ -263,6 +305,7 @@ Quick polish di pre-pitch window: CSS button disabled state plus zombie `window.
 | Authentication, RBAC, Audit Log Integrity | Tinggi (produksi), Rendah (MVP) | v2.0 |
 | Infrastruktur, Rate Limit, Persistence | Tinggi (produksi), Menengah (MVP) | v2.0 sampai v2.5 |
 | Polish UI dan Edge Cases | Rendah | v1.1 |
+| ETH ERC-20 Curated Enumeration (Reading C) | Menengah | v2.0 |
 
 ---
 

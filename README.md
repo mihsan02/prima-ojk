@@ -87,7 +87,8 @@ Setiap aksi sistem          →      Pencatatan ke audit log        → Riwayat 
 | Kluster | Teknologi | Justifikasi |
 |---------|-----------|-------------|
 | Backend | Python 3.11, Flask 3.x, Flask-CORS | Flask ringan untuk API prototype; Flask-CORS menangani request dari frontend di port yang sama |
-| Data Eksternal | Etherscan API v2, CoinGecko Public API | Etherscan: data ETH on-chain langsung dari node tanpa intermediari. CoinGecko: harga ETH/IDR live tanpa API key. Keduanya diverifikasi berfungsi untuk 25 PAKD dalam rate limit gratis |
+| Data Eksternal | Etherscan API v2, Blockstream Esplora, CoinMarketCap API v2, CoinGecko Demo API, Helius RPC, Jupiter Tokens V2, Jupiter Price V3, Solana JSON-RPC | Etherscan: saldo ERC-20 on-chain. Blockstream: saldo BTC. CMC: harga tier-1 dengan cascade fallback ke CoinGecko. Helius: SPL token enumeration via getTokenAccountsByOwner. Jupiter: two-gate filter verified token set dan harga SPL. |
+| Crypto Libraries | eth-account, PyNaCl, base58 | EIP-191 personal_sign verification (ETH) dan Ed25519 signature verification (SOL). Wallet ownership proof tanpa custodial dependency. |
 | Pemrosesan | Python requests, pandas, NumPy | Cukup untuk rekonsiliasi tabular dan kalkulasi deviasi di MVP |
 | Penyimpanan | JSON (pakd_data.json, audit_log.json) | Persistent storage tanpa dependensi database untuk tahap MVP; dapat diganti PostgreSQL di produksi |
 | Antarmuka | HTML, CSS, JavaScript (vanilla) | Dashboard read-only tanpa framework berat; dapat dihosting dalam infrastruktur OJK tanpa dependensi eksternal |
