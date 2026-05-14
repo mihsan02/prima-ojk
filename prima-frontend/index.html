@@ -745,13 +745,13 @@ async function loadStressTest() {
     const btcPrice = json.btc_price_idr || 0;
     const solPrice = json.sol_price_idr || 0;
 
-    document.getElementById('stress-price-note').innerHTML = (
+    document.getElementById('stress-price-note').innerHTML = 
       `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="4" x2="5" y2="7" stroke="currentColor" stroke-width="1.2"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg> ETH ${formatRpCompact(ethPrice)} · BTC ${formatRpCompact(btcPrice)} · SOL ${formatRpCompact(solPrice)} · Basis: ${p50.mild.total} PAKD`;
     document.getElementById('st-kpi-eth-sub').textContent = json.harga_fallback ? 'sumber: CoinGecko (fallback)' : 'sumber: CoinGecko';
     document.getElementById('st-kpi-eth').textContent = formatRpCompact(ethPrice);
     document.getElementById('st-kpi-p50-mild').textContent   = p50.mild.lulus   + '/' + p50.mild.total;
     document.getElementById('st-kpi-p50-severe').textContent = p50.severe.lulus + '/' + p50.severe.total;
-    document.getElementById('st-kpi-p91-moderate').textContent = p91.moderate.lulus + '/' + p91.moderate.total;)
+    document.getElementById('st-kpi-p91-moderate').textContent = p91.moderate.lulus + '/' + p91.moderate.total;
 
     // Pasal 50 rows
     [['mild','var(--green)'],['moderate','var(--amber)'],['severe','var(--red)']].forEach(([key, color]) => {
@@ -765,7 +765,7 @@ async function loadStressTest() {
       const subEl = document.getElementById('p50-' + key + '-sub');
       if (subEl) subEl.innerHTML = `ETH <span style="color:var(--txt1)">${formatRpCompact(p50[key].eth_stressed)}</span>` +
         ` · BTC <span style="color:var(--txt1)">${formatRpCompact(p50[key].btc_stressed)}</span>` +
-        ` · SOL <span style="color:var(--txt1)">${formatRpCompact(p50[key].sol_stressed)}</span>`;)
+        ` · SOL <span style="color:var(--txt1)">${formatRpCompact(p50[key].sol_stressed)}</span>`;
     });
     const noteEl = document.getElementById('stress-note');
     if (p50.severe.gagal > 0) {
