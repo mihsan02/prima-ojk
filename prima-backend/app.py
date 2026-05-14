@@ -293,6 +293,26 @@ def load_pakd():
                 return [_migrate_record(p) for p in data]
     except Exception:
         pass
+    SEED_PAKD = [
+    {
+        "id": "PAKD-DEMO-001",
+        "nama": "Demo Entity Multichain",
+        "eth_wallet": ["<wallet_ETH_kamu>"],
+        "sol_wallet": ["H13V5d2Y..."],
+        "aset_dilaporkan": 10000000000
+    }
+]
+
+def load_pakd():
+    try:
+        with open(PAKD_FILE, "r") as f:
+            pakd_list = json.load(f)
+            if pakd_list:
+                return pakd_list
+    except Exception:
+        pass
+    # File kosong atau tidak ada — kembalikan seed
+    return [p.copy() for p in SEED_PAKD]
     return [dict(p) for p in PAKD_DEFAULT]
 
 
