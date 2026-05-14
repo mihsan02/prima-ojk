@@ -190,6 +190,19 @@ PRIMA MVP tidak memiliki:
 
 Untuk konteks hackathon dengan data demonstrasi, ini aman. Untuk implementasi produksi dengan data regulasi nyata, ketiga komponen di atas bersifat mandatory.
 
+## Keterbatasan Keamanan (Diketahui, Deferred Post-Demo)
+
+| ID | Temuan | Mitigation Plan |
+|----|--------|----------------|
+| CRIT-1 | Wildcard CORS, endpoint publik | Produksi: restrict origin ke domain OJK + API key middleware |
+| CRIT-2 | Tidak ada autentikasi endpoint | Produksi: Bearer token berbasis PKI OJK (POJK No. 27/2024 Pasal 50) |
+| CRIT-3 | CHALLENGE_STORE tidak dibatasi | Produksi: cachetools.TTLCache + flask-limiter |
+| CRIT-4 | File locking pakd_data.json | Produksi: SQLite WAL mode atau Redis |
+| HIGH-1 | API key di URL query string | Produksi: pass via params dict, sanitize logs |
+| HIGH-7 | PRICE_CACHE non-thread-safe | Produksi: threading.Lock atau Redis shared cache |
+
+Catatan: PRIMA versi demo beroperasi sebagai single-worker instance (-w 1) untuk menghindari race condition cache. Skalabilitas multi-worker adalah item roadmap Phase 2.
+
 ### Tingkat Risiko
 
 Tinggi untuk produksi. Rendah untuk MVP demo dengan data ilustratif.
