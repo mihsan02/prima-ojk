@@ -283,8 +283,18 @@ def _migrate_record(p):
     p.setdefault("customer_akd_idr", None)
     return p
 
-
+def load_pakd():
+    try:
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, "r") as f:
+                data = json.load(f)
+            if data:
+                return [_migrate_record(p) for p in data]
+    except Exception:
+        pass
     return [dict(p) for p in PAKD_DEFAULT]
+
+
 
 
 def save_pakd(data):
