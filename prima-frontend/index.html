@@ -639,6 +639,14 @@ tr:hover td{background:var(--bg2)}
 </div>
 
 <script>
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
 function showPage(id, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -678,7 +686,7 @@ function deviDisplay(d) {
 
 async function loadData() {
   const tbody = document.getElementById('pakd-tbody');
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Mengambil data dari blockchain...</td></tr>';
+  tbody.innerHTML = escapeHtml ('<tr class="loading-row"><td colspan="7">Mengambil data dari blockchain...</td></tr>');
   try {
     const res = await fetch('/api/reconciliation');
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -702,7 +710,7 @@ async function loadData() {
     document.getElementById('kpi-alert').textContent = data.length - aman;
     const defisits = data.filter(d => !d.surplus).map(d => Math.abs(d.deviasi_pct));
     document.getElementById('kpi-max-dev').textContent = defisits.length ? Math.max(...defisits).toFixed(2) + '%' : '0%';
-    tbody.innerHTML = data.map((d, i) => `
+    tbody.innerHTML = escapeHtml(data.map((d, i)) => `
       <tr style="background:${d.status==='Kritis'?'rgba(192,57,43,0.03)':d.status==='Deviasi'?'rgba(194,124,26,0.03)':''}">
         <td class="num-row" style="vertical-align:top;padding-top:18px">${String(i+1).padStart(2,'0')}</td>
         <td style="vertical-align:top;padding-top:14px;min-width:280px">
@@ -717,7 +725,7 @@ async function loadData() {
         <td style="line-height:1.6;vertical-align:top;padding-top:14px">${renderBreakdown(d)}</td>
       </tr>`).join('');
   } catch (err) {
-    tbody.innerHTML = '<tr class="error-row"><td colspan="7">Gagal mengambil data: ' + err.message + '</td></tr>';
+    tbody.innerHTML = escapeHtml ('<tr class="error-row"><td colspan="7">Gagal mengambil data: ' + err.message + '</td></tr>');
     const badge = document.getElementById('live-badge');
     badge.textContent = 'OFFLINE';
     badge.style.background = 'var(--red-bg)';
@@ -737,13 +745,13 @@ async function loadStressTest() {
     const btcPrice = json.btc_price_idr || 0;
     const solPrice = json.sol_price_idr || 0;
 
-    document.getElementById('stress-price-note').innerHTML =
+    document.getElementById('stress-price-note').innerHTML = escapeHtml(
       `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="4" x2="5" y2="7" stroke="currentColor" stroke-width="1.2"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg> ETH ${formatRpCompact(ethPrice)} · BTC ${formatRpCompact(btcPrice)} · SOL ${formatRpCompact(solPrice)} · Basis: ${p50.mild.total} PAKD`;
     document.getElementById('st-kpi-eth-sub').textContent = json.harga_fallback ? 'sumber: CoinGecko (fallback)' : 'sumber: CoinGecko';
     document.getElementById('st-kpi-eth').textContent = formatRpCompact(ethPrice);
     document.getElementById('st-kpi-p50-mild').textContent   = p50.mild.lulus   + '/' + p50.mild.total;
     document.getElementById('st-kpi-p50-severe').textContent = p50.severe.lulus + '/' + p50.severe.total;
-    document.getElementById('st-kpi-p91-moderate').textContent = p91.moderate.lulus + '/' + p91.moderate.total;
+    document.getElementById('st-kpi-p91-moderate').textContent = p91.moderate.lulus + '/' + p91.moderate.total;)
 
     // Pasal 50 rows
     [['mild','var(--green)'],['moderate','var(--amber)'],['severe','var(--red)']].forEach(([key, color]) => {
@@ -752,13 +760,13 @@ async function loadStressTest() {
       const count = row.querySelector('.stress-count');
       const pct   = p50[key].total > 0 ? p50[key].lulus / p50[key].total * 100 : 0;
       bar.style.width = pct + '%';
-      count.innerHTML = `${p50[key].lulus}/${p50[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`;
+      count.innerHTML = escapeHtml (`${p50[key].lulus}/${p50[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`);
       count.style.color = color;
       const subEl = document.getElementById('p50-' + key + '-sub');
-      if (subEl) subEl.innerHTML =
+      if (subEl) subEl.innerHTML = escapeHtml ()
         `ETH <span style="color:var(--txt1)">${formatRpCompact(p50[key].eth_stressed)}</span>` +
         ` · BTC <span style="color:var(--txt1)">${formatRpCompact(p50[key].btc_stressed)}</span>` +
-        ` · SOL <span style="color:var(--txt1)">${formatRpCompact(p50[key].sol_stressed)}</span>`;
+        ` · SOL <span style="color:var(--txt1)">${formatRpCompact(p50[key].sol_stressed)}</span>`;)
     });
     const noteEl = document.getElementById('stress-note');
     if (p50.severe.gagal > 0) {
@@ -778,7 +786,7 @@ async function loadStressTest() {
       const count = row.querySelector('.stress-count');
       const pct   = p91[key].total > 0 ? p91[key].lulus / p91[key].total * 100 : 0;
       bar.style.width = pct + '%';
-      count.innerHTML = `${p91[key].lulus}/${p91[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`;
+      count.innerHTML = escapeHtml (`${p91[key].lulus}/${p91[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`);
       count.style.color = color;
     });
     const p91noteEl = document.getElementById('p91-note');
@@ -814,7 +822,7 @@ function addWalletRow(defaultNetwork = 'ethereum') {
   const row = document.createElement('div');
   row.id = 'wrow-' + idx;
   row.style.cssText = 'display:grid;grid-template-columns:140px 1fr auto;gap:8px;align-items:center;margin-bottom:6px';
-  row.innerHTML = `
+  row.innerHTML = ` 
     <select id="wnet-${idx}" class="form-input" onchange="updateWalletPlaceholder(${idx})" style="font-size:13px;padding:9px 12px">
       <option value="ethereum"${defaultNetwork==='ethereum'?' selected':''}>Ethereum</option>
       <option value="bitcoin"${defaultNetwork==='bitcoin'?' selected':''}>Bitcoin</option>
@@ -854,7 +862,7 @@ function collectWallets() {
 
 function resetForm() {
   ['f-nama','f-id','f-aset'].forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
-  document.getElementById('wallet-rows').innerHTML = '';
+  document.getElementById('wallet-rows').innerHTML = escapeHtml('');
   walletRowCount = 0;
   addWalletRow('ethereum');
 }
@@ -908,16 +916,16 @@ async function loadAudit() {
     const res = await fetch('/api/audit-log');
     const json = await res.json();
     if (!json.data.length) {
-      tbody.innerHTML = '<tr class="loading-row"><td colspan="3">Belum ada aktivitas tercatat.</td></tr>'; return;
+      tbody.innerHTML = escapeHtml('<tr class="loading-row"><td colspan="3">Belum ada aktivitas tercatat.</td></tr>'); return;
     }
-    tbody.innerHTML = json.data.map(log => `
+    tbody.innerHTML = escapeHtml(json.data.map(log => `
       <tr>
         <td class="mono-val" style="color:var(--txt3);white-space:nowrap">${log.waktu}</td>
         <td><span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:3px 10px;border-radius:4px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);font-weight:600">${log.aksi}</span></td>
         <td style="color:var(--txt2)">${log.detail}</td>
-      </tr>`).join('');
+      </tr>`).join(''));
   } catch(e) {
-    tbody.innerHTML = '<tr class="loading-row"><td colspan="3">Gagal memuat audit log.</td></tr>';
+    tbody.innerHTML = escapeHtml('<tr class="loading-row"><td colspan="3">Gagal memuat audit log.</td></tr>') ;
   }
 }
 
