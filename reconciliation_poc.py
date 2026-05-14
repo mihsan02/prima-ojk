@@ -102,7 +102,7 @@ def klasifikasi_status(deviasi_persen: float) -> tuple[str, str]:
 
 def hitung_rekonsiliasi(nama, id_ojk, onchain, laporan, cadangan_persen) -> dict:
     selisih        = onchain - laporan
-    deviasi_persen = (selisih / laporan) * 100
+    deviasi_persen = (selisih / laporan * 100) if laporan != 0 else None
     status, tier   = klasifikasi_status(deviasi_persen)
     return {
         "nama_pakd":                nama,
