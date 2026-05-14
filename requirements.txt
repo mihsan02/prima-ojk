@@ -4,3 +4,4 @@ requests
 eth-account
 base58
 PyNaCl
+gunicorn
