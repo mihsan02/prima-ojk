@@ -760,7 +760,7 @@ async function loadStressTest() {
       const count = row.querySelector('.stress-count');
       const pct   = p50[key].total > 0 ? p50[key].lulus / p50[key].total * 100 : 0;
       bar.style.width = pct + '%';
-      count.innerHTML = `${p50[key].lulus}/${p50[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`);
+      count.innerHTML = `${p50[key].lulus}/${p50[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`;
       count.style.color = color;
       const subEl = document.getElementById('p50-' + key + '-sub');
       if (subEl) subEl.innerHTML = `ETH <span style="color:var(--txt1)">${formatRpCompact(p50[key].eth_stressed)}</span>` +
@@ -785,7 +785,7 @@ async function loadStressTest() {
       const count = row.querySelector('.stress-count');
       const pct   = p91[key].total > 0 ? p91[key].lulus / p91[key].total * 100 : 0;
       bar.style.width = pct + '%';
-      count.innerHTML = `${p91[key].lulus}/${p91[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`);
+      count.innerHTML = `${p91[key].lulus}/${p91[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`;
       count.style.color = color;
     });
     const p91noteEl = document.getElementById('p91-note');
