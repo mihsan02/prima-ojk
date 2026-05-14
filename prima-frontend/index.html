@@ -922,7 +922,7 @@ async function loadAudit() {
         <td class="mono-val" style="color:var(--txt3);white-space:nowrap">${log.waktu}</td>
         <td><span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:3px 10px;border-radius:4px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);font-weight:600">${log.aksi}</span></td>
         <td style="color:var(--txt2)">${escapeHtml(log.detail)}</td>
-      </tr>`).join(''));
+      </tr>`).join('');
   } catch(e) {
     tbody.innerHTML = '<tr class="loading-row"><td colspan="3">Gagal memuat audit log.</td></tr>';
   }
