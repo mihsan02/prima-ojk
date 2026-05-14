@@ -284,16 +284,7 @@ def _migrate_record(p):
     return p
 
 
-def load_pakd():
-    try:
-        if os.path.exists(DATA_FILE):
-            with open(DATA_FILE, "r") as f:
-                data = json.load(f)
-            if data:
-                return [_migrate_record(p) for p in data]
-    except Exception:
-        pass
-    SEED_PAKD = [
+SEED_PAKD = [
     {
         "id": "PAKD-DEMO-001",
         "nama": "Demo Entity Multichain",
@@ -305,13 +296,13 @@ def load_pakd():
 
 def load_pakd():
     try:
-        with open(PAKD_FILE, "r") as f:
-            pakd_list = json.load(f)
-            if pakd_list:
-                return pakd_list
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, "r") as f:
+                data = json.load(f)
+            if data:
+                return [_migrate_record(p) for p in data]
     except Exception:
         pass
-    # File kosong atau tidak ada — kembalikan seed
     return [p.copy() for p in SEED_PAKD]
     return [dict(p) for p in PAKD_DEFAULT]
 
