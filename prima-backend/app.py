@@ -895,6 +895,33 @@ def _get_jupiter_prices(mints):
     return result
 
 
+def _get_dexscreener_price(mint: str):
+    """
+    Fallback price source for SPL tokens not priced by Jupiter Price V3.
+    Uses DexScreener public API — no API key required.
+    Returns usdPrice (float) or None.
+    Selects highest-liquidity pair to minimise price manipulation risk.
+    """
+    try:
+        resp = requests.get(
+            f"https://api.dexscreener.com/latest/dex/tokens/{mint}",
+            timeout=5
+        )
+        if resp.status_code != 200:
+            return None
+        pairs = resp.json().get("pairs") or []
+        priced = [p for p in pairs if p.get("priceUsd")]
+        if not priced:
+            return None
+        best = max(priced, key=lambda p: float((p.get("liquidity") or {}).get("usd", 0) or 0))
+        return float(best["priceUsd"])
+    except Exception as e:
+        if os.environ.get('PRIMA_DEBUG'):
+            print(f"[DEXSCREENER] price fetch failed for {mint}: "
+                  f"{type(e).__name__}: {e}", flush=True)
+        return None
+
+
 def _get_usd_idr_rate():
     """
     Return USD-to-IDR rate via USDT IDR price (USDT is USD-pegged within
@@ -1276,6 +1303,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                         in_verified = mint in verified_set
                         usd_price   = prices.get(mint)
                         has_price   = usd_price is not None and usd_price > 0
+                        if not has_price:
+                            usd_price = _get_dexscreener_price(mint)
+                            has_price = usd_price is not None and usd_price > 0
 
                         pass_gate1 = in_verified or has_price   # hybrid (option c)
                         pass_gate2 = has_price                  # valuation gate
