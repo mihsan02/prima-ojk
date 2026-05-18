@@ -1280,7 +1280,13 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 unvalued_mints_local  = []
 
                 try:
-                    all_holdings = fetch_all_spl_balances(address)
+                    _spl_key = ("spl_enum", address)
+                    _now = time.time()
+                    if _spl_key in BALANCE_CACHE and (_now - BALANCE_CACHE[_spl_key][0]) < BALANCE_TTL:
+                        all_holdings = BALANCE_CACHE[_spl_key][1]
+                    else:
+                        all_holdings = fetch_all_spl_balances(address)
+                        BALANCE_CACHE[_spl_key] = (_now, all_holdings)
                 except Exception as enum_err:
                     all_holdings = []
                     if os.environ.get('PRIMA_DEBUG'):
