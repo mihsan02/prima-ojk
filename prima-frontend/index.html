@@ -412,6 +412,7 @@ tr:hover td{background:var(--bg2)}
           <option value="50">50 entri</option>
           <option value="100">100 entri</option>
         </select>
+        <button id="btn-export-csv" class="btn-secondary" onclick="exportCsv()">Export CSV</button>
       </div>
     </div>
 
@@ -1425,6 +1426,12 @@ async function populateDetailSelect() {
       sel.appendChild(o);
     });
   } catch(e) {}
+}
+
+function exportCsv() {
+  const pakdId = document.getElementById('detail-pakd-select').value;
+  const url = pakdId ? `/api/export-csv?pakd_id=${pakdId}` : '/api/export-csv';
+  window.location.href = url;
 }
 
 async function loadDetailPakd() {

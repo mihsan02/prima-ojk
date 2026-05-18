@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, make_response
 from flask_cors import CORS
 import requests
 import os
@@ -2158,6 +2158,42 @@ def wallet_verify():
                         + (" Status wallet diperbarui menjadi verified." if wallet_found
                            else " Address tidak ditemukan di data PAKD."),
     })
+
+
+@app.route('/api/export-csv')
+def export_csv():
+    import csv, io
+    from datetime import datetime
+    pakd_id = request.args.get('pakd_id')
+    try:
+        conn = psycopg2.connect(os.environ['DATABASE_URL'])
+        cur = conn.cursor()
+        if pakd_id:
+            cur.execute(
+                "SELECT pakd_id, pakd_nama, created_at, aset_dilaporkan_idr, aset_onchain_idr, deviasi_persen, status, harga_fallback, network_breakdown FROM reconciliation_snapshots WHERE pakd_id = %s ORDER BY created_at DESC LIMIT 200",
+                (pakd_id,)
+            )
+        else:
+            cur.execute(
+                "SELECT pakd_id, pakd_nama, created_at, aset_dilaporkan_idr, aset_onchain_idr, deviasi_persen, status, harga_fallback, network_breakdown FROM reconciliation_snapshots ORDER BY created_at DESC LIMIT 500"
+            )
+        rows = cur.fetchall()
+        col_names = [desc[0] for desc in cur.description]
+        cur.close()
+        conn.close()
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(col_names)
+    writer.writerows(rows)
+
+    filename = f"prima-export-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.csv"
+    response = make_response(output.getvalue())
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    response.headers["Content-Type"] = "text/csv"
+    return response
 
 @app.route('/ping')
 def ping():
