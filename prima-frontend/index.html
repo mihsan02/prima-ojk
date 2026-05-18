@@ -240,7 +240,10 @@ tr:hover td{background:var(--bg2)}
         <div class="page-title">Overview Rekonsiliasi PAKD</div>
         <div class="page-subtitle">Data live dari blockchain · Diperbarui setiap pemuatan halaman</div>
       </div>
-      <button class="btn-primary" onclick="loadAll()">⟳ Rekonsiliasi Manual</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-secondary" onclick="exportCsvOverview()">Export CSV</button>
+        <button class="btn-primary" onclick="loadAll()">⟳ Rekonsiliasi Manual</button>
+      </div>
     </div>
 
     <div class="kpi-grid">
@@ -1426,6 +1429,10 @@ async function populateDetailSelect() {
       sel.appendChild(o);
     });
   } catch(e) {}
+}
+
+function exportCsvOverview() {
+  window.location.href = '/api/export-csv-overview';
 }
 
 function exportCsv() {

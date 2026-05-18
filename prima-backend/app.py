@@ -2160,6 +2160,40 @@ def wallet_verify():
     })
 
 
+
+@app.route('/api/export-csv-overview')
+def export_csv_overview():
+    import csv, io
+    from datetime import datetime
+    try:
+        conn = psycopg2.connect(os.environ['DATABASE_URL'])
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT DISTINCT ON (pakd_id)
+                pakd_id, pakd_nama, created_at,
+                aset_dilaporkan_idr, aset_onchain_idr,
+                deviasi_persen, status, harga_fallback
+            FROM reconciliation_snapshots
+            ORDER BY pakd_id, created_at DESC
+        """)
+        rows = cur.fetchall()
+        col_names = [desc[0] for desc in cur.description]
+        cur.close()
+        conn.close()
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(col_names)
+    writer.writerows(rows)
+
+    filename = f"prima-overview-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.csv"
+    response = make_response(output.getvalue())
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    response.headers["Content-Type"] = "text/csv"
+    return response
+
 @app.route('/api/export-csv')
 def export_csv():
     import csv, io
