@@ -478,10 +478,11 @@ tr:hover td{background:var(--bg2)}
                 <th>Deviasi</th>
                 <th>Status</th>
                 <th>Harga Fallback</th>
+                <th>Detail Aset</th>
               </tr>
             </thead>
             <tbody id="detail-history-tbody">
-              <tr><td colspan="6" class="no-data-state">Pilih PAKD untuk melihat riwayat</td></tr>
+              <tr><td colspan="7" class="no-data-state">Pilih PAKD untuk melihat riwayat</td></tr>
             </tbody>
           </table>
         </div>
@@ -1490,20 +1491,55 @@ function renderDetailChart(rows) {
 
 function renderDetailTable(rows) {
   const tbody = document.getElementById('detail-history-tbody');
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="no-data-state">Tidak ada data</td></tr>'; return; }
-  tbody.innerHTML = rows.map(r => {
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="no-data-state">Tidak ada data</td></tr>'; return; }
+  tbody.innerHTML = rows.map((r, idx) => {
     const dev = parseFloat(r.deviasi_persen) || 0;
     const devColor = Math.abs(dev) < 5 ? 'var(--green)' : Math.abs(dev) < 15 ? 'var(--amber)' : 'var(--red)';
     const badgeClass = r.status === 'Aman' ? 'aman' : r.status === 'Deviasi' ? 'deviasi' : 'kritis';
-    return '<tr>' +
+    const hasBreakdown = r.network_breakdown && r.network_breakdown.length > 0;
+    const mainRow = '<tr>' +
       '<td class="mono" style="font-size:11px">' + new Date(r.captured_at).toLocaleString('id-ID') + '</td>' +
       '<td class="mono">Rp ' + (r.aset_onchain_idr||0).toLocaleString('id-ID') + '</td>' +
       '<td class="mono">Rp ' + (r.aset_dilaporkan_idr||0).toLocaleString('id-ID') + '</td>' +
       '<td class="mono" style="color:' + devColor + ';font-weight:600">' + dev.toFixed(2) + '%</td>' +
       '<td><span class="status-badge ' + badgeClass + '">' + r.status + '</span></td>' +
       '<td style="color:' + (r.harga_fallback ? 'var(--amber)' : 'var(--green)') + ';font-size:11px">' + (r.harga_fallback ? 'Ya' : 'Tidak') + '</td>' +
+      '<td>' + (hasBreakdown ? '<button onclick="toggleBreakdown(' + idx + ')" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:var(--bg);cursor:pointer;color:var(--blue)" id="btn-breakdown-' + idx + '">Lihat</button>' : '-') + '</td>' +
     '</tr>';
+    const breakdownRow = hasBreakdown ? '<tr id="breakdown-row-' + idx + '" style="display:none"><td colspan="7" style="padding:0">' + buildBreakdownHtml(r.network_breakdown) + '</td></tr>' : '';
+    return mainRow + breakdownRow;
   }).join('');
+}
+
+function buildBreakdownHtml(wallets) {
+  const fmt = v => 'Rp ' + Math.round(v||0).toLocaleString('id-ID');
+  let rows = '';
+  wallets.forEach(w => {
+    const net = w.native_unit || '?';
+    if (net === 'ETH') {
+      rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)">' + (w.address||'').slice(0,10) + '...</td><td style="font-size:11px">ETH Native</td><td class="mono" style="font-size:11px">' + fmt(w.eth_native_idr) + '</td></tr>';
+      if (w.usdt_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">USDT (ERC-20)</td><td class="mono" style="font-size:11px">' + fmt(w.usdt_idr) + '</td></tr>';
+      if (w.usdc_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">USDC (ERC-20)</td><td class="mono" style="font-size:11px">' + fmt(w.usdc_idr) + '</td></tr>';
+      if (w.eth_other_token_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">ERC-20 Lainnya</td><td class="mono" style="font-size:11px">' + fmt(w.eth_other_token_idr) + '</td></tr>';
+    } else if (net === 'BTC') {
+      rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)">' + (w.address||'').slice(0,10) + '...</td><td style="font-size:11px">BTC</td><td class="mono" style="font-size:11px">' + fmt(w.balance_idr) + '</td></tr>';
+    } else if (net === 'SOL') {
+      rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)">' + (w.address||'').slice(0,10) + '...</td><td style="font-size:11px">SOL Native</td><td class="mono" style="font-size:11px">' + fmt(w.sol_native_idr) + '</td></tr>';
+      if (w.sol_usdt_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">USDT (SPL)</td><td class="mono" style="font-size:11px">' + fmt(w.sol_usdt_idr) + '</td></tr>';
+      if (w.sol_usdc_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">USDC (SPL)</td><td class="mono" style="font-size:11px">' + fmt(w.sol_usdc_idr) + '</td></tr>';
+      if (w.sol_other_token_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">SPL Lainnya</td><td class="mono" style="font-size:11px">' + fmt(w.sol_other_token_idr) + '</td></tr>';
+    }
+  });
+  return '<table style="width:100%;border-top:1px solid var(--border);border-collapse:collapse"><thead><tr style="background:var(--bg2)"><th style="font-size:11px;padding:4px 12px;text-align:left;color:var(--txt2)">Wallet</th><th style="font-size:11px;padding:4px 12px;text-align:left;color:var(--txt2)">Aset</th><th style="font-size:11px;padding:4px 12px;text-align:left;color:var(--txt2)">Nilai IDR</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function toggleBreakdown(idx) {
+  const row = document.getElementById('breakdown-row-' + idx);
+  const btn = document.getElementById('btn-breakdown-' + idx);
+  if (!row) return;
+  const visible = row.style.display !== 'none';
+  row.style.display = visible ? 'none' : 'table-row';
+  btn.textContent = visible ? 'Lihat' : 'Tutup';
 }
 
 document.addEventListener('DOMContentLoaded', populateDetailSelect);

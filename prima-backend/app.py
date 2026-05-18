@@ -1660,7 +1660,7 @@ def reconciliation_history():
             cur.execute(
                 """SELECT id, captured_at, pakd_id, pakd_nama,
                           aset_dilaporkan_idr, aset_onchain_idr,
-                          deviasi_persen, status, harga_fallback
+                          deviasi_persen, status, harga_fallback, network_breakdown
                    FROM reconciliation_snapshots
                    WHERE pakd_id = %s
                    ORDER BY captured_at DESC LIMIT %s""",
@@ -1670,7 +1670,7 @@ def reconciliation_history():
             cur.execute(
                 """SELECT id, captured_at, pakd_id, pakd_nama,
                           aset_dilaporkan_idr, aset_onchain_idr,
-                          deviasi_persen, status, harga_fallback
+                          deviasi_persen, status, harga_fallback, network_breakdown
                    FROM reconciliation_snapshots
                    ORDER BY captured_at DESC LIMIT %s""",
                 (limit,)
@@ -1688,6 +1688,7 @@ def reconciliation_history():
                 "deviasi_persen":      float(r[6]) if r[6] is not None else None,
                 "status":              r[7],
                 "harga_fallback":      r[8],
+                "network_breakdown":   r[9] if r[9] is not None else [],
             })
         return jsonify({"data": hasil, "total": len(hasil)})
     except Exception as e:
