@@ -718,15 +718,19 @@ async function loadData() {
           <span class="pakd-name">${escapeHtml(d.nama)}</span>
           <span class="pakd-id">${escapeHtml(d.id)} · Berizin</span>
           ${renderWalletsCell(d)}
-        </td>
-        <td style="vertical-align:top;padding-top:18px"><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
-        <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${formatIDR(d.aset_onchain_idr)}</td>
-        <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
-        <td style="vertical-align:top;padding-top:18px">${deviDisplay(d)}</td>
-        <td style="line-height:1.6;vertical-align:top;padding-top:14px">${renderBreakdown(d)}</td>
-        <td style="vertical-align:top;padding-top:14px">
-          <button onclick="openEditModal('${escapeHtml(d.id)}')" style="background:var(--blue);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;margin-bottom:4px;width:100%">✏️ Edit</button>
-          <button onclick="deletePakd('${escapeHtml(d.id)}')" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;width:100%">🗑️ Hapus</button>
+        <td style="vertical-align:top;padding-top:16px">
+          <div style="display:flex;gap:6px">
+            <button onclick="openEditModal('${escapeHtml(d.id)}')"
+              style="background:none;border:none;cursor:pointer;color:#64748b;border-radius:6px;padding:6px 8px;transition:all 0.15s"
+              onmouseover="this.style.background='#eff6ff';this.style.color='#2563eb'"
+              onmouseout="this.style.background='none';this.style.color='#64748b'"
+              title="Edit PAKD">✏️</button>
+            <button onclick="deletePakd('${escapeHtml(d.id)}')"
+              style="background:none;border:none;cursor:pointer;color:#64748b;border-radius:6px;padding:6px 8px;transition:all 0.15s"
+              onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'"
+              onmouseout="this.style.background='none';this.style.color='#64748b'"
+              title="Hapus PAKD">🗑️</button>
+          </div>
         </td>
       </tr>`).join('');
   } catch (err) {
@@ -1292,7 +1296,7 @@ addWalletRow('ethereum');
 </script>
 </body>
 <!-- Modal Edit PAKD -->
-<div id="modal-pakd" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
+<div id="modal-pakd" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center">
   <div style="background:var(--surface);border-radius:12px;padding:32px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto">
     <h3 style="margin:0 0 20px;color:var(--txt1)" id="modal-pakd-title">Edit PAKD</h3>
     <div style="margin-bottom:14px">
