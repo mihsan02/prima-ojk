@@ -2163,7 +2163,7 @@ def wallet_verify():
 
 @app.route('/api/export-csv-overview')
 def export_csv_overview():
-    import csv, io
+    import csv, io, psycopg2
     from datetime import datetime
     try:
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
@@ -2196,7 +2196,7 @@ def export_csv_overview():
 
 @app.route('/api/export-csv')
 def export_csv():
-    import csv, io
+    import csv, io, psycopg2
     from datetime import datetime
     pakd_id = request.args.get('pakd_id')
     try:
