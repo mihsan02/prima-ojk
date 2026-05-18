@@ -260,7 +260,7 @@ tr:hover td{background:var(--bg2)}
             <tr>
               <th>#</th><th>Nama PAKD</th><th>Status</th>
               <th>Aset On-Chain (IDR)</th><th>Aset Dilaporkan (IDR)</th>
-              <th>Deviasi</th><th>Breakdown Aset</th>
+              <th>Deviasi</th><th>Breakdown Aset</th><th>Aksi</th>
             </tr>
           </thead>
           <tbody id="pakd-tbody">
@@ -692,6 +692,7 @@ async function loadData() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     const data = json.data;
+    _pakdCache = data;
     const now = new Date().toLocaleString('id-ID', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
     document.getElementById('last-update').textContent = now;
     document.getElementById('footer-time').textContent = 'Rekonsiliasi terakhir: ' + now;
@@ -723,6 +724,10 @@ async function loadData() {
         <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
         <td style="vertical-align:top;padding-top:18px">${deviDisplay(d)}</td>
         <td style="line-height:1.6;vertical-align:top;padding-top:14px">${renderBreakdown(d)}</td>
+        <td style="vertical-align:top;padding-top:14px">
+          <button onclick="openEditModal('${escapeHtml(d.id)}')" style="background:var(--blue);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;margin-bottom:4px;width:100%">✏️ Edit</button>
+          <button onclick="deletePakd('${escapeHtml(d.id)}')" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;width:100%">🗑️ Hapus</button>
+        </td>
       </tr>`).join('');
   } catch (err) {
     tbody.innerHTML = '<tr class="error-row"><td colspan="7">Gagal mengambil data: ' + escapeHtml(err.message) + '</td></tr>';
@@ -1286,4 +1291,128 @@ loadAll();
 addWalletRow('ethereum');
 </script>
 </body>
+<!-- Modal Edit PAKD -->
+<div id="modal-pakd" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:12px;padding:32px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto">
+    <h3 style="margin:0 0 20px;color:var(--txt1)" id="modal-pakd-title">Edit PAKD</h3>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">ID PAKD</label>
+      <input id="edit-pakd-id" disabled style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt2);box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Nama PAKD</label>
+      <input id="edit-pakd-nama" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1);box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Aset Dilaporkan (IDR)</label>
+      <input id="edit-pakd-aset" type="number" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1);box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:8px">Wallets</label>
+      <div id="edit-wallets-container"></div>
+      <button onclick="addWalletRow()" style="margin-top:8px;background:none;border:1px dashed var(--border);border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--blue);font-size:12px">+ Tambah Wallet</button>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeEditModal()" style="padding:8px 20px;border-radius:6px;border:1px solid var(--border);background:none;cursor:pointer;color:var(--txt1)">Batal</button>
+      <button onclick="saveEditModal()" style="padding:8px 20px;border-radius:6px;border:none;background:var(--blue);color:#fff;cursor:pointer">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://prima-ojk.onrender.com';
+let _editPakdId = null;
+let _pakdCache = [];
+
+function openEditModal(pakdId) {
+  const pakd = _pakdCache.find(p => p.id === pakdId);
+  if (!pakd) return alert('Data PAKD tidak ditemukan');
+  _editPakdId = pakdId;
+  document.getElementById('modal-pakd-title').textContent = 'Edit PAKD: ' + pakdId;
+  document.getElementById('edit-pakd-id').value = pakd.id;
+  document.getElementById('edit-pakd-nama').value = pakd.nama;
+  document.getElementById('edit-pakd-aset').value = pakd.aset_dilaporkan;
+  renderWalletRows(pakd.wallets || []);
+  document.getElementById('modal-pakd').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('modal-pakd').style.display = 'none';
+  _editPakdId = null;
+}
+
+function renderWalletRows(wallets) {
+  const container = document.getElementById('edit-wallets-container');
+  container.innerHTML = wallets.map((w, i) => `
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center" id="wallet-row-${i}">
+      <select style="padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1)">
+        <option ${w.network==='ethereum'?'selected':''}>ethereum</option>
+        <option ${w.network==='bitcoin'?'selected':''}>bitcoin</option>
+        <option ${w.network==='solana'?'selected':''}>solana</option>
+      </select>
+      <input value="${escapeHtml(w.address)}" placeholder="Alamat wallet" style="flex:1;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1)">
+      <button onclick="removeWalletRow(${i})" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+
+function addWalletRow() {
+  const container = document.getElementById('edit-wallets-container');
+  const i = container.children.length;
+  const div = document.createElement('div');
+  div.id = 'wallet-row-' + i;
+  div.style = 'display:flex;gap:8px;margin-bottom:8px;align-items:center';
+  div.innerHTML = `
+    <select style="padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1)">
+      <option>ethereum</option><option>bitcoin</option><option>solana</option>
+    </select>
+    <input placeholder="Alamat wallet" style="flex:1;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1)">
+    <button onclick="this.parentElement.remove()" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer">✕</button>`;
+  container.appendChild(div);
+}
+
+function removeWalletRow(i) {
+  document.getElementById('wallet-row-' + i).remove();
+}
+
+function getWalletsFromModal() {
+  const rows = document.getElementById('edit-wallets-container').children;
+  return Array.from(rows).map(row => ({
+    network: row.querySelector('select').value,
+    address: row.querySelector('input').value.trim(),
+    verified: false,
+    verified_at: null
+  })).filter(w => w.address);
+}
+
+async function saveEditModal() {
+  const body = {
+    nama: document.getElementById('edit-pakd-nama').value.trim(),
+    aset_dilaporkan: parseInt(document.getElementById('edit-pakd-aset').value) || 0,
+    wallets: getWalletsFromModal()
+  };
+  try {
+    const resp = await fetch(API + '/api/pakd/' + _editPakdId, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    closeEditModal();
+    loadData();
+  } catch(e) {
+    alert('Gagal menyimpan: ' + e.message);
+  }
+}
+
+async function deletePakd(pakdId) {
+  if (!confirm('Hapus PAKD ' + pakdId + '? Tindakan ini tidak dapat dibatalkan.')) return;
+  try {
+    const resp = await fetch(API + '/api/pakd/' + pakdId, {method: 'DELETE'});
+    if (!resp.ok) throw new Error(await resp.text());
+    loadData();
+  } catch(e) {
+    alert('Gagal menghapus: ' + e.message);
+  }
+}
+</script>
 </html>
