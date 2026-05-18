@@ -294,6 +294,28 @@ def _get_db_conn():
         return None
 
 
+def _save_snapshot(pakd_id, pakd_nama, aset_dilaporkan, aset_onchain, deviasi_pct, status, harga_fallback, breakdown):
+    conn = _get_db_conn()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO reconciliation_snapshots
+               (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
+                deviasi_persen, status, harga_fallback, network_breakdown)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            (pakd_id, pakd_nama, int(aset_dilaporkan), int(aset_onchain),
+             float(deviasi_pct), status, harga_fallback,
+             json.dumps(breakdown))
+        )
+        conn.commit()
+    except Exception:
+        pass
+    finally:
+        conn.close()
+
+
 def load_pakd():
     conn = _get_db_conn()
     if conn:
@@ -1607,6 +1629,14 @@ def reconciliation():
         write_audit("REKONSILIASI", f"{len(hasil)} PAKD direkonsiliasi (ETH native+USDT+USDC, BTC, SOL)")
         # Resolve harga_fallback flag from ETH price fetch
         _, eth_fallback = get_eth_price_idr()
+        # Save snapshot to Supabase (non-blocking)
+        for h in hasil:
+            _save_snapshot(
+                h["id"], h["nama"],
+                h["aset_dilaporkan_idr"], h["aset_onchain_idr"],
+                h["deviasi_pct"], h["status"],
+                eth_fallback, h["breakdown"]
+            )
         return jsonify({
             "data":          hasil,
             "total_pakd":    len(hasil),
@@ -1615,6 +1645,55 @@ def reconciliation():
 
     except Exception as e:
         return jsonify({"status": "error", "message": "Rekonsiliasi gagal", "detail": str(e)}), 500
+
+
+@app.route("/api/reconciliation-history")
+def reconciliation_history():
+    conn = _get_db_conn()
+    if not conn:
+        return jsonify({"error": "Database tidak tersedia"}), 503
+    try:
+        pakd_id = request.args.get("pakd_id")
+        limit = min(int(request.args.get("limit", 30)), 100)
+        cur = conn.cursor()
+        if pakd_id:
+            cur.execute(
+                """SELECT id, captured_at, pakd_id, pakd_nama,
+                          aset_dilaporkan_idr, aset_onchain_idr,
+                          deviasi_persen, status, harga_fallback
+                   FROM reconciliation_snapshots
+                   WHERE pakd_id = %s
+                   ORDER BY captured_at DESC LIMIT %s""",
+                (pakd_id, limit)
+            )
+        else:
+            cur.execute(
+                """SELECT id, captured_at, pakd_id, pakd_nama,
+                          aset_dilaporkan_idr, aset_onchain_idr,
+                          deviasi_persen, status, harga_fallback
+                   FROM reconciliation_snapshots
+                   ORDER BY captured_at DESC LIMIT %s""",
+                (limit,)
+            )
+        rows = cur.fetchall()
+        hasil = []
+        for r in rows:
+            hasil.append({
+                "id":                  r[0],
+                "captured_at":         r[1].isoformat() if r[1] else None,
+                "pakd_id":             r[2],
+                "pakd_nama":           r[3],
+                "aset_dilaporkan_idr": r[4],
+                "aset_onchain_idr":    r[5],
+                "deviasi_persen":      float(r[6]) if r[6] is not None else None,
+                "status":              r[7],
+                "harga_fallback":      r[8],
+            })
+        return jsonify({"data": hasil, "total": len(hasil)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 @app.route("/api/stress-test")
