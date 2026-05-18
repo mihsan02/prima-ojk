@@ -1478,6 +1478,71 @@ def index():
 def status():
     return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.9-pasal50-pasal91"})
 
+@app.route("/api/pakd", methods=["GET"])
+def get_pakd():
+    return jsonify(load_pakd())
+
+@app.route("/api/pakd", methods=["POST"])
+def create_pakd():
+    body = request.get_json(force=True)
+    if not body.get("id") or not body.get("nama"):
+        return jsonify({"error": "id dan nama wajib diisi"}), 400
+    data = load_pakd()
+    if any(p["id"] == body["id"] for p in data):
+        return jsonify({"error": f"PAKD {body['id']} sudah ada"}), 409
+    new_pakd = {
+        "id": body["id"],
+        "nama": body["nama"],
+        "aset_dilaporkan": body.get("aset_dilaporkan", 0),
+        "equity_idr": body.get("equity_idr"),
+        "persediaan_akd_idr": body.get("persediaan_akd_idr"),
+        "simpanan_pedagang_akd_idr": body.get("simpanan_pedagang_akd_idr"),
+        "customer_akd_idr": body.get("customer_akd_idr"),
+        "wallets": body.get("wallets", []),
+    }
+    data.append(new_pakd)
+    save_pakd(data)
+    write_audit("CREATE_PAKD", f"Tambah {body['id']} - {body['nama']}")
+    return jsonify(new_pakd), 201
+
+@app.route("/api/pakd/<pakd_id>", methods=["PUT"])
+def update_pakd(pakd_id):
+    body = request.get_json(force=True)
+    data = load_pakd()
+    for i, p in enumerate(data):
+        if p["id"] == pakd_id:
+            data[i]["nama"] = body.get("nama", p["nama"])
+            data[i]["aset_dilaporkan"] = body.get("aset_dilaporkan", p["aset_dilaporkan"])
+            data[i]["equity_idr"] = body.get("equity_idr", p.get("equity_idr"))
+            data[i]["persediaan_akd_idr"] = body.get("persediaan_akd_idr", p.get("persediaan_akd_idr"))
+            data[i]["simpanan_pedagang_akd_idr"] = body.get("simpanan_pedagang_akd_idr", p.get("simpanan_pedagang_akd_idr"))
+            data[i]["customer_akd_idr"] = body.get("customer_akd_idr", p.get("customer_akd_idr"))
+            if "wallets" in body:
+                data[i]["wallets"] = body["wallets"]
+            save_pakd(data)
+            write_audit("UPDATE_PAKD", f"Edit {pakd_id}")
+            return jsonify(data[i])
+    return jsonify({"error": f"PAKD {pakd_id} tidak ditemukan"}), 404
+
+@app.route("/api/pakd/<pakd_id>", methods=["DELETE"])
+def delete_pakd(pakd_id):
+    data = load_pakd()
+    new_data = [p for p in data if p["id"] != pakd_id]
+    if len(new_data) == len(data):
+        return jsonify({"error": f"PAKD {pakd_id} tidak ditemukan"}), 404
+    conn = _get_db_conn()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM pakd WHERE id = %s", (pakd_id,))
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"[DB] delete_pakd failed: {e}", flush=True)
+    save_pakd(new_data)
+    write_audit("DELETE_PAKD", f"Hapus {pakd_id}")
+    return jsonify({"deleted": pakd_id})
 
 @app.route("/api/reconciliation")
 def reconciliation():
