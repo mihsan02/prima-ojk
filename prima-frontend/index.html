@@ -149,6 +149,24 @@ tr:hover td{background:var(--bg2)}
 .copy-btn{background:transparent;border:1px solid var(--border2);color:var(--txt2);padding:5px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;margin-top:8px;transition:all 0.15s}
 .copy-btn:hover{background:var(--bg2);color:var(--txt1)}
 .copy-btn.copied{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
+
+.detail-filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.detail-select{padding:8px 14px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg1);color:var(--txt1);font-size:13px;font-family:'Inter',sans-serif;cursor:pointer;outline:none}
+.detail-select:focus{border-color:var(--blue)}
+.detail-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.history-table-wrap{overflow-x:auto}
+.history-table{width:100%;border-collapse:collapse}
+.history-table thead tr{background:var(--bg2)}
+.history-table th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--txt3);border-bottom:1px solid var(--border)}
+.history-table td{padding:12px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--txt2);vertical-align:middle}
+.history-table tr:last-child td{border-bottom:none}
+.history-table tr:hover td{background:var(--bg2)}
+.trend-chart-wrap{position:relative;height:180px;width:100%;margin-top:8px}
+.trend-svg{width:100%;height:100%}
+.chart-legend{display:flex;gap:16px;margin-bottom:12px}
+.chart-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt3)}
+.chart-legend-line{width:20px;height:2px;border-radius:2px}
+.no-data-state{text-align:center;padding:40px 20px;color:var(--txt4);font-size:13px}
 </style>
 </head>
 <body>
@@ -183,6 +201,10 @@ tr:hover td{background:var(--bg2)}
   <div class="nav-item active" onclick="showPage('overview', this)">
     <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"></rect><rect x="9" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"></rect><rect x="1" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"></rect><rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"></rect></svg>
     Overview PAKD
+  </div>
+  <div class="nav-item" onclick="showPage('detail', this)">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="6" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 13c0-2.21 2.686-4 6-4s6 1.79 6 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Detail PAKD
   </div>
   <div class="nav-section">Analisis</div>
   <div class="nav-item" onclick="showPage('stresstest', this)">
@@ -374,7 +396,96 @@ tr:hover td{background:var(--bg2)}
     </div>
   </div>
 
-  <!-- PAGE: STRESS TEST -->
+  <!-- PAGE: DETAIL PAKD -->
+  <div id="page-detail" class="page">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Detail PAKD</div>
+        <div class="page-subtitle">Riwayat rekonsiliasi per entitas — data tersimpan di Supabase</div>
+      </div>
+      <div class="detail-filter-bar">
+        <select id="detail-pakd-select" class="detail-select" onchange="loadDetailPakd()">
+          <option value="">Pilih PAKD...</option>
+        </select>
+        <select id="detail-limit-select" class="detail-select" onchange="loadDetailPakd()">
+          <option value="20">20 entri</option>
+          <option value="50">50 entri</option>
+          <option value="100">100 entri</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="detail-kpi-grid" class="detail-kpi-grid" style="display:none">
+      <div class="kpi-card blue">
+        <div class="kpi-label">Total Snapshot</div>
+        <div class="kpi-value blue" id="d-total">—</div>
+        <div class="kpi-sub">rekonsiliasi tercatat</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Rata-rata Deviasi</div>
+        <div class="kpi-value green" id="d-avg-dev">—</div>
+        <div class="kpi-sub">seluruh periode</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-label">Snapshot Terakhir</div>
+        <div class="kpi-value amber" id="d-last-status" style="font-size:18px">—</div>
+        <div class="kpi-sub" id="d-last-time">—</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">Deviasi Tertinggi</div>
+        <div class="kpi-value red" id="d-max-dev">—</div>
+        <div class="kpi-sub">sepanjang riwayat</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body">
+        <div class="section-header">
+          <div class="section-title">
+            <div class="section-title-bar"></div>
+            Tren Deviasi On-Chain vs Dilaporkan
+          </div>
+          <div class="chart-legend">
+            <div class="chart-legend-item"><div class="chart-legend-line" style="background:var(--blue)"></div>Aset On-Chain</div>
+            <div class="chart-legend-item"><div class="chart-legend-line" style="background:var(--amber);border-top:2px dashed var(--amber);height:0"></div>Dilaporkan</div>
+          </div>
+        </div>
+        <div class="trend-chart-wrap" id="trend-chart-wrap">
+          <div class="no-data-state">Pilih PAKD untuk melihat tren rekonsiliasi</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body">
+        <div class="section-header">
+          <div class="section-title">
+            <div class="section-title-bar"></div>
+            Riwayat Snapshot Rekonsiliasi
+          </div>
+        </div>
+        <div class="history-table-wrap">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Waktu Capture</th>
+                <th>Aset On-Chain (IDR)</th>
+                <th>Aset Dilaporkan (IDR)</th>
+                <th>Deviasi</th>
+                <th>Status</th>
+                <th>Harga Fallback</th>
+              </tr>
+            </thead>
+            <tbody id="detail-history-tbody">
+              <tr><td colspan="6" class="no-data-state">Pilih PAKD untuk melihat riwayat</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- PAGE: STRESS TEST -->
   <div id="page-stresstest" class="page">
     <div class="page-header">
       <div>
@@ -655,6 +766,7 @@ function showPage(id, el) {
   if (id === 'stresstest') loadStressTest();
   if (id === 'auditlog') loadAudit();
   if (id === 'pengaturan') loadPengaturan();
+  if (id === 'detail') populateDetailSelect();
 }
 
 function formatIDR(n) {
@@ -1298,6 +1410,89 @@ async function loadPengaturan() {
 
 function loadAll() { loadData(); loadAudit(); }
 loadAll();
+
+async function populateDetailSelect() {
+  try {
+    const res = await fetch('/api/reconciliation-history?limit=100');
+    const d = await res.json();
+    const seen = {};
+    d.data.forEach(r => { seen[r.pakd_id] = r.pakd_nama; });
+    const sel = document.getElementById('detail-pakd-select');
+    sel.innerHTML = '<option value="">Pilih PAKD...</option>';
+    Object.entries(seen).forEach(([id, nama]) => {
+      const o = document.createElement('option');
+      o.value = id; o.textContent = nama + ' (' + id + ')';
+      sel.appendChild(o);
+    });
+  } catch(e) {}
+}
+
+async function loadDetailPakd() {
+  const pakdId = document.getElementById('detail-pakd-select').value;
+  const limit = document.getElementById('detail-limit-select').value;
+  if (!pakdId) return;
+  try {
+    const res = await fetch('/api/reconciliation-history?pakd_id=' + pakdId + '&limit=' + limit);
+    const d = await res.json();
+    const rows = d.data || [];
+    renderDetailKpi(rows);
+    renderDetailChart(rows);
+    renderDetailTable(rows);
+    document.getElementById('detail-kpi-grid').style.display = 'grid';
+  } catch(e) {}
+}
+
+function renderDetailKpi(rows) {
+  if (!rows.length) return;
+  const devs = rows.map(r => parseFloat(r.deviasi_persen) || 0);
+  const avg = devs.reduce((a,b) => a+b, 0) / devs.length;
+  const maxDev = Math.max(...devs.map(Math.abs));
+  const last = rows[0];
+  document.getElementById('d-total').textContent = rows.length;
+  document.getElementById('d-avg-dev').textContent = avg.toFixed(2) + '%';
+  document.getElementById('d-max-dev').textContent = maxDev.toFixed(2) + '%';
+  document.getElementById('d-last-status').textContent = last.status;
+  document.getElementById('d-last-time').textContent = new Date(last.captured_at).toLocaleString('id-ID');
+}
+
+function renderDetailChart(rows) {
+  const wrap = document.getElementById('trend-chart-wrap');
+  if (!rows.length) { wrap.innerHTML = '<div class="no-data-state">Belum ada data</div>'; return; }
+  const sorted = [...rows].reverse();
+  const onchain = sorted.map(r => r.aset_onchain_idr || 0);
+  const dilap = sorted.map(r => r.aset_dilaporkan_idr || 0);
+  const allVals = [...onchain, ...dilap];
+  const minV = Math.min(...allVals); const maxV = Math.max(...allVals);
+  const range = maxV - minV || 1;
+  const W = 800; const H = 160; const PAD = 10;
+  const toY = v => PAD + (1 - (v - minV) / range) * (H - PAD * 2);
+  const toX = (i, len) => (i / (len - 1 || 1)) * W;
+  const makePath = arr => arr.map((v,i) => (i===0?'M':'L') + toX(i,arr.length).toFixed(1) + ',' + toY(v).toFixed(1)).join(' ');
+  wrap.innerHTML = '<svg class="trend-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+    '<path d="' + makePath(onchain) + '" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linejoin="round"/>' +
+    '<path d="' + makePath(dilap) + '" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5,3" stroke-linejoin="round"/>' +
+    '</svg>';
+}
+
+function renderDetailTable(rows) {
+  const tbody = document.getElementById('detail-history-tbody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="no-data-state">Tidak ada data</td></tr>'; return; }
+  tbody.innerHTML = rows.map(r => {
+    const dev = parseFloat(r.deviasi_persen) || 0;
+    const devColor = Math.abs(dev) < 5 ? 'var(--green)' : Math.abs(dev) < 15 ? 'var(--amber)' : 'var(--red)';
+    const badgeClass = r.status === 'Aman' ? 'aman' : r.status === 'Deviasi' ? 'deviasi' : 'kritis';
+    return '<tr>' +
+      '<td class="mono" style="font-size:11px">' + new Date(r.captured_at).toLocaleString('id-ID') + '</td>' +
+      '<td class="mono">Rp ' + (r.aset_onchain_idr||0).toLocaleString('id-ID') + '</td>' +
+      '<td class="mono">Rp ' + (r.aset_dilaporkan_idr||0).toLocaleString('id-ID') + '</td>' +
+      '<td class="mono" style="color:' + devColor + ';font-weight:600">' + dev.toFixed(2) + '%</td>' +
+      '<td><span class="status-badge ' + badgeClass + '">' + r.status + '</span></td>' +
+      '<td style="color:' + (r.harga_fallback ? 'var(--amber)' : 'var(--green)') + ';font-size:11px">' + (r.harga_fallback ? 'Ya' : 'Tidak') + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+document.addEventListener('DOMContentLoaded', populateDetailSelect);
 addWalletRow('ethereum');
 </script>
 </body>
