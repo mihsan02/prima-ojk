@@ -5,3 +5,4 @@ eth-account
 base58
 PyNaCl
 gunicorn
+psycopg2-binary

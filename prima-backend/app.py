@@ -283,7 +283,42 @@ def _migrate_record(p):
     p.setdefault("customer_akd_idr", None)
     return p
 
+def _get_db_conn():
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        return None
+    try:
+        import psycopg2
+        return psycopg2.connect(db_url, connect_timeout=5)
+    except Exception:
+        return None
+
+
 def load_pakd():
+    conn = _get_db_conn()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT id, nama, aset_dilaporkan, equity_idr, persediaan_akd_idr, simpanan_pedagang_akd_idr, customer_akd_idr FROM pakd ORDER BY id")
+            pakd_rows = cur.fetchall()
+            result = []
+            for row in pakd_rows:
+                pakd_id = row[0]
+                cur.execute("SELECT network, address, verified, verified_at FROM wallets WHERE pakd_id = %s", (pakd_id,))
+                wallets = [{"network": w[0], "address": w[1], "verified": w[2], "verified_at": str(w[3]) if w[3] else None} for w in cur.fetchall()]
+                result.append({
+                    "id": row[0], "nama": row[1],
+                    "aset_dilaporkan": row[2] or 0,
+                    "equity_idr": row[3], "persediaan_akd_idr": row[4],
+                    "simpanan_pedagang_akd_idr": row[5], "customer_akd_idr": row[6],
+                    "wallets": wallets
+                })
+            cur.close()
+            conn.close()
+            if result:
+                return result
+        except Exception as e:
+            print(f"[DB] load_pakd failed: {e}", flush=True)
     try:
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE, "r") as f:
@@ -295,9 +330,37 @@ def load_pakd():
     return [dict(p) for p in PAKD_DEFAULT]
 
 
-
-
 def save_pakd(data):
+    conn = _get_db_conn()
+    if conn:
+        try:
+            cur = conn.cursor()
+            for pakd in data:
+                cur.execute("""
+                    INSERT INTO pakd (id, nama, aset_dilaporkan, equity_idr, persediaan_akd_idr, simpanan_pedagang_akd_idr, customer_akd_idr)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        nama = EXCLUDED.nama,
+                        aset_dilaporkan = EXCLUDED.aset_dilaporkan,
+                        equity_idr = EXCLUDED.equity_idr,
+                        persediaan_akd_idr = EXCLUDED.persediaan_akd_idr,
+                        simpanan_pedagang_akd_idr = EXCLUDED.simpanan_pedagang_akd_idr,
+                        customer_akd_idr = EXCLUDED.customer_akd_idr
+                """, (pakd["id"], pakd["nama"], pakd.get("aset_dilaporkan", 0),
+                      pakd.get("equity_idr"), pakd.get("persediaan_akd_idr"),
+                      pakd.get("simpanan_pedagang_akd_idr"), pakd.get("customer_akd_idr")))
+                cur.execute("DELETE FROM wallets WHERE pakd_id = %s", (pakd["id"],))
+                for w in pakd.get("wallets", []):
+                    cur.execute("""
+                        INSERT INTO wallets (pakd_id, network, address, verified, verified_at)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (pakd["id"], w["network"], w["address"], w.get("verified", False), w.get("verified_at")))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return
+        except Exception as e:
+            print(f"[DB] save_pakd failed: {e}", flush=True)
     dir_ = os.path.dirname(DATA_FILE) or "."
     fd, tmp_path = tempfile.mkstemp(dir=dir_, suffix=".tmp")
     try:
@@ -310,7 +373,6 @@ def save_pakd(data):
         except OSError:
             pass
         raise
-
 
 def write_audit(action, detail):
     try:
