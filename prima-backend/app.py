@@ -24,7 +24,7 @@ LAMPORTS_PER_SOL   = 1_000_000_000
 PRICE_CACHE        = {}
 BALANCE_CACHE      = {}
 PRICE_TTL          = 300   # bumped from 60 (Day 15): CMC credit budget guard
-BALANCE_TTL        = 30
+BALANCE_TTL        = 300  # bumped: cache outlives request duration
 
 # ---- Jupiter API constants (Day 16) ----
 JUPITER_API_BASE      = "https://api.jup.ag"
