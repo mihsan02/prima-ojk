@@ -444,18 +444,33 @@ tr:hover td{background:var(--bg2)}
 
     <div class="panel">
       <div class="panel-body">
-        <div class="section-header">
-          <div class="section-title">
-            <div class="section-title-bar"></div>
-            Tren Deviasi On-Chain vs Dilaporkan
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+          <div>
+            <div class="section-header">
+              <div class="section-title">
+                <div class="section-title-bar"></div>
+                Tren Deviasi On-Chain vs Dilaporkan
+              </div>
+              <div class="chart-legend">
+                <div class="chart-legend-item"><div class="chart-legend-line" style="background:var(--blue)"></div>Aset On-Chain</div>
+                <div class="chart-legend-item"><div class="chart-legend-line" style="background:var(--amber);border-top:2px dashed var(--amber);height:0"></div>Dilaporkan</div>
+              </div>
+            </div>
+            <div class="trend-chart-wrap" id="trend-chart-wrap">
+              <div class="no-data-state">Pilih PAKD untuk melihat tren rekonsiliasi</div>
+            </div>
           </div>
-          <div class="chart-legend">
-            <div class="chart-legend-item"><div class="chart-legend-line" style="background:var(--blue)"></div>Aset On-Chain</div>
-            <div class="chart-legend-item"><div class="chart-legend-line" style="background:var(--amber);border-top:2px dashed var(--amber);height:0"></div>Dilaporkan</div>
+          <div>
+            <div class="section-header">
+              <div class="section-title">
+                <div class="section-title-bar"></div>
+                Komposisi Aset On-Chain
+              </div>
+            </div>
+            <div id="donut-wrap" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:220px">
+              <div class="no-data-state">Pilih PAKD untuk melihat komposisi aset</div>
+            </div>
           </div>
-        </div>
-        <div class="trend-chart-wrap" id="trend-chart-wrap">
-          <div class="no-data-state">Pilih PAKD untuk melihat tren rekonsiliasi</div>
         </div>
       </div>
     </div>
@@ -1452,6 +1467,7 @@ async function loadDetailPakd() {
     const rows = d.data || [];
     renderDetailKpi(rows);
     renderDetailChart(rows);
+    renderDetailDonut(rows);
     renderDetailTable(rows);
     document.getElementById('detail-kpi-grid').style.display = 'grid';
   } catch(e) {}
@@ -1468,6 +1484,43 @@ function renderDetailKpi(rows) {
   document.getElementById('d-max-dev').textContent = maxDev.toFixed(2) + '%';
   document.getElementById('d-last-status').textContent = last.status;
   document.getElementById('d-last-time').textContent = new Date(last.captured_at).toLocaleString('id-ID');
+}
+
+function renderDetailDonut(rows) {
+  const wrap = document.getElementById('donut-wrap');
+  if (!wrap) return;
+  const latest = rows.find(r => r.network_breakdown && r.network_breakdown.length > 0);
+  if (!latest) { wrap.innerHTML = '<div class="no-data-state">Tidak ada data komposisi</div>'; return; }
+  const wallets = latest.network_breakdown;
+  const segments = [
+    { label: 'Bitcoin (BTC)',   color: '#f7931a', value: wallets.filter(w=>w.native_unit==='BTC').reduce((s,w)=>s+(w.balance_idr||0),0) },
+    { label: 'Ethereum (ETH)', color: '#627eea', value: wallets.filter(w=>w.native_unit==='ETH').reduce((s,w)=>s+(w.eth_native_idr||0),0) },
+    { label: 'Tether USDT - ETH', color: '#26a17b', value: wallets.filter(w=>w.native_unit==='ETH').reduce((s,w)=>s+(w.usdt_idr||0),0) },
+    { label: 'USD Coin USDC - ETH', color: '#2775ca', value: wallets.filter(w=>w.native_unit==='ETH').reduce((s,w)=>s+(w.usdc_idr||0),0) },
+    { label: 'AKD Lain - ETH', color: '#a78bfa', value: wallets.filter(w=>w.native_unit==='ETH').reduce((s,w)=>s+(w.eth_other_token_idr||0),0) },
+    { label: 'Solana (SOL)',    color: '#9945ff', value: wallets.filter(w=>w.native_unit==='SOL').reduce((s,w)=>s+(w.sol_native_idr||0),0) },
+    { label: 'Tether USDT - SOL', color: '#19ac8c', value: wallets.filter(w=>w.native_unit==='SOL').reduce((s,w)=>s+(w.sol_usdt_idr||0),0) },
+    { label: 'USD Coin USDC - SOL', color: '#1a5fad', value: wallets.filter(w=>w.native_unit==='SOL').reduce((s,w)=>s+(w.sol_usdc_idr||0),0) },
+    { label: 'AKD Lain - SOL', color: '#c084fc', value: wallets.filter(w=>w.native_unit==='SOL').reduce((s,w)=>s+(w.sol_other_token_idr||0),0) },
+  ].filter(s => s.value > 0);
+  const total = segments.reduce((s,x)=>s+x.value,0);
+  if (total === 0) { wrap.innerHTML = '<div class="no-data-state">Aset on-chain Rp 0</div>'; return; }
+  const size = 180; const cx = size/2; const cy = size/2; const r = 70; const ri = 42;
+  let angle = -Math.PI/2;
+  let slices = '';
+  segments.forEach(seg => {
+    const sweep = (seg.value/total)*2*Math.PI;
+    const x1=cx+r*Math.cos(angle); const y1=cy+r*Math.sin(angle);
+    angle+=sweep;
+    const x2=cx+r*Math.cos(angle); const y2=cy+r*Math.sin(angle);
+    const xi1=cx+ri*Math.cos(angle-sweep); const yi1=cy+ri*Math.sin(angle-sweep);
+    const xi2=cx+ri*Math.cos(angle); const yi2=cy+ri*Math.sin(angle);
+    const lg = sweep>Math.PI?1:0;
+    slices += '<path d="M'+xi1+' '+yi1+' L'+x1+' '+y1+' A'+r+' '+r+' 0 '+lg+' 1 '+x2+' '+y2+' L'+xi2+' '+yi2+' A'+ri+' '+ri+' 0 '+lg+' 0 '+xi1+' '+yi1+' Z" fill="'+seg.color+'" opacity="0.9"/>';
+  });
+  const fmt = v => 'Rp '+Math.round(v).toLocaleString('id-ID');
+  const legend = segments.map(s=>'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:10px;height:10px;border-radius:2px;background:'+s.color+';flex-shrink:0"></div><span style="font-size:11px;color:var(--txt2)">'+s.label+'</span><span class="mono" style="font-size:11px;margin-left:auto">'+((s.value/total*100).toFixed(1))+'%</span></div>').join('');
+  wrap.innerHTML = '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'+slices+'<text x="'+cx+'" y="'+(cy-6)+'" text-anchor="middle" font-size="10" fill="var(--txt2)">Total</text><text x="'+cx+'" y="'+(cy+10)+'" text-anchor="middle" font-size="9" fill="var(--txt1)" font-weight="600">'+fmt(total)+'</text></svg><div style="width:100%;margin-top:8px">'+legend+'</div>';
 }
 
 function renderDetailChart(rows) {
@@ -1517,17 +1570,17 @@ function buildBreakdownHtml(wallets) {
   wallets.forEach(w => {
     const net = w.native_unit || '?';
     if (net === 'ETH') {
-      rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)">' + (w.address||'').slice(0,10) + '...</td><td style="font-size:11px">ETH Native</td><td class="mono" style="font-size:11px">' + fmt(w.eth_native_idr) + '</td></tr>';
-      if (w.usdt_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">USDT (ERC-20)</td><td class="mono" style="font-size:11px">' + fmt(w.usdt_idr) + '</td></tr>';
-      if (w.usdc_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">USDC (ERC-20)</td><td class="mono" style="font-size:11px">' + fmt(w.usdc_idr) + '</td></tr>';
-      if (w.eth_other_token_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">ERC-20 Lainnya</td><td class="mono" style="font-size:11px">' + fmt(w.eth_other_token_idr) + '</td></tr>';
+      rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)">' + (w.address||'').slice(0,10) + '...</td><td style="font-size:11px">Ethereum (ETH)</td><td class="mono" style="font-size:11px">' + fmt(w.eth_native_idr) + '</td></tr>';
+      if (w.usdt_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">Tether USDT - Jaringan Ethereum</td><td class="mono" style="font-size:11px">' + fmt(w.usdt_idr) + '</td></tr>';
+      if (w.usdc_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">USD Coin USDC - Jaringan Ethereum</td><td class="mono" style="font-size:11px">' + fmt(w.usdc_idr) + '</td></tr>';
+      if (w.eth_other_token_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">AKD Lain - Jaringan Ethereum</td><td class="mono" style="font-size:11px">' + fmt(w.eth_other_token_idr) + '</td></tr>';
     } else if (net === 'BTC') {
       rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)">' + (w.address||'').slice(0,10) + '...</td><td style="font-size:11px">BTC</td><td class="mono" style="font-size:11px">' + fmt(w.balance_idr) + '</td></tr>';
     } else if (net === 'SOL') {
-      rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)">' + (w.address||'').slice(0,10) + '...</td><td style="font-size:11px">SOL Native</td><td class="mono" style="font-size:11px">' + fmt(w.sol_native_idr) + '</td></tr>';
-      if (w.sol_usdt_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">USDT (SPL)</td><td class="mono" style="font-size:11px">' + fmt(w.sol_usdt_idr) + '</td></tr>';
-      if (w.sol_usdc_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">USDC (SPL)</td><td class="mono" style="font-size:11px">' + fmt(w.sol_usdc_idr) + '</td></tr>';
-      if (w.sol_other_token_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">SPL Lainnya</td><td class="mono" style="font-size:11px">' + fmt(w.sol_other_token_idr) + '</td></tr>';
+      rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)">' + (w.address||'').slice(0,10) + '...</td><td style="font-size:11px">Solana (SOL)</td><td class="mono" style="font-size:11px">' + fmt(w.sol_native_idr) + '</td></tr>';
+      if (w.sol_usdt_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">Tether USDT - Jaringan Solana</td><td class="mono" style="font-size:11px">' + fmt(w.sol_usdt_idr) + '</td></tr>';
+      if (w.sol_usdc_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">USD Coin USDC - Jaringan Solana</td><td class="mono" style="font-size:11px">' + fmt(w.sol_usdc_idr) + '</td></tr>';
+      if (w.sol_other_token_idr) rows += '<tr style="background:var(--bg)"><td style="padding:4px 12px;font-size:11px;color:var(--txt2)"></td><td style="font-size:11px">AKD Lain - Jaringan Solana</td><td class="mono" style="font-size:11px">' + fmt(w.sol_other_token_idr) + '</td></tr>';
     }
   });
   return '<table style="width:100%;border-top:1px solid var(--border);border-collapse:collapse"><thead><tr style="background:var(--bg2)"><th style="font-size:11px;padding:4px 12px;text-align:left;color:var(--txt2)">Wallet</th><th style="font-size:11px;padding:4px 12px;text-align:left;color:var(--txt2)">Aset</th><th style="font-size:11px;padding:4px 12px;text-align:left;color:var(--txt2)">Nilai IDR</th></tr></thead><tbody>' + rows + '</tbody></table>';
