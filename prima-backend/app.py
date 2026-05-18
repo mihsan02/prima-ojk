@@ -1947,8 +1947,13 @@ def wallet_verify():
                            else " Address tidak ditemukan di data PAKD."),
     })
 
+@app.route('/ping')
+def ping():
+    return {"status": "ok"}, 200
+
 if __name__ == "__main__":
     init_data()
     debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
     port  = int(os.environ.get("PORT", 5000))
     app.run(debug=debug, host="0.0.0.0", port=port)
+
