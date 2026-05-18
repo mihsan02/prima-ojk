@@ -718,6 +718,12 @@ async function loadData() {
           <span class="pakd-name">${escapeHtml(d.nama)}</span>
           <span class="pakd-id">${escapeHtml(d.id)} · Berizin</span>
           ${renderWalletsCell(d)}
+        </td>
+        <td style="vertical-align:top;padding-top:18px"><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
+        <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${formatIDR(d.aset_onchain_idr)}</td>
+        <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
+        <td style="vertical-align:top;padding-top:18px">${deviDisplay(d)}</td>
+        <td style="line-height:1.6;vertical-align:top;padding-top:14px">${renderBreakdown(d)}</td>
         <td style="vertical-align:top;padding-top:16px">
           <div style="display:flex;gap:6px">
             <button onclick="openEditModal('${escapeHtml(d.id)}')"
