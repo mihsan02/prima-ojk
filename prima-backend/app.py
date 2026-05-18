@@ -1525,7 +1525,7 @@ def stress_test():
         pakd_list = load_pakd()
 
         # Baseline on-chain balances at current prices (used by Pasal 91)
-        baseline_idr = {}
+        baseline_result = {}
         for pakd in pakd_list:
             result = get_total_balance_idr(
                 pakd["wallets"],
@@ -1535,7 +1535,7 @@ def stress_test():
                 usdt_price_idr=usdt_price,
                 usdc_price_idr=usdc_price,
             )
-            baseline_idr[pakd["id"]] = result["total_idr"]
+            baseline_result[pakd["id"]] = result
 
         # ----------------------------------------------------------------
         # Pasal 50: Risiko Pasar
@@ -1554,16 +1554,19 @@ def stress_test():
             per_pakd = []
 
             for pakd in pakd_list:
-                result = get_total_balance_idr(
-                    pakd["wallets"],
-                    eth_price_idr=eth_stressed,
-                    btc_price_idr=btc_stressed,
-                    sol_price_idr=sol_stressed,
-                    usdt_price_idr=usdt_stressed,
-                    usdc_price_idr=usdc_stressed,
+                b = baseline_result[pakd["id"]]
+                aset_stressed = (
+                    b.get("eth_native_idr", 0)      * (1 - v_drop)
+                    + b.get("eth_usdt_idr", 0)      * (1 - s_drop)
+                    + b.get("eth_usdc_idr", 0)      * (1 - s_drop)
+                    + b.get("eth_other_token_idr", 0)
+                    + b.get("btc_balance_idr", 0)   * (1 - v_drop)
+                    + b.get("sol_native_idr", 0)    * (1 - v_drop)
+                    + b.get("sol_usdt_idr", 0)      * (1 - s_drop)
+                    + b.get("sol_usdc_idr", 0)      * (1 - s_drop)
+                    + b.get("sol_other_token_idr", 0)
                 )
-                aset_stressed = result["total_idr"]
-                aset_baseline = baseline_idr[pakd["id"]]
+                aset_baseline = b["total_idr"]
 
                 equity_idr = pakd.get("equity_idr")
                 if equity_idr is not None:
@@ -1615,7 +1618,7 @@ def stress_test():
             per_pakd = []
 
             for pakd in pakd_list:
-                aset_onchain = baseline_idr[pakd["id"]]
+                aset_onchain = baseline_result[pakd["id"]]["total_idr"]
 
                 customer_akd = pakd.get("customer_akd_idr")
                 if customer_akd is not None:
