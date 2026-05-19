@@ -561,10 +561,11 @@ tr:hover td{background:var(--bg2)}
         <div class="kpi-sub" style="margin-bottom:8px">Pasal 91 · skenario Mt. Gox</div>
         <div class="entity-chips-row" id="kpi-chips-p91-severe"></div>
       </div>
-      <div class="kpi-card blue">
-        <div class="kpi-label">Harga ETH Live</div>
-        <div class="kpi-value blue" id="st-kpi-eth" style="font-size:22px;margin-top:6px">—</div>
-        <div class="kpi-sub" id="st-kpi-eth-sub">sumber: CoinGecko</div>
+      <div class="kpi-card red">
+        <div class="kpi-label">PAKD Berisiko Tinggi</div>
+        <div class="kpi-value red" id="st-kpi-high-risk">—</div>
+        <div class="kpi-sub" id="st-kpi-high-risk-sub">gagal di 2+ skenario</div>
+        <div class="entity-chips-row" id="kpi-chips-high-risk"></div>
       </div>
     </div>
 
@@ -983,8 +984,15 @@ async function loadStressTest() {
 
     document.getElementById('stress-price-note').innerHTML =
       'ETH ' + formatRpCompact(ethPrice) + ' · BTC ' + formatRpCompact(btcPrice) + ' · SOL ' + formatRpCompact(solPrice) + ' · Basis: ' + p50.mild.total + ' PAKD';
-    document.getElementById('st-kpi-eth-sub').textContent = json.harga_fallback ? 'sumber: CoinGecko (fallback)' : 'sumber: CoinGecko';
-    document.getElementById('st-kpi-eth').textContent = formatRpCompact(ethPrice);
+    var riskCount = {}; var riskNames = {};
+    ['mild','moderate','severe'].forEach(function(k) {
+      (p50[k].per_pakd||[]).forEach(function(p){if(!p.lulus){riskCount[p.id]=(riskCount[p.id]||0)+1;riskNames[p.id]=p.nama;}});
+      (p91[k].per_pakd||[]).forEach(function(p){if(!p.lulus){riskCount[p.id]=(riskCount[p.id]||0)+1;riskNames[p.id]=p.nama;}});
+    });
+    var highRisk = Object.keys(riskCount).filter(function(id){return riskCount[id]>=2;});
+    document.getElementById('st-kpi-high-risk').textContent = highRisk.length + '/' + p50.mild.total;
+    document.getElementById('st-kpi-high-risk-sub').textContent = highRisk.length > 0 ? 'gagal di 2+ skenario' : 'semua PAKD dalam batas aman';
+    renderChips('kpi-chips-high-risk', highRisk.map(function(id){return {lulus:false,nama:riskNames[id]};}), false);
 
     document.getElementById('st-kpi-p50-severe').textContent = p50.severe.lulus + '/' + p50.severe.total;
     document.getElementById('st-kpi-p91-moderate').textContent = p91.moderate.lulus + '/' + p91.moderate.total;
