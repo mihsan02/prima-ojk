@@ -1540,7 +1540,8 @@ async function populateDetailSelect() {
     const seen = {};
     d.data.forEach(r => { seen[r.pakd_id] = r.pakd_nama; });
     const sel = document.getElementById('detail-pakd-select');
-    sel.innerHTML = '<option value="">Pilih PAKD...</option>';
+    const count = Object.keys(seen).length;
+    sel.innerHTML = '<option value="">Pilih PAKD... (' + count + ' entitas)</option>';
     Object.entries(seen).forEach(([id, nama]) => {
       const o = document.createElement('option');
       o.value = id; o.textContent = nama + ' (' + id + ')';
