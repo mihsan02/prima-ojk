@@ -264,7 +264,7 @@ tr:hover td{background:var(--bg2)}
         <div class="page-subtitle">Data live dari blockchain · Diperbarui setiap pemuatan halaman</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn-secondary" onclick="exportCsvOverview()">Export CSV</button>
+        <button class="btn-secondary" onclick="exportCsvOverview()">Export CSV (snapshot terakhir per PAKD)</button>
         <button class="btn-primary" onclick="loadAll()">⟳ Rekonsiliasi Manual</button>
       </div>
     </div>
@@ -438,7 +438,7 @@ tr:hover td{background:var(--bg2)}
           <option value="50">50 entri</option>
           <option value="100">100 entri</option>
         </select>
-        <button id="btn-export-csv" class="btn-secondary" onclick="exportCsv()">Export CSV</button>
+        <button id="btn-export-csv" class="btn-secondary" onclick="exportCsv()">Export CSV (maks 200 baris)</button>
       </div>
     </div>
 
@@ -515,7 +515,7 @@ tr:hover td{background:var(--bg2)}
                 <th>Aset Dilaporkan (IDR)</th>
                 <th>Deviasi</th>
                 <th>Status</th>
-                <th>Harga Fallback</th>
+                <th title="Tidak = harga dari sumber primer (CoinMarketCap V2). Ya = harga fallback CoinGecko." style="cursor:help">Harga Fallback ⓘ</th>
                 <th>Detail Aset</th>
               </tr>
             </thead>
