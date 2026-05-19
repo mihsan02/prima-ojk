@@ -1591,9 +1591,9 @@ def reconciliation():
                 status_rec = "Aman"
             else:
                 deficit_pct = abs(deviasi_pct)
-                if deficit_pct < 5:
+                if deficit_pct < 0.01:
                     status_rec = "Aman"
-                elif deficit_pct < 15:
+                elif deficit_pct <= 10:
                     status_rec = "Deviasi"
                 else:
                     status_rec = "Kritis"
