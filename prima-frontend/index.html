@@ -453,9 +453,9 @@ tr:hover td{background:var(--bg2)}
         <div class="kpi-value green" id="d-avg-dev">—</div>
         <div class="kpi-sub">seluruh periode</div>
       </div>
-      <div class="kpi-card amber">
+      <div class="kpi-card" id="d-last-card">
         <div class="kpi-label">Snapshot Terakhir</div>
-        <div class="kpi-value amber" id="d-last-status" style="font-size:18px">—</div>
+        <div class="kpi-value" id="d-last-status" style="font-size:18px">—</div>
         <div class="kpi-sub" id="d-last-time">—</div>
       </div>
       <div class="kpi-card red">
@@ -1584,6 +1584,12 @@ function renderDetailKpi(rows) {
   document.getElementById('d-avg-dev').textContent = avg.toFixed(2) + '%';
   document.getElementById('d-max-dev').textContent = maxDev.toFixed(2) + '%';
   document.getElementById('d-last-status').textContent = last.status;
+  const lastCard = document.getElementById('d-last-card');
+  const lastVal = document.getElementById('d-last-status');
+  const colorMap = {Aman:'green', Deviasi:'amber', Kritis:'red'};
+  const c = colorMap[last.status] || 'green';
+  lastCard.className = 'kpi-card ' + c;
+  lastVal.className = 'kpi-value ' + c;
   document.getElementById('d-last-time').textContent = new Date(last.captured_at).toLocaleString('id-ID');
 }
 
