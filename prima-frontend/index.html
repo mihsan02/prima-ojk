@@ -104,6 +104,29 @@ tr:hover td{background:var(--bg2)}
 .stress-bar.moderate{background:linear-gradient(90deg,var(--amber),#E8A03A)}
 .stress-bar.severe{background:linear-gradient(90deg,var(--red),#E05A4E)}
 .stress-count{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;flex:0 0 80px;text-align:right}
+.stress-desc{font-size:12px;color:var(--txt3);margin-bottom:12px;line-height:1.6}
+.stress-threshold-pill{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--txt4);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--txt3);margin-bottom:10px}
+.stress-threshold-pill strong{color:var(--txt1);font-weight:600}
+.entity-chips-row{display:flex;gap:6px;flex-wrap:wrap;padding:6px 0 4px}
+.entity-chip{font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:4px}
+.entity-chip.pass{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+.entity-chip.fail{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+.entity-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;padding:8px 0}
+.entity-card-st{border:1px solid var(--txt4);border-radius:var(--r);padding:8px 10px}
+.entity-card-st.pass{border-color:var(--green-border);background:var(--green-bg)}
+.entity-card-st.fail{border-color:var(--red-border);background:var(--red-bg)}
+.entity-card-st-name{font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px;margin-bottom:6px}
+.entity-card-st-name.pass{color:var(--green)}
+.entity-card-st-name.fail{color:var(--red)}
+.entity-card-st-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px}
+.entity-card-st-lbl{color:var(--txt3)}
+.entity-card-st-val{color:var(--txt1);font-weight:600}
+.entity-card-st-val.red{color:var(--red)}
+.entity-card-st-val.green{color:var(--green)}
+.alert-banner-stress{display:none;align-items:flex-start;gap:10px;padding:12px 16px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r);margin-bottom:16px;font-size:13px;color:var(--red);line-height:1.5}
+.legal-toggle-btn{background:none;border:none;font-size:11px;color:var(--txt2);cursor:pointer;text-decoration:underline;padding:0;margin-bottom:10px}
+.legal-detail-box{font-size:11px;color:var(--txt3);background:var(--bg2);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;line-height:1.6;display:none}
+.legal-detail-box.open{display:block}
 .setting-row{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border)}
 .setting-row:last-child{border-bottom:none}
 .setting-label{font-size:13px;font-weight:600;color:var(--txt1);margin-bottom:4px}
@@ -510,26 +533,33 @@ tr:hover td{background:var(--bg2)}
     <div class="page-header">
       <div>
         <div class="page-title">Stress Test Solvabilitas</div>
-        <div class="page-subtitle">Simulasi ketahanan aset PAKD terhadap penurunan harga kripto</div>
+        <div class="page-subtitle">Simulasi ketahanan solvabilitas PAKD terhadap krisis pasar dan insiden siber</div>
       </div>
       <button class="btn-primary" onclick="loadStressTest()">⟳ Jalankan Ulang</button>
     </div>
 
+    <div class="alert-banner-stress" id="st-alert-banner">
+      <span style="font-size:16px">⚠</span>
+      <span id="st-alert-text"></span>
+    </div>
     <div class="kpi-grid">
-      <div class="kpi-card green">
-        <div class="kpi-label">P50 Lulus Mild (−25%)</div>
-        <div class="kpi-value green" id="st-kpi-p50-mild">—</div>
-        <div class="kpi-sub">Pasal 50 · Risiko Pasar</div>
-      </div>
       <div class="kpi-card red">
-        <div class="kpi-label">P50 Lulus Severe (−80%)</div>
+        <div class="kpi-label">Risiko Pasar — Severe</div>
         <div class="kpi-value red" id="st-kpi-p50-severe">—</div>
-        <div class="kpi-sub">Pasal 50 · Risiko Pasar</div>
+        <div class="kpi-sub" style="margin-bottom:8px">Pasal 50 · ekuitas pasca-stress</div>
+        <div class="entity-chips-row" id="kpi-chips-p50-severe"></div>
       </div>
       <div class="kpi-card amber">
-        <div class="kpi-label">P91 Lulus Moderate (−50%)</div>
+        <div class="kpi-label">Risiko Siber — Moderate</div>
         <div class="kpi-value amber" id="st-kpi-p91-moderate">—</div>
-        <div class="kpi-sub">Pasal 91 · Risiko Siber</div>
+        <div class="kpi-sub" style="margin-bottom:8px">Pasal 91 · ekuitas pasca-kehilangan</div>
+        <div class="entity-chips-row" id="kpi-chips-p91-moderate"></div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">Risiko Siber — Severe</div>
+        <div class="kpi-value red" id="st-kpi-p91-severe">—</div>
+        <div class="kpi-sub" style="margin-bottom:8px">Pasal 91 · skenario Mt. Gox</div>
+        <div class="entity-chips-row" id="kpi-chips-p91-severe"></div>
       </div>
       <div class="kpi-card blue">
         <div class="kpi-label">Harga ETH Live</div>
@@ -540,29 +570,33 @@ tr:hover td{background:var(--bg2)}
 
     <div>
       <div class="section-header">
-        <div class="section-title"><div class="section-title-bar"></div>Pasal 50 — Risiko Pasar</div>
+        <div class="section-title"><div class="section-title-bar"></div>Uji ketahanan ekuitas terhadap volatilitas harga aset</div>
       </div>
       <div class="panel">
         <div class="panel-body">
+          <div class="stress-desc">Mengukur kemampuan setiap PAKD mempertahankan ekuitas minimum ketika harga Aset Keuangan Digital turun bersamaan. Ekuitas minimum wajib dijaga setiap saat sesuai ketentuan OJK.</div>
+          <div class="stress-threshold-pill">● Batas lulus: <strong>Ekuitas pasca-stress ≥ Rp 50 miliar</strong> · POJK 23 Tahun 2025, Pasal 50 ayat (1)</div>
+          <button class="legal-toggle-btn" onclick="toggleLegal('l-p50')">&#9662; Metodologi lengkap</button>
+          <div class="legal-detail-box" id="l-p50">Skenario penurunan: Mild -25%, Moderate -50%, Severe -80%. Referensi: BTC -64% sepanjang 2022 (Chainalysis 2024); BTC -84% siklus 2017-2018 (CoinMarketCap). Stablecoin USDT/USDC haircut -3%/-8%/-13% (USDC depeg USD 0,87 kolaps SVB Maret 2023, Reuters). POJK 23 Tahun 2025, Pasal 50 ayat (1).</div>
           <div class="info-chip" id="stress-price-note">Memuat harga live...</div>
-          <div style="font-size:11px;color:var(--txt3);margin-bottom:10px;padding:6px 0">
-            Threshold: ekuitas pasca-stress ≥ Rp 50.000.000.000 · POJK No. 27 Tahun 2024, Pasal 50 ayat (1) huruf o
-          </div>
           <div id="stress-mild" class="stress-row mild">
             <div class="stress-label-wrap"><div class="stress-name mild">Mild</div><div class="stress-pct-label" id="p50-mild-sub">−25% volatile · −3% stable</div></div>
             <div class="stress-bar-wrap"><div class="stress-bar mild" style="width:0%"></div></div>
             <div class="stress-count" style="color:var(--green)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
           </div>
+          <div class="entity-chips-row" id="p50-chips-mild"></div>
           <div id="stress-moderate" class="stress-row moderate">
             <div class="stress-label-wrap"><div class="stress-name moderate">Moderate</div><div class="stress-pct-label" id="p50-moderate-sub">−50% volatile · −8% stable</div></div>
             <div class="stress-bar-wrap"><div class="stress-bar moderate" style="width:0%"></div></div>
             <div class="stress-count" style="color:var(--amber)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
           </div>
+          <div class="entity-chips-row" id="p50-chips-moderate"></div>
           <div id="stress-severe" class="stress-row severe">
             <div class="stress-label-wrap"><div class="stress-name severe">Severe</div><div class="stress-pct-label" id="p50-severe-sub">−80% volatile · −13% stable</div></div>
             <div class="stress-bar-wrap"><div class="stress-bar severe" style="width:0%"></div></div>
             <div class="stress-count" style="color:var(--red)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
           </div>
+          <div class="entity-chips-row" id="p50-chips-severe"></div>
           <div id="stress-note" style="margin-top:14px;padding:12px 16px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--txt4);font-size:13px;color:var(--txt3)">Memuat hasil stress test...</div>
         </div>
       </div>
@@ -570,28 +604,35 @@ tr:hover td{background:var(--bg2)}
 
     <div>
       <div class="section-header">
-        <div class="section-title"><div class="section-title-bar"></div>Pasal 91 — Risiko Siber</div>
+        <div class="section-title"><div class="section-title-bar"></div>Uji kemampuan mengkompensasi kehilangan aset digital konsumen akibat insiden siber</div>
       </div>
       <div class="panel">
         <div class="panel-body">
-          <div style="font-size:11px;color:var(--txt3);margin-bottom:10px;padding:6px 0">
-            Threshold: ekuitas pasca-kehilangan ≥ Rp 50.000.000.000 · POJK No. 27 Tahun 2024, Pasal 91 ayat (1)
-          </div>
+          <div class="stress-desc">Mengukur apakah seluruh aset PAKD setelah dikurangi nilai AKD konsumen yang hilang masih memenuhi batas ekuitas minimum. Jika ekuitas jatuh di bawah Rp 50 miliar, PAKD tidak mampu memenuhi kewajiban penggantian kepada konsumen.</div>
+          <div class="stress-threshold-pill">● Batas lulus: <strong>Ekuitas pasca-kehilangan ≥ Rp 50 miliar</strong> · POJK 23 Tahun 2025, Pasal 91 ayat (1)</div>
+          <button class="legal-toggle-btn" onclick="toggleLegal('l-p91')">&#9662; Metodologi lengkap</button>
+          <div class="legal-detail-box" id="l-p91">Skenario kehilangan: Mild -23% (GDAC April 2023, Chainalysis 2024), Moderate -50% (WazirX Juli 2024, Elliptic/Reuters), Severe -100% (Mt. Gox 2014). Formula: ekuitas pasca-kehilangan = ekuitas awal - nilai AKD konsumen hilang. POJK 23 Tahun 2025, Pasal 91 ayat (1).</div>
           <div id="p91-mild" class="stress-row mild">
             <div class="stress-label-wrap"><div class="stress-name mild">Mild</div><div class="stress-pct-label">−23% AKD hilang · Ref: GDAC Apr 2023</div></div>
             <div class="stress-bar-wrap"><div class="stress-bar mild" style="width:0%"></div></div>
             <div class="stress-count" style="color:var(--green)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
           </div>
+          <div class="entity-card-grid" id="p91-cards-mild"></div>
+          <div class="entity-card-grid" id="p91-cards-mild"></div>
           <div id="p91-moderate" class="stress-row moderate">
             <div class="stress-label-wrap"><div class="stress-name moderate">Moderate</div><div class="stress-pct-label">−50% AKD hilang · Ref: WazirX Jul 2024</div></div>
             <div class="stress-bar-wrap"><div class="stress-bar moderate" style="width:0%"></div></div>
             <div class="stress-count" style="color:var(--amber)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
           </div>
+          <div class="entity-card-grid" id="p91-cards-moderate"></div>
+          <div class="entity-card-grid" id="p91-cards-moderate"></div>
           <div id="p91-severe" class="stress-row severe">
             <div class="stress-label-wrap"><div class="stress-name severe">Severe</div><div class="stress-pct-label">−100% AKD hilang · Ref: Mt Gox 2014</div></div>
             <div class="stress-bar-wrap"><div class="stress-bar severe" style="width:0%"></div></div>
             <div class="stress-count" style="color:var(--red)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
           </div>
+          <div class="entity-card-grid" id="p91-cards-severe"></div>
+          <div class="entity-card-grid" id="p91-cards-severe"></div>
           <div id="p91-note" style="margin-top:14px;padding:12px 16px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--txt4);font-size:13px;color:var(--txt3)">Memuat hasil stress test...</div>
         </div>
       </div>
@@ -602,7 +643,7 @@ tr:hover td{background:var(--bg2)}
       <div class="panel">
         <div class="panel-body">
           <div style="font-size:13px;color:var(--txt2);line-height:1.8">
-            <strong style="color:var(--txt1)">Pasal 50 (Risiko Pasar):</strong> simulasi penurunan harga volatile (ETH, BTC, SOL) −25%/−50%/−80% dan stablecoin (USDT, USDC) −3%/−8%/−13%. Threshold: ekuitas pasca-stress ≥ Rp 50.000.000.000 (Pasal 50(1)(o) POJK 27/2024). Basis historis: BTC −64% sepanjang 2022 (Chainalysis 2024), BTC −84% siklus 2017–2018 (CoinMarketCap), USDC depeg USD 0,87 saat kolaps SVB Maret 2023 (Reuters).
+            <strong style="color:var(--txt1)">Pasal 50 (Risiko Pasar):</strong> simulasi penurunan harga volatile (ETH, BTC, SOL) −25%/−50%/−80% dan stablecoin (USDT, USDC) −3%/−8%/−13%. Threshold: ekuitas pasca-stress ≥ Rp 50.000.000.000 (Pasal 50(1)(o) POJK 23 Tahun 2025). Basis historis: BTC −64% sepanjang 2022 (Chainalysis 2024), BTC −84% siklus 2017–2018 (CoinMarketCap), USDC depeg USD 0,87 saat kolaps SVB Maret 2023 (Reuters).
             <br><br>
             <strong style="color:var(--txt1)">Pasal 91 (Risiko Siber):</strong> simulasi kehilangan AKD konsumen −23%/−50%/−100%. Threshold sama: ekuitas pasca-kehilangan ≥ Rp 50.000.000.000. Basis historis: GDAC April 2023 −23% (Chainalysis 2024), WazirX Juli 2024 −50% (Elliptic/Reuters), Mt Gox 2014 −100% AKD konsumen (public record).
           </div>
@@ -881,6 +922,39 @@ async function loadData() {
   }
 }
 
+function toggleLegal(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
+function renderChips(cid, perPakd, showEquity) {
+  var el = document.getElementById(cid);
+  if (!el || !perPakd) return;
+  el.innerHTML = perPakd.map(function(p) {
+    var cls = p.lulus ? 'pass' : 'fail';
+    var icon = p.lulus ? '✓' : '✕';
+    var eq = showEquity ? ' ' + formatRpCompact(p.equity_post) : '';
+    return '<span class="entity-chip ' + cls + '">' + icon + ' ' + p.nama + eq + '</span>';
+  }).join('');
+}
+
+function renderP91Cards(cid, perPakd) {
+  var el = document.getElementById(cid);
+  if (!el || !perPakd) return;
+  el.innerHTML = perPakd.map(function(p) {
+    var cls = p.lulus ? 'pass' : 'fail';
+    var icon = p.lulus ? '✓' : '✕';
+    var eqVal = p.equity_post;
+    var eqCls = eqVal >= 0 ? 'green' : 'red';
+    var eqStr = (eqVal < 0 ? '−' : '') + formatRpCompact(Math.abs(eqVal));
+    return '<div class="entity-card-st ' + cls + '">' +
+      '<div class="entity-card-st-name ' + cls + '">' + icon + ' ' + p.nama + '</div>' +
+      '<div class="entity-card-st-row"><span class="entity-card-st-lbl">AKD hilang</span><span class="entity-card-st-val red">−' + formatRpCompact(p.loss_idr) + '</span></div>' +
+      '<div class="entity-card-st-row"><span class="entity-card-st-lbl">Sisa ekuitas</span><span class="entity-card-st-val ' + eqCls + '">' + eqStr + '</span></div>' +
+      '</div>';
+  }).join('');
+}
+
 async function loadStressTest() {
   try {
     const res = await fetch('/api/stress-test');
@@ -892,57 +966,76 @@ async function loadStressTest() {
     const btcPrice = json.btc_price_idr || 0;
     const solPrice = json.sol_price_idr || 0;
 
-    document.getElementById('stress-price-note').innerHTML = 
-      `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="4" x2="5" y2="7" stroke="currentColor" stroke-width="1.2"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg> ETH ${formatRpCompact(ethPrice)} · BTC ${formatRpCompact(btcPrice)} · SOL ${formatRpCompact(solPrice)} · Basis: ${p50.mild.total} PAKD`;
-    document.getElementById('st-kpi-eth-sub').textContent = json.harga_fallback ? 'sumber: CoinGecko (fallback)' : 'sumber: CoinGecko';
-    document.getElementById('st-kpi-eth').textContent = formatRpCompact(ethPrice);
-    document.getElementById('st-kpi-p50-mild').textContent   = p50.mild.lulus   + '/' + p50.mild.total;
-    document.getElementById('st-kpi-p50-severe').textContent = p50.severe.lulus + '/' + p50.severe.total;
-    document.getElementById('st-kpi-p91-moderate').textContent = p91.moderate.lulus + '/' + p91.moderate.total;
-
-    // Pasal 50 rows
-    [['mild','var(--green)'],['moderate','var(--amber)'],['severe','var(--red)']].forEach(([key, color]) => {
-      const row   = document.getElementById('stress-' + key);
-      const bar   = row.querySelector('.stress-bar');
-      const count = row.querySelector('.stress-count');
-      const pct   = p50[key].total > 0 ? p50[key].lulus / p50[key].total * 100 : 0;
-      bar.style.width = pct + '%';
-      count.innerHTML = `${p50[key].lulus}/${p50[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`;
-      count.style.color = color;
-      const subEl = document.getElementById('p50-' + key + '-sub');
-      if (subEl) subEl.innerHTML = `ETH <span style="color:var(--txt1)">${formatRpCompact(p50[key].eth_stressed)}</span>` +
-        ` · BTC <span style="color:var(--txt1)">${formatRpCompact(p50[key].btc_stressed)}</span>` +
-        ` · SOL <span style="color:var(--txt1)">${formatRpCompact(p50[key].sol_stressed)}</span>`;
-    });
-    const noteEl = document.getElementById('stress-note');
-    if (p50.severe.gagal > 0) {
-      noteEl.style.borderLeftColor = 'var(--amber)';
-      noteEl.style.color = 'var(--amber)';
-      noteEl.textContent = '⚠ ' + p50.severe.gagal + ' PAKD tidak memenuhi ekuitas minimum Rp 50M (Pasal 50(1)(o)) pada skenario severe (−80%).';
+    var bannerEl = document.getElementById('st-alert-banner');
+    var bannerTextEl = document.getElementById('st-alert-text');
+    var failedP50 = (p50.severe.per_pakd || []).filter(function(p) { return !p.lulus; }).map(function(p) { return p.nama; });
+    var failedP91sv = (p91.severe.per_pakd || []).filter(function(p) { return !p.lulus; });
+    var parts = [];
+    if (failedP50.length > 0) parts.push(failedP50.join(', ') + ' tidak memenuhi ekuitas minimum pada skenario pasar severe (−80%)');
+    if (failedP91sv.length > 0 && failedP91sv.length === p91.severe.total) parts.push('seluruh PAKD tidak mampu mengkompensasi kehilangan total AKD konsumen (skenario Mt. Gox)');
+    else if (failedP91sv.length > 0) parts.push(failedP91sv.map(function(p){return p.nama;}).join(', ') + ' tidak mampu mengkompensasi kehilangan total AKD konsumen');
+    if (parts.length > 0) {
+      bannerEl.style.display = 'flex';
+      bannerTextEl.innerHTML = '<strong>Perhatian pengawas:</strong> ' + parts.join('. ') + '. Tindak lanjut diperlukan.';
     } else {
-      noteEl.style.borderLeftColor = 'var(--green)';
-      noteEl.style.color = 'var(--green)';
-      noteEl.textContent = '✓ Seluruh PAKD memenuhi ekuitas minimum Rp 50.000.000.000 pada semua skenario Pasal 50.';
+      bannerEl.style.display = 'none';
     }
 
-    // Pasal 91 rows
-    [['mild','var(--green)'],['moderate','var(--amber)'],['severe','var(--red)']].forEach(([key, color]) => {
-      const row   = document.getElementById('p91-' + key);
-      const bar   = row.querySelector('.stress-bar');
-      const count = row.querySelector('.stress-count');
-      const pct   = p91[key].total > 0 ? p91[key].lulus / p91[key].total * 100 : 0;
+    document.getElementById('stress-price-note').innerHTML =
+      'ETH ' + formatRpCompact(ethPrice) + ' · BTC ' + formatRpCompact(btcPrice) + ' · SOL ' + formatRpCompact(solPrice) + ' · Basis: ' + p50.mild.total + ' PAKD';
+    document.getElementById('st-kpi-eth-sub').textContent = json.harga_fallback ? 'sumber: CoinGecko (fallback)' : 'sumber: CoinGecko';
+    document.getElementById('st-kpi-eth').textContent = formatRpCompact(ethPrice);
+
+    document.getElementById('st-kpi-p50-severe').textContent = p50.severe.lulus + '/' + p50.severe.total;
+    document.getElementById('st-kpi-p91-moderate').textContent = p91.moderate.lulus + '/' + p91.moderate.total;
+    document.getElementById('st-kpi-p91-severe').textContent = p91.severe.lulus + '/' + p91.severe.total;
+    renderChips('kpi-chips-p50-severe', p50.severe.per_pakd, false);
+    renderChips('kpi-chips-p91-moderate', p91.moderate.per_pakd, false);
+    renderChips('kpi-chips-p91-severe', p91.severe.per_pakd, false);
+
+    [['mild','var(--green)'],['moderate','var(--amber)'],['severe','var(--red)']].forEach(function(pair) {
+      var key = pair[0]; var color = pair[1];
+      var row = document.getElementById('stress-' + key);
+      var bar = row.querySelector('.stress-bar');
+      var count = row.querySelector('.stress-count');
+      var pct = p50[key].total > 0 ? p50[key].lulus / p50[key].total * 100 : 0;
       bar.style.width = pct + '%';
-      count.innerHTML = `${p91[key].lulus}/${p91[key].total}<span style="font-size:9px;color:var(--txt3)"> lulus</span>`;
+      count.innerHTML = p50[key].lulus + '/' + p50[key].total + '<span style="font-size:9px;color:var(--txt3)"> lulus</span>';
       count.style.color = color;
+      var subEl = document.getElementById('p50-' + key + '-sub');
+      if (subEl) subEl.innerHTML = 'ETH <span style="color:var(--txt1)">' + formatRpCompact(p50[key].eth_stressed) + '</span> · BTC <span style="color:var(--txt1)">' + formatRpCompact(p50[key].btc_stressed) + '</span> · SOL <span style="color:var(--txt1)">' + formatRpCompact(p50[key].sol_stressed) + '</span>';
+      renderChips('p50-chips-' + key, p50[key].per_pakd, true);
     });
-    const p91noteEl = document.getElementById('p91-note');
-    if (p91.severe.gagal > 0) {
-      p91noteEl.style.borderLeftColor = 'var(--red)';
-      p91noteEl.style.color = 'var(--red)';
-      p91noteEl.textContent = '⚠ ' + p91.severe.gagal + ' PAKD tidak mampu menanggung kehilangan total AKD konsumen (skenario Mt Gox). Evaluasi cadangan ekuitas diperlukan.';
+
+    var noteEl = document.getElementById('stress-note');
+    if (p50.severe.gagal > 0) {
+      var names50 = (p50.severe.per_pakd || []).filter(function(p){return !p.lulus;}).map(function(p){return p.nama;}).join(', ');
+      noteEl.style.borderLeftColor = 'var(--amber)'; noteEl.style.color = 'var(--amber)';
+      noteEl.textContent = '⚠ ' + names50 + ' tidak memenuhi ekuitas minimum Rp 50 miliar (POJK 23 Tahun 2025, Pasal 50) pada skenario severe (−80%).';
     } else {
-      p91noteEl.style.borderLeftColor = 'var(--green)';
-      p91noteEl.style.color = 'var(--green)';
+      noteEl.style.borderLeftColor = 'var(--green)'; noteEl.style.color = 'var(--green)';
+      noteEl.textContent = '✓ Seluruh PAKD memenuhi ekuitas minimum Rp 50 miliar pada semua skenario Pasal 50.';
+    }
+
+    [['mild','var(--green)'],['moderate','var(--amber)'],['severe','var(--red)']].forEach(function(pair) {
+      var key = pair[0]; var color = pair[1];
+      var row = document.getElementById('p91-' + key);
+      var bar = row.querySelector('.stress-bar');
+      var count = row.querySelector('.stress-count');
+      var pct = p91[key].total > 0 ? p91[key].lulus / p91[key].total * 100 : 0;
+      bar.style.width = pct + '%';
+      count.innerHTML = p91[key].lulus + '/' + p91[key].total + '<span style="font-size:9px;color:var(--txt3)"> lulus</span>';
+      count.style.color = color;
+      renderP91Cards('p91-cards-' + key, p91[key].per_pakd);
+    });
+
+    var p91noteEl = document.getElementById('p91-note');
+    if (p91.severe.gagal > 0) {
+      var names91 = (p91.severe.per_pakd || []).filter(function(p){return !p.lulus;}).map(function(p){return p.nama;}).join(', ');
+      p91noteEl.style.borderLeftColor = 'var(--red)'; p91noteEl.style.color = 'var(--red)';
+      p91noteEl.textContent = '⚠ ' + names91 + ' tidak mampu mengkompensasi kehilangan total AKD konsumen (skenario Mt. Gox). Evaluasi cadangan ekuitas diperlukan sesuai POJK 23 Tahun 2025.';
+    } else {
+      p91noteEl.style.borderLeftColor = 'var(--green)'; p91noteEl.style.color = 'var(--green)';
       p91noteEl.textContent = '✓ Seluruh PAKD memiliki ekuitas cukup untuk menanggung skenario kehilangan AKD severe.';
     }
   } catch (err) {
