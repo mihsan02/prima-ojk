@@ -1576,6 +1576,7 @@ async function loadDetailPakd() {
     const selEl = document.getElementById('detail-pakd-select');
     const pakdNama = selEl.options[selEl.selectedIndex].text;
     document.getElementById('detail-subtitle').textContent = pakdNama + ' · Riwayat rekonsiliasi tersimpan di Supabase';
+  } catch(e) { console.error('loadDetailPakd:', e); }
 }
 
 function renderDetailKpi(rows) {
