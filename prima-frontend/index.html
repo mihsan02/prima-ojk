@@ -1637,20 +1637,71 @@ function renderDetailDonut(rows) {
 
 function renderDetailChart(rows) {
   const wrap = document.getElementById('trend-chart-wrap');
-  if (!rows.length) { wrap.innerHTML = '<div class="no-data-state">Belum ada data</div>'; return; }
+  if (!rows.length) { wrap.innerHTML = '<div class="no-data-state">Belum ada data tren. Jalankan rekonsiliasi minimal 2 kali untuk melihat tren.</div>'; return; }
   const sorted = [...rows].reverse();
   const onchain = sorted.map(r => r.aset_onchain_idr || 0);
-  const dilap = sorted.map(r => r.aset_dilaporkan_idr || 0);
+  const dilap  = sorted.map(r => r.aset_dilaporkan_idr || 0);
+  const times  = sorted.map(r => r.captured_at);
   const allVals = [...onchain, ...dilap];
   const minV = Math.min(...allVals); const maxV = Math.max(...allVals);
   const range = maxV - minV || 1;
-  const W = 800; const H = 160; const PAD = 10;
-  const toY = v => PAD + (1 - (v - minV) / range) * (H - PAD * 2);
-  const toX = (i, len) => (i / (len - 1 || 1)) * W;
+
+  const W = 820; const H = 200;
+  const PADL = 90; const PADR = 16; const PADT = 16; const PADB = 40;
+  const cW = W - PADL - PADR; const cH = H - PADT - PADB;
+
+  const toY = v => PADT + (1 - (v - minV) / range) * cH;
+  const toX = (i, len) => PADL + (i / (len - 1 || 1)) * cW;
+
+  const fmtRp = v => {
+    if (v >= 1e12) return 'Rp ' + (v/1e12).toFixed(1) + 'T';
+    if (v >= 1e9)  return 'Rp ' + (v/1e9).toFixed(1) + 'M';
+    if (v >= 1e6)  return 'Rp ' + (v/1e6).toFixed(1) + 'jt';
+    return 'Rp ' + v.toLocaleString('id-ID');
+  };
+  const fmtTime = iso => {
+    const d = new Date(iso);
+    return d.toLocaleString('id-ID', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+  };
+
+  const YTICKS = 4;
+  let gridLines = '';
+  let yLabels = '';
+  for (let i = 0; i <= YTICKS; i++) {
+    const v = minV + (range * i / YTICKS);
+    const y = toY(v).toFixed(1);
+    gridLines += '<line x1="' + PADL + '" y1="' + y + '" x2="' + (W - PADR) + '" y2="' + y + '" stroke="#E5E7EB" stroke-width="1"/>';
+    yLabels  += '<text x="' + (PADL - 6) + '" y="' + y + '" text-anchor="end" dominant-baseline="middle" font-size="9" fill="#9CA3AF" font-family="JetBrains Mono,monospace">' + fmtRp(v) + '</text>';
+  }
+
+  const n = times.length;
+  const maxXTicks = 6;
+  const step = Math.max(1, Math.ceil(n / maxXTicks));
+  let xLabels = '';
+  for (let i = 0; i < n; i += step) {
+    const x = toX(i, n).toFixed(1);
+    xLabels += '<text x="' + x + '" y="' + (H - PADB + 14) + '" text-anchor="middle" font-size="9" fill="#9CA3AF" font-family="JetBrains Mono,monospace">' + fmtTime(times[i]) + '</text>';
+  }
+  if ((n - 1) % step !== 0) {
+    const x = toX(n - 1, n).toFixed(1);
+    xLabels += '<text x="' + x + '" y="' + (H - PADB + 14) + '" text-anchor="middle" font-size="9" fill="#9CA3AF" font-family="JetBrains Mono,monospace">' + fmtTime(times[n - 1]) + '</text>';
+  }
+
   const makePath = arr => arr.map((v,i) => (i===0?'M':'L') + toX(i,arr.length).toFixed(1) + ',' + toY(v).toFixed(1)).join(' ');
-  wrap.innerHTML = '<svg class="trend-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
-    '<path d="' + makePath(onchain) + '" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linejoin="round"/>' +
-    '<path d="' + makePath(dilap) + '" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5,3" stroke-linejoin="round"/>' +
+  const makeDots = (arr, color) => arr.map((v,i) => '<circle cx="' + toX(i,arr.length).toFixed(1) + '" cy="' + toY(v).toFixed(1) + '" r="3" fill="' + color + '" stroke="#fff" stroke-width="1.5"/>').join('');
+
+  const axisColor = '#D1D5DB';
+  wrap.innerHTML =
+    '<svg class="trend-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+    gridLines +
+    '<line x1="' + PADL + '" y1="' + PADT + '" x2="' + PADL + '" y2="' + (H - PADB) + '" stroke="' + axisColor + '" stroke-width="1"/>' +
+    '<line x1="' + PADL + '" y1="' + (H - PADB) + '" x2="' + (W - PADR) + '" y2="' + (H - PADB) + '" stroke="' + axisColor + '" stroke-width="1"/>' +
+    yLabels + xLabels +
+    '<text x="' + (PADL - 6) + '" y="' + (PADT - 4) + '" text-anchor="end" font-size="8" fill="#9CA3AF" font-family="JetBrains Mono,monospace">IDR</text>' +
+    '<path d="' + makePath(dilap)   + '" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5,3" stroke-linejoin="round"/>' +
+    '<path d="' + makePath(onchain) + '" fill="none" stroke="var(--blue)"  stroke-width="2"   stroke-linejoin="round"/>' +
+    makeDots(dilap,   'var(--amber)') +
+    makeDots(onchain, 'var(--blue)')  +
     '</svg>';
 }
 
