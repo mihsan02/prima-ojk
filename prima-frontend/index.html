@@ -427,7 +427,7 @@ tr:hover td{background:var(--bg2)}
     <div class="page-header">
       <div>
         <div class="page-title">Detail PAKD</div>
-        <div class="page-subtitle">Riwayat rekonsiliasi per entitas — data tersimpan di Supabase</div>
+        <div class="page-subtitle" id="detail-subtitle">Riwayat rekonsiliasi per entitas — data tersimpan di Supabase</div>
       </div>
       <div class="detail-filter-bar">
         <select id="detail-pakd-select" class="detail-select" onchange="loadDetailPakd()">
@@ -1571,7 +1571,9 @@ async function loadDetailPakd() {
     renderDetailDonut(rows);
     renderDetailTable(rows);
     document.getElementById('detail-kpi-grid').style.display = 'grid';
-  } catch(e) {}
+    const selEl = document.getElementById('detail-pakd-select');
+    const pakdNama = selEl.options[selEl.selectedIndex].text;
+    document.getElementById('detail-subtitle').textContent = pakdNama + ' · Riwayat rekonsiliasi tersimpan di Supabase';
 }
 
 function renderDetailKpi(rows) {
