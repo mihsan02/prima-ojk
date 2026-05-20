@@ -337,8 +337,8 @@ def _save_snapshots_batch(hasil_list, harga_fallback):
             rows
         )
         conn.commit()
-    except Exception:
-        pass
+    except Exception as _e:
+        print(f'[BATCH_SAVE] ERROR: {type(_e).__name__}: {_e}', flush=True)
     finally:
         conn.close()
 
