@@ -261,7 +261,7 @@ tr:hover td{background:var(--bg2)}
     <div class="page-header">
       <div>
         <div class="page-title">Overview Rekonsiliasi PAKD</div>
-        <div class="page-subtitle">Data live dari blockchain · Diperbarui setiap pemuatan halaman</div>
+        <div class="page-subtitle" id="page-subtitle-overview">Data dari snapshot Supabase · Memuat...</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="btn-secondary" onclick="exportCsvOverview()">Export CSV (snapshot terakhir per PAKD)</button>
@@ -1612,6 +1612,8 @@ async function loadSnapshot() {
     document.getElementById('last-update').textContent = asOf + ' (snapshot)';
     document.getElementById('footer-time').textContent = 'Snapshot terakhir: ' + asOf;
     document.getElementById('live-badge').textContent = 'SNAPSHOT';
+    const subtitleEl = document.getElementById('page-subtitle-overview');
+    if (subtitleEl) subtitleEl.textContent = 'Data dari snapshot Supabase · Terakhir diperbarui: ' + asOf;
     const fallbackNotice = document.getElementById('eth-fallback-notice');
     if (fallbackNotice) fallbackNotice.style.display = 'none';
     const aman = data.filter(d => d.status === 'Aman').length;
