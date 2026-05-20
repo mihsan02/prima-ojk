@@ -23,6 +23,7 @@ SATOSHI_PER_BTC    = 100_000_000
 LAMPORTS_PER_SOL   = 1_000_000_000
 PRICE_CACHE        = {}
 BALANCE_CACHE      = {}
+REFRESH_LOCK       = {"running": False, "started_at": None}
 PRICE_TTL          = 300   # bumped from 60 (Day 15): CMC credit budget guard
 BALANCE_TTL        = 300  # bumped: cache outlives request duration
 
@@ -1697,6 +1698,43 @@ def reconciliation():
     except Exception as e:
         return jsonify({"status": "error", "message": "Rekonsiliasi gagal", "detail": str(e)}), 500
 
+
+@app.route("/api/internal/refresh-all", methods=["POST"])
+def internal_refresh_all():
+    import time as _time
+    token = request.headers.get("X-Internal-Token", "")
+    if token != os.environ.get("INTERNAL_TOKEN", ""):
+        return jsonify({"status": "unauthorized"}), 401
+    if REFRESH_LOCK["running"]:
+        return jsonify({"status": "skipped", "reason": "previous run still active",
+                        "started_at": REFRESH_LOCK["started_at"]}), 409
+    REFRESH_LOCK["running"] = True
+    REFRESH_LOCK["started_at"] = _time.time()
+    try:
+        pakd_list = load_pakd()
+        hasil = []
+        for pakd in pakd_list:
+            total, breakdown, _ = get_total_balance_idr(pakd)
+            dilaporkan = pakd.get("aset_dilaporkan", 0)
+            deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
+            status = "NORMAL" if abs(deviasi) <= 5 else ("WARNING" if abs(deviasi) <= 20 else "KRITIS")
+            hasil.append({
+                "id": pakd["id"], "nama": pakd["nama"],
+                "aset_dilaporkan_idr": dilaporkan,
+                "aset_onchain_idr": total,
+                "deviasi_pct": round(deviasi, 2),
+                "status": status,
+                "breakdown": breakdown
+            })
+        _, eth_fallback = get_eth_price_idr()
+        _save_snapshots_batch(hasil, eth_fallback)
+        return jsonify({"status": "ok", "pakd_refreshed": len(hasil),
+                        "timestamp": _time.time()})
+    except Exception as e:
+        return jsonify({"status": "error", "detail": str(e)}), 500
+    finally:
+        REFRESH_LOCK["running"] = False
+        REFRESH_LOCK["started_at"] = None
 
 @app.route("/api/reconciliation/latest")
 def reconciliation_latest():
