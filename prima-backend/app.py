@@ -1207,88 +1207,41 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             usdt_price_idr = usdt_price_idr or FALLBACK_STABLECOIN_IDR
             usdc_price_idr = usdc_price_idr or FALLBACK_STABLECOIN_IDR
 
-    # --- Accumulate across wallets ---
-    total_idr      = 0.0
-    eth_total_idr  = 0.0
-    eth_native_sum = 0.0
-    eth_usdt_sum   = 0.0
-    eth_usdc_sum   = 0.0
-    btc_total_idr  = 0.0
-    sol_total_idr  = 0.0
-    sol_native_sum = 0.0
-    sol_usdt_sum   = 0.0
-    sol_usdc_sum   = 0.0
-    sol_other_token_sum       = 0.0
-    eth_other_token_sum       = 0.0
-    eth_unvalued_count_total  = 0
-    eth_unvalued_contracts_global = []
-    sol_unvalued_count_total  = 0
-    sol_unvalued_mints_global = []
-    breakdown      = []
-    _t_eth = _t_btc = _t_sol = _t_pricing = 0.0
+    # --- Accumulate across wallets (parallel per chain) ---
+    eth_wallets = [w for w in wallets if w.get("network", "ethereum") == "ethereum"]
+    btc_wallets = [w for w in wallets if w.get("network") == "bitcoin"]
+    sol_wallets = [w for w in wallets if w.get("network") == "solana"]
+    other_wallets = [w for w in wallets if w.get("network") not in ("ethereum", "bitcoin", "solana")]
 
-    for wallet in wallets:
-        network  = wallet.get("network", "ethereum")
-        address  = wallet.get("address", "")
-        verified = wallet.get("verified", False)
-
-        entry = {
-            "network":        network,
-            "address":        address,
-            "balance_native": 0.0,
-            "native_unit":    "",
-            "balance_idr":    0.0,
-            # ERC-20 fields — populated for ethereum wallets, None for others
-            "eth_native_idr":   None,
-            "usdt_balance":     None,
-            "usdt_idr":         None,
-            "usdc_balance":     None,
-            "usdc_idr":         None,
-            # SPL fields — populated for solana wallets, None for others
-            "sol_native_idr":      None,
-            "sol_usdt_balance":    None,
-            "sol_usdt_idr":        None,
-            "sol_usdc_balance":    None,
-            "sol_usdc_idr":        None,
-            # Day 16: full SPL enumeration fields, populated for solana wallets only
-            "sol_other_token_idr": None,
-            "sol_unvalued_count":  None,
-            "sol_unvalued_mints":  None,
-            # Day 17: ETH curated ERC-20 enumeration fields
-            "eth_other_token_idr":    None,
-            "eth_unvalued_count":     None,
-            "eth_unvalued_contracts": None,
-            "verified":            verified,
-            "error":               None,
+    def _proc_eth(eth_w):
+        _entries = []
+        _eth_total = _eth_native = _eth_usdt = _eth_usdc = _eth_other = 0.0
+        _eth_unvalued_count = 0
+        _eth_unvalued_contracts = []
+        _t = 0.0
+        for wallet in eth_w:
+            address  = wallet.get("address", "")
+            verified = wallet.get("verified", False)
+            entry = {
+                "network": "ethereum", "address": address,
+                "balance_native": 0.0, "native_unit": "ETH", "balance_idr": 0.0,
+                "eth_native_idr": None, "usdt_balance": None, "usdt_idr": None,
+                "usdc_balance": None, "usdc_idr": None,
+                "sol_native_idr": None, "sol_usdt_balance": None, "sol_usdt_idr": None,
+                "sol_usdc_balance": None, "sol_usdc_idr": None,
+                "sol_other_token_idr": None, "sol_unvalued_count": None, "sol_unvalued_mints": None,
+                "eth_other_token_idr": None, "eth_unvalued_count": None, "eth_unvalued_contracts": None,
+                "verified": verified, "error": None,
             }
-
-        _tw = time.perf_counter()
-        if network == "ethereum":
-            entry["native_unit"] = "ETH"
+            _tw = time.perf_counter()
             try:
-                # Native ETH
-                eth_bal = get_cached_balance(
-                    "ethereum", address,
-                    lambda a=address: get_eth_balance(a)
-                )
+                eth_bal = get_cached_balance("ethereum", address, lambda a=address: get_eth_balance(a))
                 eth_native_idr_val = eth_bal * eth_price_idr
-
-                # USDT (cache key namespaced to avoid collision with native ETH)
-                usdt_bal = get_cached_balance(
-                    "usdt_erc20", address,
-                    lambda a=address: fetch_erc20_balance(a, USDT_CONTRACT)
-                )
+                usdt_bal = get_cached_balance("usdt_erc20", address, lambda a=address: fetch_erc20_balance(a, USDT_CONTRACT))
                 usdt_idr_val = usdt_bal * usdt_price_idr
-
-                # USDC
-                usdc_bal = get_cached_balance(
-                    "usdc_erc20", address,
-                    lambda a=address: fetch_erc20_balance(a, USDC_CONTRACT)
-                )
+                usdc_bal = get_cached_balance("usdc_erc20", address, lambda a=address: fetch_erc20_balance(a, USDC_CONTRACT))
                 usdc_idr_val = usdc_bal * usdc_price_idr
-
                 wallet_total_idr = eth_native_idr_val + usdt_idr_val + usdc_idr_val
-
                 entry["balance_native"] = eth_bal
                 entry["balance_idr"]    = wallet_total_idr
                 entry["eth_native_idr"] = round(eth_native_idr_val)
@@ -1296,102 +1249,113 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 entry["usdt_idr"]       = round(usdt_idr_val)
                 entry["usdc_balance"]   = round(usdc_bal, 6)
                 entry["usdc_idr"]       = round(usdc_idr_val)
-
-                eth_total_idr  += wallet_total_idr
-                eth_native_sum += eth_native_idr_val
-                eth_usdt_sum   += usdt_idr_val
-                eth_usdc_sum   += usdc_idr_val
-
-                # Day 17: curated ERC-20 long-tail enumeration (top-50)
+                _eth_total  += wallet_total_idr
+                _eth_native += eth_native_idr_val
+                _eth_usdt   += usdt_idr_val
+                _eth_usdc   += usdc_idr_val
                 try:
                     curated_balances = fetch_curated_erc20_balances(address)
                     if curated_balances:
                         contracts_to_price = [t["contract"] for t in curated_balances]
                         curated_prices     = _get_coingecko_eth_token_prices(contracts_to_price)
                         usd_idr_rate       = _get_usd_idr_rate()
-
                         eth_other_idr_val           = 0.0
                         unvalued_contracts_per_addr = []
-
                         for token in curated_balances:
                             contract_lc = token["contract"].lower()
                             usd_price   = curated_prices.get(contract_lc)
                             if usd_price and usd_price > 0:
-                                token_idr_val = token["balance"] * usd_price * usd_idr_rate
-                                eth_other_idr_val += token_idr_val
+                                eth_other_idr_val += token["balance"] * usd_price * usd_idr_rate
                             else:
                                 unvalued_contracts_per_addr.append(token["contract"])
-
                         entry["eth_other_token_idr"]    = round(eth_other_idr_val)
                         entry["eth_unvalued_count"]     = len(unvalued_contracts_per_addr)
                         entry["eth_unvalued_contracts"] = unvalued_contracts_per_addr
-
                         wallet_total_idr               += eth_other_idr_val
-                        eth_total_idr                  += eth_other_idr_val
-                        eth_other_token_sum            += eth_other_idr_val
-                        eth_unvalued_count_total       += len(unvalued_contracts_per_addr)
-                        eth_unvalued_contracts_global.extend(unvalued_contracts_per_addr)
-
+                        _eth_total                     += eth_other_idr_val
+                        _eth_other                     += eth_other_idr_val
+                        _eth_unvalued_count            += len(unvalued_contracts_per_addr)
+                        _eth_unvalued_contracts.extend(unvalued_contracts_per_addr)
                         entry["balance_idr"] = wallet_total_idr
                     else:
                         entry["eth_other_token_idr"]    = 0
                         entry["eth_unvalued_count"]     = 0
                         entry["eth_unvalued_contracts"] = []
                 except Exception as curated_err:
-                    if os.environ.get('PRIMA_DEBUG'):
+                    if os.environ.get("PRIMA_DEBUG"):
                         print(f"[ETH_CURATED] {address[:8]} error: {curated_err}", flush=True)
                     entry["eth_other_token_idr"]    = 0
                     entry["eth_unvalued_count"]     = 0
                     entry["eth_unvalued_contracts"] = []
-
-
             except Exception as e:
                 entry["error"] = f"ETH fetch error: {e}"
+            _t += time.perf_counter() - _tw
+            _entries.append(entry)
+        return {"entries": _entries, "eth_total": _eth_total, "eth_native": _eth_native,
+                "eth_usdt": _eth_usdt, "eth_usdc": _eth_usdc, "eth_other": _eth_other,
+                "eth_unvalued_count": _eth_unvalued_count, "eth_unvalued_contracts": _eth_unvalued_contracts,
+                "t": _t}
 
-        elif network == "bitcoin":
-            entry["native_unit"] = "BTC"
+    def _proc_btc(btc_w):
+        _entries = []
+        _btc_total = 0.0
+        _t = 0.0
+        for wallet in btc_w:
+            address  = wallet.get("address", "")
+            verified = wallet.get("verified", False)
+            entry = {
+                "network": "bitcoin", "address": address,
+                "balance_native": 0.0, "native_unit": "BTC", "balance_idr": 0.0,
+                "eth_native_idr": None, "usdt_balance": None, "usdt_idr": None,
+                "usdc_balance": None, "usdc_idr": None,
+                "sol_native_idr": None, "sol_usdt_balance": None, "sol_usdt_idr": None,
+                "sol_usdc_balance": None, "sol_usdc_idr": None,
+                "sol_other_token_idr": None, "sol_unvalued_count": None, "sol_unvalued_mints": None,
+                "eth_other_token_idr": None, "eth_unvalued_count": None, "eth_unvalued_contracts": None,
+                "verified": verified, "error": None,
+            }
+            _tw = time.perf_counter()
             try:
-                bal = get_cached_balance(
-                    "bitcoin", address,
-                    lambda a=address: fetch_btc_balance(a)
-                )
+                bal = get_cached_balance("bitcoin", address, lambda a=address: fetch_btc_balance(a))
                 entry["balance_native"] = round(bal, 8)
                 entry["balance_idr"]    = bal * btc_price_idr
-                btc_total_idr          += entry["balance_idr"]
+                _btc_total             += entry["balance_idr"]
             except Exception as e:
                 entry["error"] = f"BTC fetch error: {e}"
+            _t += time.perf_counter() - _tw
+            _entries.append(entry)
+        return {"entries": _entries, "btc_total": _btc_total, "t": _t}
 
-        elif network == "solana":
-            entry["native_unit"] = "SOL"
+    def _proc_sol(sol_w):
+        _entries = []
+        _sol_total = _sol_native = _sol_usdt = _sol_usdc = _sol_other = 0.0
+        _sol_unvalued_count = 0
+        _sol_unvalued_mints = []
+        _t = 0.0
+        for wallet in sol_w:
+            address  = wallet.get("address", "")
+            verified = wallet.get("verified", False)
+            entry = {
+                "network": "solana", "address": address,
+                "balance_native": 0.0, "native_unit": "SOL", "balance_idr": 0.0,
+                "eth_native_idr": None, "usdt_balance": None, "usdt_idr": None,
+                "usdc_balance": None, "usdc_idr": None,
+                "sol_native_idr": None, "sol_usdt_balance": None, "sol_usdt_idr": None,
+                "sol_usdc_balance": None, "sol_usdc_idr": None,
+                "sol_other_token_idr": None, "sol_unvalued_count": None, "sol_unvalued_mints": None,
+                "eth_other_token_idr": None, "eth_unvalued_count": None, "eth_unvalued_contracts": None,
+                "verified": verified, "error": None,
+            }
+            _tw = time.perf_counter()
             try:
-                # ---- Tier-1 logic UNTOUCHED: native SOL + USDT SPL + USDC SPL ----
-                sol_bal = get_cached_balance(
-                    "solana", address,
-                    lambda a=address: fetch_sol_balance(a)
-                )
+                sol_bal = get_cached_balance("solana", address, lambda a=address: fetch_sol_balance(a))
                 sol_native_idr_val = sol_bal * sol_price_idr
-
-                sol_usdt_bal = get_cached_balance(
-                    "sol_usdt_spl", address,
-                    lambda a=address: fetch_spl_token_balance(a, USDT_MINT_SOL)
-                )
+                sol_usdt_bal = get_cached_balance("sol_usdt_spl", address, lambda a=address: fetch_spl_token_balance(a, USDT_MINT_SOL))
                 sol_usdt_idr_val = sol_usdt_bal * usdt_price_idr
-
-                sol_usdc_bal = get_cached_balance(
-                    "sol_usdc_spl", address,
-                    lambda a=address: fetch_spl_token_balance(a, USDC_MINT_SOL)
-                )
+                sol_usdc_bal = get_cached_balance("sol_usdc_spl", address, lambda a=address: fetch_spl_token_balance(a, USDC_MINT_SOL))
                 sol_usdc_idr_val = sol_usdc_bal * usdc_price_idr
-
-                # ---- Day 16: full SPL enumeration + two-gate hybrid filter ----
-                # Gate 1 (POJK 23/2025 DAKD spirit): mint in verified set OR
-                #        has tradable price signal in Jupiter
-                # Gate 2 (valuation): Jupiter Price V3 returns non-null non-zero usdPrice
-                # Both gates required → contribute to other_token_idr
-                # Gate 1 fail OR Gate 2 fail → tracked in unvalued_mints
-                other_token_idr_val   = 0.0
-                unvalued_mints_local  = []
-
+                other_token_idr_val  = 0.0
+                unvalued_mints_local = []
                 try:
                     _spl_key = ("spl_enum", address)
                     _now = time.time()
@@ -1402,50 +1366,33 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                         BALANCE_CACHE[_spl_key] = (_now, all_holdings)
                 except Exception as enum_err:
                     all_holdings = []
-                    if os.environ.get('PRIMA_DEBUG'):
-                        print(f"[SPL_ENUM] fetch_all_spl_balances({address}) failed: "
-                          f"{type(enum_err).__name__}: {enum_err}", flush=True)
-
+                    if os.environ.get("PRIMA_DEBUG"):
+                        print(f"[SPL_ENUM] fetch_all_spl_balances({address}) failed: {type(enum_err).__name__}: {enum_err}", flush=True)
                 tier1_mints     = {USDT_MINT_SOL, USDC_MINT_SOL, SOL_NATIVE_SENTINEL}
                 candidate_mints = [h["mint"] for h in all_holdings if h["mint"] not in tier1_mints]
-
                 if candidate_mints:
                     verified_set = _get_jupiter_verified_set()
                     prices       = _get_jupiter_prices(candidate_mints)
                     usd_idr_rate = _get_usd_idr_rate()
-
                     for holding in all_holdings:
                         mint = holding["mint"]
                         if mint in tier1_mints:
                             continue
-
                         in_verified = mint in verified_set
                         usd_price   = prices.get(mint)
                         has_price   = usd_price is not None and usd_price > 0
                         if not has_price:
                             usd_price = _get_dexscreener_price(mint)
                             has_price = usd_price is not None and usd_price > 0
-
-                        pass_gate1 = in_verified or has_price   # hybrid (option c)
-                        pass_gate2 = has_price                  # valuation gate
-
+                        pass_gate1 = in_verified or has_price
+                        pass_gate2 = has_price
                         if pass_gate1 and pass_gate2:
                             token_idr = holding["ui_amount"] * usd_price * usd_idr_rate
                             other_token_idr_val += token_idr
-                            # Distinct cache key per mint (prior bug class: collision)
-                            BALANCE_CACHE[(f"sol_other_token:{mint}", address)] = (
-                                time.time(), holding["ui_amount"]
-                            )
+                            BALANCE_CACHE[(f"sol_other_token:{mint}", address)] = (time.time(), holding["ui_amount"])
                         else:
                             unvalued_mints_local.append(mint)
-
-                wallet_total_idr = (
-                    sol_native_idr_val
-                    + sol_usdt_idr_val
-                    + sol_usdc_idr_val
-                    + other_token_idr_val
-                )
-
+                wallet_total_idr = sol_native_idr_val + sol_usdt_idr_val + sol_usdc_idr_val + other_token_idr_val
                 entry["balance_native"]      = round(sol_bal, 9)
                 entry["balance_idr"]         = wallet_total_idr
                 entry["sol_native_idr"]      = round(sol_native_idr_val)
@@ -1456,31 +1403,68 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 entry["sol_other_token_idr"] = round(other_token_idr_val)
                 entry["sol_unvalued_count"]  = len(unvalued_mints_local)
                 entry["sol_unvalued_mints"]  = unvalued_mints_local
-
-                sol_total_idr             += wallet_total_idr
-                sol_native_sum            += sol_native_idr_val
-                sol_usdt_sum              += sol_usdt_idr_val
-                sol_usdc_sum              += sol_usdc_idr_val
-                sol_other_token_sum       += other_token_idr_val
-                sol_unvalued_count_total  += len(unvalued_mints_local)
-                sol_unvalued_mints_global.extend(unvalued_mints_local)
-
+                _sol_total          += wallet_total_idr
+                _sol_native         += sol_native_idr_val
+                _sol_usdt           += sol_usdt_idr_val
+                _sol_usdc           += sol_usdc_idr_val
+                _sol_other          += other_token_idr_val
+                _sol_unvalued_count += len(unvalued_mints_local)
+                _sol_unvalued_mints.extend(unvalued_mints_local)
             except Exception as e:
                 entry["error"] = f"SOL fetch error: {e}"
+            _t += time.perf_counter() - _tw
+            _entries.append(entry)
+        return {"entries": _entries, "sol_total": _sol_total, "sol_native": _sol_native,
+                "sol_usdt": _sol_usdt, "sol_usdc": _sol_usdc, "sol_other": _sol_other,
+                "sol_unvalued_count": _sol_unvalued_count, "sol_unvalued_mints": _sol_unvalued_mints,
+                "t": _t}
 
-        else:
-            entry["native_unit"] = network.upper()
-            entry["error"]       = f"Network '{network}' belum didukung"
+    from concurrent.futures import ThreadPoolExecutor as _ChainTPE
+    with _ChainTPE(max_workers=3) as _ex:
+        _f_eth = _ex.submit(_proc_eth, eth_wallets)
+        _f_btc = _ex.submit(_proc_btc, btc_wallets)
+        _f_sol = _ex.submit(_proc_sol, sol_wallets)
+        _r_eth = _f_eth.result(timeout=90)
+        _r_btc = _f_btc.result(timeout=30)
+        _r_sol = _f_sol.result(timeout=90)
 
-        _elapsed = time.perf_counter() - _tw
-        if network == "ethereum":
-            _t_eth += _elapsed
-        elif network == "bitcoin":
-            _t_btc += _elapsed
-        elif network == "solana":
-            _t_sol += _elapsed
-        total_idr += entry["balance_idr"]
-        breakdown.append(entry)
+    # --- Merge results ---
+    other_entries = []
+    for wallet in other_wallets:
+        other_entries.append({
+            "network": wallet.get("network", ""), "address": wallet.get("address", ""),
+            "balance_native": 0.0, "native_unit": wallet.get("network", "").upper(),
+            "balance_idr": 0.0, "verified": wallet.get("verified", False),
+            "error": f"Network '{wallet.get('network')}' belum didukung",
+            "eth_native_idr": None, "usdt_balance": None, "usdt_idr": None,
+            "usdc_balance": None, "usdc_idr": None,
+            "sol_native_idr": None, "sol_usdt_balance": None, "sol_usdt_idr": None,
+            "sol_usdc_balance": None, "sol_usdc_idr": None,
+            "sol_other_token_idr": None, "sol_unvalued_count": None, "sol_unvalued_mints": None,
+            "eth_other_token_idr": None, "eth_unvalued_count": None, "eth_unvalued_contracts": None,
+        })
+
+    breakdown          = _r_eth["entries"] + _r_btc["entries"] + _r_sol["entries"] + other_entries
+    eth_total_idr      = _r_eth["eth_total"]
+    eth_native_sum     = _r_eth["eth_native"]
+    eth_usdt_sum       = _r_eth["eth_usdt"]
+    eth_usdc_sum       = _r_eth["eth_usdc"]
+    eth_other_token_sum          = _r_eth["eth_other"]
+    eth_unvalued_count_total     = _r_eth["eth_unvalued_count"]
+    eth_unvalued_contracts_global = _r_eth["eth_unvalued_contracts"]
+    btc_total_idr      = _r_btc["btc_total"]
+    sol_total_idr      = _r_sol["sol_total"]
+    sol_native_sum     = _r_sol["sol_native"]
+    sol_usdt_sum       = _r_sol["sol_usdt"]
+    sol_usdc_sum       = _r_sol["sol_usdc"]
+    sol_other_token_sum          = _r_sol["sol_other"]
+    sol_unvalued_count_total     = _r_sol["sol_unvalued_count"]
+    sol_unvalued_mints_global    = _r_sol["sol_unvalued_mints"]
+    total_idr          = sum(e["balance_idr"] for e in breakdown)
+    _t_eth = _r_eth["t"]
+    _t_btc = _r_btc["t"]
+    _t_sol = _r_sol["t"]
+
 
     _chain_timings = {
         "fetch_eth_total": round(_t_eth, 3),
