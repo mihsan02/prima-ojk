@@ -725,21 +725,30 @@ def _get_stablecoin_prices_idr():
 
 def fetch_btc_balance(address):
     """
-    Fetch confirmed BTC balance from Blockstream Esplora public API.
-    Returns float in BTC.
-
-    Uses chain_stats only — mempool (unconfirmed) transactions are
-    excluded because they cannot be counted as settled regulatory reserve.
-
-    Source: https://github.com/Blockstream/esplora/blob/master/API.md
+    Fetch confirmed BTC balance via race between Blockstream and mempool.space.
+    Returns float in BTC. Uses chain_stats only (confirmed txos).
+    First provider to return HTTP 200 wins.
     """
-    url = f"https://blockstream.info/api/address/{address}"
-    resp = requests.get(url, timeout=10)
-    resp.raise_for_status()
-    data = resp.json()
-    funded = data["chain_stats"]["funded_txo_sum"]
-    spent  = data["chain_stats"]["spent_txo_sum"]
-    return (funded - spent) / SATOSHI_PER_BTC
+    from concurrent.futures import ThreadPoolExecutor as _BTCTPE, as_completed as _ac
+    providers = [
+        f"https://blockstream.info/api/address/{address}",
+        f"https://mempool.space/api/address/{address}",
+    ]
+    def _fetch(url):
+        r = requests.get(url, timeout=8)
+        r.raise_for_status()
+        return r.json()
+    with _BTCTPE(max_workers=2) as _ex:
+        futures = {_ex.submit(_fetch, url): url for url in providers}
+        for f in _ac(futures):
+            try:
+                data   = f.result()
+                funded = data["chain_stats"]["funded_txo_sum"]
+                spent  = data["chain_stats"]["spent_txo_sum"]
+                return (funded - spent) / SATOSHI_PER_BTC
+            except Exception:
+                continue
+    raise RuntimeError(f"All BTC providers failed for {address}")
 
 
 def fetch_btc_price_idr():
