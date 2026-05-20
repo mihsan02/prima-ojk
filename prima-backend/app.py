@@ -1680,6 +1680,57 @@ def reconciliation():
         return jsonify({"status": "error", "message": "Rekonsiliasi gagal", "detail": str(e)}), 500
 
 
+@app.route("/api/reconciliation/latest")
+def reconciliation_latest():
+    conn = _get_db_conn()
+    if not conn:
+        return jsonify({"status": "error", "message": "Database tidak tersedia"}), 503
+    try:
+        import psycopg2.extras
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT DISTINCT ON (pakd_id)
+                pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
+                deviasi_persen, status, harga_fallback, network_breakdown, captured_at, created_at
+            FROM reconciliation_snapshots
+            ORDER BY pakd_id, captured_at DESC
+        """)
+        rows = cur.fetchall()
+        hasil = []
+        as_of = None
+        for r in rows:
+            captured_at = r[8]
+            if as_of is None or captured_at > as_of:
+                as_of = captured_at
+            network_breakdown = r[7] if isinstance(r[7], list) else []
+            eth_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "ethereum")
+            btc_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "bitcoin")
+            sol_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "solana")
+            hasil.append({
+                "id":                   r[0],
+                "nama":                 r[1],
+                "aset_dilaporkan_idr":  r[2],
+                "aset_onchain_idr":     r[3],
+                "deviasi_pct":          r[4],
+                "status":               r[5],
+                "harga_fallback":       r[6],
+                "eth_balance_idr":      round(eth_idr),
+                "btc_balance_idr":      round(btc_idr),
+                "sol_balance_idr":      round(sol_idr),
+                "captured_at":          captured_at.isoformat() if captured_at else None,
+            })
+        cur.close()
+        conn.close()
+        return jsonify({
+            "data":       hasil,
+            "total_pakd": len(hasil),
+            "as_of":      as_of.isoformat() if as_of else None,
+            "source":     "snapshot",
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route("/api/reconciliation-history")
 def reconciliation_history():
     conn = _get_db_conn()
