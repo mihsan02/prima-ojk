@@ -1543,7 +1543,8 @@ async function loadSnapshot() {
     const statusMap = {'NORMAL':'Aman','WARNING':'Deviasi','KRITIS':'Kritis'};
     const data = json.data.map(r => Object.assign({}, r, {
       status: statusMap[r.status] || r.status,
-      surplus: (r.deviasi_pct || 0) >= 0,
+      deviasi_pct: Number(r.deviasi_pct) || 0,
+      surplus: (Number(r.deviasi_pct) || 0) >= 0,
       breakdown: r.network_breakdown || []
     }));
     _pakdCache = data;
