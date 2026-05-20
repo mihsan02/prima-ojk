@@ -1531,6 +1531,69 @@ async function loadPengaturan() {
 }
 
 function loadAll() { loadData(); loadAudit(); }
+
+async function loadSnapshot() {
+  const tbody = document.getElementById('pakd-tbody');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Memuat data snapshot...</td></tr>';
+  try {
+    const res = await fetch('/api/reconciliation/latest');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (!json.data || json.data.length === 0) { loadData(); return; }
+    const statusMap = {'NORMAL':'Aman','WARNING':'Deviasi','KRITIS':'Kritis'};
+    const data = json.data.map(r => Object.assign({}, r, {
+      status: statusMap[r.status] || r.status,
+      surplus: (r.deviasi_pct || 0) >= 0,
+      breakdown: r.network_breakdown || []
+    }));
+    _pakdCache = data;
+    const asOf = json.as_of ? new Date(json.as_of).toLocaleString('id-ID', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
+    document.getElementById('last-update').textContent = asOf + ' (snapshot)';
+    document.getElementById('footer-time').textContent = 'Snapshot terakhir: ' + asOf;
+    document.getElementById('live-badge').textContent = 'SNAPSHOT';
+    const fallbackNotice = document.getElementById('eth-fallback-notice');
+    if (fallbackNotice) fallbackNotice.style.display = 'none';
+    const aman = data.filter(d => d.status === 'Aman').length;
+    document.getElementById('kpi-aman').textContent = aman;
+    document.getElementById('kpi-total-label').textContent = 'dari ' + data.length + ' PAKD terdaftar';
+    document.getElementById('kpi-alert').textContent = data.length - aman;
+    const defisits = data.filter(d => !d.surplus).map(d => Math.abs(d.deviasi_pct));
+    document.getElementById('kpi-max-dev').textContent = defisits.length ? Math.max(...defisits).toFixed(2) + '%' : '0%';
+    tbody.innerHTML = data.map((d, i) => `
+      <tr style="background:${d.status==='Kritis'?'rgba(192,57,43,0.03)':d.status==='Deviasi'?'rgba(194,124,26,0.03)':''}">
+        <td class="num-row" style="vertical-align:top;padding-top:18px">${String(i+1).padStart(2,'0')}</td>
+        <td style="vertical-align:top;padding-top:14px;min-width:280px">
+          <span class="pakd-name">${escapeHtml(d.nama)}</span>
+          <span class="pakd-id">${escapeHtml(d.id)} · Berizin</span>
+          ${renderWalletsCell(d)}
+        </td>
+        <td style="vertical-align:top;padding-top:18px"><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
+        <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${formatIDR(d.aset_onchain_idr)}</td>
+        <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
+        <td style="vertical-align:top;padding-top:18px">${deviDisplay(d)}</td>
+        <td style="line-height:1.6;vertical-align:top;padding-top:14px">${renderBreakdown(d)}</td>
+        <td style="vertical-align:top;padding-top:16px">
+          <div style="display:flex;gap:6px">
+            <button onclick="openEditModal('${escapeHtml(d.id)}')"
+              style="background:none;border:none;cursor:pointer;color:#64748b;border-radius:6px;padding:6px 8px;transition:all 0.15s"
+              onmouseover="this.style.background='#eff6ff';this.style.color='#2563eb'"
+              onmouseout="this.style.background='none';this.style.color='#64748b'"
+              title="Edit PAKD">✏️</button>
+            <button onclick="deletePakd('${escapeHtml(d.id)}')"
+              style="background:none;border:none;cursor:pointer;color:#64748b;border-radius:6px;padding:6px 8px;transition:all 0.15s"
+              onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'"
+              onmouseout="this.style.background='none';this.style.color='#64748b'"
+              title="Hapus PAKD">🗑️</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  } catch(e) {
+    console.warn('Snapshot gagal, fallback ke live fetch:', e);
+    loadData();
+  }
+}
+
+function loadAll() { loadSnapshot(); loadAudit(); }
 loadAll();
 
 async function populateDetailSelect() {
