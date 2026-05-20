@@ -1714,7 +1714,7 @@ def internal_refresh_all():
         pakd_list = load_pakd()
         hasil = []
         for pakd in pakd_list:
-            total, breakdown, _ = get_total_balance_idr(pakd)
+            total, breakdown, _ = get_total_balance_idr(pakd.get("wallets", []))
             dilaporkan = pakd.get("aset_dilaporkan", 0)
             deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
             status = "NORMAL" if abs(deviasi) <= 5 else ("WARNING" if abs(deviasi) <= 20 else "KRITIS")
