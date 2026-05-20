@@ -338,7 +338,8 @@ def _save_snapshots_batch(hasil_list, harga_fallback):
         )
         conn.commit()
     except Exception as _e:
-        print(f'[BATCH_SAVE] ERROR: {type(_e).__name__}: {_e}', flush=True)
+        if os.environ.get('PRIMA_DEBUG'):
+            print(f'[BATCH_SAVE] ERROR: {type(_e).__name__}: {_e}', flush=True)
     finally:
         conn.close()
 
