@@ -316,6 +316,30 @@ def _save_snapshot(pakd_id, pakd_nama, aset_dilaporkan, aset_onchain, deviasi_pc
         conn.close()
 
 
+def _save_snapshots_batch(hasil_list, harga_fallback):
+    conn = _get_db_conn()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        rows = [
+            (h["id"], h["nama"], int(h["aset_dilaporkan_idr"]), int(h["aset_onchain_idr"]),
+             float(h["deviasi_pct"]), h["status"], harga_fallback, json.dumps(h["breakdown"]))
+            for h in hasil_list
+        ]
+        cur.executemany(
+            """INSERT INTO reconciliation_snapshots
+               (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
+                deviasi_persen, status, harga_fallback, network_breakdown)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            rows
+        )
+        conn.commit()
+    except Exception:
+        pass
+    finally:
+        conn.close()
+
 def load_pakd():
     conn = _get_db_conn()
     if conn:
@@ -1658,13 +1682,7 @@ def reconciliation():
         _timings["pricing_eth_fallback"] = round(time.perf_counter() - _t0, 3)
         # Save snapshot to Supabase (non-blocking)
         _t0 = time.perf_counter()
-        for h in hasil:
-            _save_snapshot(
-                h["id"], h["nama"],
-                h["aset_dilaporkan_idr"], h["aset_onchain_idr"],
-                h["deviasi_pct"], h["status"],
-                eth_fallback, h["breakdown"]
-            )
+        _save_snapshots_batch(hasil, eth_fallback)
         _timings["db_write"] = round(time.perf_counter() - _t0, 3)
         _timings["total"] = round(time.perf_counter() - _t_total, 3)
         resp = {
