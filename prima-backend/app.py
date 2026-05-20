@@ -326,7 +326,7 @@ def _save_snapshots_batch(hasil_list, harga_fallback):
         cur = conn.cursor()
         rows = [
             (h["id"], h["nama"], int(h["aset_dilaporkan_idr"]), int(h["aset_onchain_idr"]),
-             float(h["deviasi_pct"]), h["status"], harga_fallback, json.dumps(h["breakdown"]))
+             max(-9999.9999, min(9999.9999, float(h["deviasi_pct"]))), h["status"], harga_fallback, json.dumps(h["breakdown"]))
             for h in hasil_list
         ]
         cur.executemany(
