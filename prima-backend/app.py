@@ -1776,6 +1776,7 @@ def reconciliation_latest():
                 "btc_balance_idr":      round(btc_idr),
                 "sol_balance_idr":      round(sol_idr),
                 "captured_at":          captured_at.isoformat() if captured_at else None,
+                "network_breakdown":    network_breakdown,
             })
         cur.close()
         conn.close()
