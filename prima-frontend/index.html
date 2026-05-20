@@ -265,7 +265,7 @@ tr:hover td{background:var(--bg2)}
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="btn-secondary" onclick="exportCsvOverview()">Export CSV (snapshot terakhir per PAKD)</button>
-        <button class="btn-primary" onclick="loadAll()">⟳ Rekonsiliasi Manual</button>
+        <button class="btn-primary" onclick="triggerManualRefresh()">⟳ Rekonsiliasi Manual</button>
       </div>
     </div>
 
@@ -1531,6 +1531,48 @@ async function loadPengaturan() {
 }
 
 function loadAll() { loadData(); loadAudit(); }
+async function triggerManualRefresh() {
+  const btn = document.querySelector('button.btn-primary[onclick="triggerManualRefresh()"]');
+  const tbody = document.getElementById('pakd-tbody');
+  if (btn) { btn.disabled = true; btn.textContent = 'Memuat...'; }
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Mengirim permintaan refresh...</td></tr>';
+  try {
+    const res = await fetch('/api/reconciliation/refresh', {method: 'POST'});
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const {job_id} = await res.json();
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const r = await fetch('/api/reconciliation/refresh/' + job_id);
+        const job = await r.json();
+        if (job.status === 'done') {
+          clearInterval(poll);
+          await loadSnapshot();
+          if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
+        } else if (job.status === 'failed') {
+          clearInterval(poll);
+          tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Refresh gagal: ' + (job.result && job.result.detail || 'unknown') + '</td></tr>';
+          if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
+        } else {
+          tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Refresh berjalan... (' + attempts * 2 + 's)</td></tr>';
+        }
+        if (attempts >= 60) {
+          clearInterval(poll);
+          tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Timeout. Coba lagi.</td></tr>';
+          if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
+        }
+      } catch(e) {
+        clearInterval(poll);
+        if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
+      }
+    }, 2000);
+  } catch(e) {
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Gagal menghubungi server: ' + e.message + '</td></tr>';
+    if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
+  }
+}
+
 
 async function loadSnapshot() {
   const tbody = document.getElementById('pakd-tbody');

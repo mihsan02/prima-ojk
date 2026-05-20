@@ -24,6 +24,7 @@ LAMPORTS_PER_SOL   = 1_000_000_000
 PRICE_CACHE        = {}
 BALANCE_CACHE      = {}
 REFRESH_LOCK       = {"running": False, "started_at": None}
+JOBS               = {}  # {job_id: {"status": "pending|running|done|failed", "result": None, "created_at": float}}
 PRICE_TTL          = 300   # bumped from 60 (Day 15): CMC credit budget guard
 BALANCE_TTL        = 300  # bumped: cache outlives request duration
 
@@ -2372,6 +2373,61 @@ def export_csv():
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
     response.headers["Content-Type"] = "text/csv"
     return response
+
+
+import uuid
+from concurrent.futures import ThreadPoolExecutor as _TPE
+
+_REFRESH_EXECUTOR = _TPE(max_workers=1)
+
+def _cleanup_old_jobs():
+    now = time.time()
+    for jid in list(JOBS.keys()):
+        if now - JOBS[jid]["created_at"] > 600:
+            del JOBS[jid]
+
+def _run_refresh_job(job_id):
+    JOBS[job_id]["status"] = "running"
+    try:
+        pakd_list = load_pakd()
+        hasil = []
+        for pakd in pakd_list:
+            result_bal = get_total_balance_idr(pakd.get("wallets", []))
+            total = result_bal["total_idr"]
+            breakdown = result_bal["breakdown"]
+            dilaporkan = pakd.get("aset_dilaporkan", 0)
+            deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
+            status = "NORMAL" if abs(deviasi) <= 5 else ("WARNING" if abs(deviasi) <= 20 else "KRITIS")
+            hasil.append({
+                "id": pakd["id"], "nama": pakd["nama"],
+                "aset_dilaporkan_idr": dilaporkan,
+                "aset_onchain_idr": total,
+                "deviasi_pct": round(deviasi, 2),
+                "status": status,
+                "breakdown": breakdown
+            })
+        _, eth_fallback = get_eth_price_idr()
+        _save_snapshots_batch(hasil, eth_fallback)
+        JOBS[job_id]["status"] = "done"
+        JOBS[job_id]["result"] = {"pakd_refreshed": len(hasil), "timestamp": time.time()}
+    except Exception as e:
+        JOBS[job_id]["status"] = "failed"
+        JOBS[job_id]["result"] = {"detail": str(e)}
+
+@app.route("/api/reconciliation/refresh", methods=["POST"])
+def reconciliation_refresh():
+    _cleanup_old_jobs()
+    job_id = str(uuid.uuid4())
+    JOBS[job_id] = {"status": "pending", "result": None, "created_at": time.time()}
+    _REFRESH_EXECUTOR.submit(_run_refresh_job, job_id)
+    return jsonify({"job_id": job_id, "status": "pending"})
+
+@app.route("/api/reconciliation/refresh/<job_id>", methods=["GET"])
+def reconciliation_refresh_status(job_id):
+    job = JOBS.get(job_id)
+    if not job:
+        return jsonify({"status": "not_found"}), 404
+    return jsonify({"job_id": job_id, "status": job["status"], "result": job["result"]})
 
 @app.route('/ping')
 def ping():
