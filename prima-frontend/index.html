@@ -1541,12 +1541,30 @@ async function loadSnapshot() {
     const json = await res.json();
     if (!json.data || json.data.length === 0) { loadData(); return; }
     const statusMap = {'NORMAL':'Aman','WARNING':'Deviasi','KRITIS':'Kritis'};
-    const data = json.data.map(r => Object.assign({}, r, {
-      status: statusMap[r.status] || r.status,
-      deviasi_pct: Number(r.deviasi_pct) || 0,
-      surplus: (Number(r.deviasi_pct) || 0) >= 0,
-      breakdown: r.network_breakdown || []
-    }));
+    const data = json.data.map(r => {
+      const nb = r.network_breakdown || [];
+      const eth = nb.find(w => w.network === 'ethereum') || {};
+      const btc = nb.find(w => w.network === 'bitcoin') || {};
+      const sol = nb.find(w => w.network === 'solana') || {};
+      return Object.assign({}, r, {
+        status: statusMap[r.status] || r.status,
+        deviasi_pct: Number(r.deviasi_pct) || 0,
+        surplus: (Number(r.deviasi_pct) || 0) >= 0,
+        breakdown: nb,
+        wallets: nb,
+        eth_native_idr: eth.eth_native_idr || 0,
+        eth_usdt_idr: eth.usdt_idr || 0,
+        eth_usdc_idr: eth.usdc_idr || 0,
+        eth_other_token_idr: eth.eth_other_token_idr || 0,
+        eth_unvalued_count: eth.eth_unvalued_count || 0,
+        btc_balance_idr: btc.balance_idr || 0,
+        sol_native_idr: sol.sol_native_idr || 0,
+        sol_usdt_idr: sol.sol_usdt_idr || 0,
+        sol_usdc_idr: sol.sol_usdc_idr || 0,
+        sol_other_token_idr: sol.sol_other_token_idr || 0,
+        sol_unvalued_count: sol.sol_unvalued_count || 0,
+      });
+    });
     _pakdCache = data;
     const asOf = json.as_of ? new Date(json.as_of).toLocaleString('id-ID', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
     document.getElementById('last-update').textContent = asOf + ' (snapshot)';
