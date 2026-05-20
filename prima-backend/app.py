@@ -1198,6 +1198,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     sol_unvalued_count_total  = 0
     sol_unvalued_mints_global = []
     breakdown      = []
+    _t_eth = _t_btc = _t_sol = _t_pricing = 0.0
 
     for wallet in wallets:
         network  = wallet.get("network", "ethereum")
@@ -1234,6 +1235,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             "error":               None,
             }
 
+        _tw = time.perf_counter()
         if network == "ethereum":
             entry["native_unit"] = "ETH"
             try:
@@ -1443,11 +1445,26 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             entry["native_unit"] = network.upper()
             entry["error"]       = f"Network '{network}' belum didukung"
 
+        _elapsed = time.perf_counter() - _tw
+        if network == "ethereum":
+            _t_eth += _elapsed
+        elif network == "bitcoin":
+            _t_btc += _elapsed
+        elif network == "solana":
+            _t_sol += _elapsed
         total_idr += entry["balance_idr"]
         breakdown.append(entry)
 
+    _chain_timings = {
+        "fetch_eth_total": round(_t_eth, 3),
+        "fetch_btc_total": round(_t_btc, 3),
+        "fetch_sol_total": round(_t_sol, 3),
+    }
+    if os.environ.get("PRIMA_DEBUG"):
+        print(f"[PROFILING] chain timings: {_chain_timings}", flush=True)
     return {
         "total_idr":       total_idr,
+        "_chain_timings":  _chain_timings,
         "eth_balance_idr": eth_total_idr,
         "eth_native_idr":  eth_native_sum,
         "eth_usdt_idr":    eth_usdt_sum,
@@ -1569,14 +1586,21 @@ def delete_pakd(pakd_id):
 @app.route("/api/reconciliation")
 def reconciliation():
     try:
+        _t_total = time.perf_counter()
+        _timings = {}
         pakd_list = load_pakd()
         hasil = []
+        _t_fetch = time.perf_counter()
 
         for pakd in pakd_list:
             wallets = pakd["wallets"]
 
             balance_result   = get_total_balance_idr(wallets)
             aset_onchain_idr = balance_result["total_idr"]
+            _ct = balance_result.get("_chain_timings", {})
+            _timings["fetch_eth_total"] = round(_timings.get("fetch_eth_total", 0) + _ct.get("fetch_eth_total", 0), 3)
+            _timings["fetch_btc_total"] = round(_timings.get("fetch_btc_total", 0) + _ct.get("fetch_btc_total", 0), 3)
+            _timings["fetch_sol_total"] = round(_timings.get("fetch_sol_total", 0) + _ct.get("fetch_sol_total", 0), 3)
             aset_dilaporkan  = pakd["aset_dilaporkan"]
 
             if aset_dilaporkan > 0:
@@ -1626,10 +1650,14 @@ def reconciliation():
                 "breakdown":           balance_result["breakdown"],
             })
 
+        _timings["fetch_all_pakd"] = round(time.perf_counter() - _t_fetch, 3)
         write_audit("REKONSILIASI", f"{len(hasil)} PAKD direkonsiliasi (ETH native+USDT+USDC, BTC, SOL)")
         # Resolve harga_fallback flag from ETH price fetch
+        _t0 = time.perf_counter()
         _, eth_fallback = get_eth_price_idr()
+        _timings["pricing_eth_fallback"] = round(time.perf_counter() - _t0, 3)
         # Save snapshot to Supabase (non-blocking)
+        _t0 = time.perf_counter()
         for h in hasil:
             _save_snapshot(
                 h["id"], h["nama"],
@@ -1637,11 +1665,16 @@ def reconciliation():
                 h["deviasi_pct"], h["status"],
                 eth_fallback, h["breakdown"]
             )
-        return jsonify({
+        _timings["db_write"] = round(time.perf_counter() - _t0, 3)
+        _timings["total"] = round(time.perf_counter() - _t_total, 3)
+        resp = {
             "data":          hasil,
             "total_pakd":    len(hasil),
             "harga_fallback": eth_fallback,
-        })
+        }
+        if os.environ.get("PRIMA_DEBUG"):
+            resp["_timings"] = _timings
+        return jsonify(resp)
 
     except Exception as e:
         return jsonify({"status": "error", "message": "Rekonsiliasi gagal", "detail": str(e)}), 500
