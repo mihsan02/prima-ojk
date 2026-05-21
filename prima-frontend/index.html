@@ -335,10 +335,8 @@ tr:hover td{background:var(--bg2)}
       </div>
     </div>
 
-    <div>
-      <div class="section-header">
-        <div class="section-title"><div class="section-title-bar"></div>Input Manual Data PAKD</div>
-      </div>
+    <!-- Input Manual dipindah ke modal Tambah PAKD -->
+    <div style="display:none">
       <div class="panel">
         <div class="panel-body">
           <div class="info-chip">
@@ -1948,6 +1946,19 @@ addWalletRow('ethereum');
       <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Aset Dilaporkan (IDR)</label>
       <input id="edit-pakd-aset" type="number" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1);box-sizing:border-box">
     </div>
+    <div style="margin-bottom:16px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
+      <div style="font-size:10px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:10px">Opsional — Data Keuangan (Stress Test Pasal 50/91)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Ekuitas (IDR)</label>
+          <input id="edit-equity" type="number" placeholder="150000000000" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1);box-sizing:border-box;font-size:12px"></div>
+        <div><label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Persediaan AKD (IDR)</label>
+          <input id="edit-persediaan" type="number" placeholder="80000000000" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1);box-sizing:border-box;font-size:12px"></div>
+        <div><label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Simpanan Pedagang AKD (IDR)</label>
+          <input id="edit-simpanan" type="number" placeholder="20000000000" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1);box-sizing:border-box;font-size:12px"></div>
+        <div><label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">AKD Konsumen (IDR)</label>
+          <input id="edit-customer" type="number" placeholder="250000000000" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1);box-sizing:border-box;font-size:12px"></div>
+      </div>
+    </div>
     <div style="margin-bottom:20px">
       <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:8px">Wallets</label>
       <div id="edit-wallets-container"></div>
@@ -1974,6 +1985,7 @@ function openAddModal() {
   idField.style.opacity = '1';
   document.getElementById('edit-pakd-nama').value = '';
   document.getElementById('edit-pakd-aset').value = '';
+  ['edit-equity','edit-persediaan','edit-simpanan','edit-customer'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   renderWalletRows([]);
   document.getElementById('modal-pakd').style.display = 'flex';
 }
@@ -1988,6 +2000,9 @@ function openEditModal(pakdId) {
   idField.style.opacity = '0.6';
   document.getElementById('edit-pakd-nama').value = pakd.nama;
   document.getElementById('edit-pakd-aset').value = pakd.aset_dilaporkan;
+  const _ef = ['edit-equity','edit-persediaan','edit-simpanan','edit-customer'];
+  const _ev = [pakd.ekuitas, pakd.persediaan_akd, pakd.simpanan_pedagang_akd, pakd.akd_konsumen];
+  _ef.forEach((id,i) => { const el = document.getElementById(id); if (el) el.value = _ev[i] || ''; });
   renderWalletRows(pakd.wallets || []);
   document.getElementById('modal-pakd').style.display = 'flex';
 }
@@ -2044,6 +2059,10 @@ async function saveEditModal() {
   const nama = document.getElementById('edit-pakd-nama').value.trim();
   const aset = parseInt(document.getElementById('edit-pakd-aset').value) || 0;
   const wallets = getWalletsFromModal();
+  const ekuitas = parseInt(document.getElementById('edit-equity').value) || null;
+  const persediaan_akd = parseInt(document.getElementById('edit-persediaan').value) || null;
+  const simpanan_pedagang_akd = parseInt(document.getElementById('edit-simpanan').value) || null;
+  const akd_konsumen = parseInt(document.getElementById('edit-customer').value) || null;
   try {
     let resp;
     if (_editPakdId === null) {
@@ -2053,13 +2072,13 @@ async function saveEditModal() {
       resp = await fetch(API + '/api/input-manual', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id: newId, nama: nama, aset_dilaporkan: aset, wallets: wallets})
+        body: JSON.stringify({id: newId, nama: nama, aset_dilaporkan: aset, wallets: wallets, ekuitas, persediaan_akd, simpanan_pedagang_akd, akd_konsumen})
       });
     } else {
       resp = await fetch(API + '/api/pakd/' + _editPakdId, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({nama: nama, aset_dilaporkan: aset, wallets: wallets})
+        body: JSON.stringify({nama: nama, aset_dilaporkan: aset, wallets: wallets, ekuitas, persediaan_akd, simpanan_pedagang_akd, akd_konsumen})
       });
     }
     if (!resp.ok) throw new Error(await resp.text());
