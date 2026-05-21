@@ -1945,7 +1945,15 @@ function renderChips(containerId, items, showPass) {
     container.innerHTML = filtered.map(function(x) {
         var bg = x.lulus ? '#d1fae5' : '#fee2e2';
         var col = x.lulus ? '#065f46' : '#991b1b';
-        return '<span style="background:' + bg + ';color:' + col + ';padding:2px 8px;border-radius:12px;font-size:11px;margin:2px;display:inline-block">' + (x.nama || x.id || '-') + '</span>';
+        var prefix = x.lulus ? '\u2713 ' : '\u00d7 ';
+        var label = x.nama || x.id || '-';
+        var val = x.equity_post != null ? x.equity_post : (x.aset_stressed != null ? x.aset_stressed : null);
+        var valStr = '';
+        if (val != null) {
+            var m = Math.round(val / 1e6);
+            valStr = ' <span style="opacity:0.75">Rp ' + m.toLocaleString('id-ID') + ' M</span>';
+        }
+        return '<span style="background:' + bg + ';color:' + col + ';padding:3px 10px;border-radius:12px;font-size:11px;margin:2px;display:inline-block">' + prefix + label + valStr + '</span>';
     }).join('');
 }
 </script>
