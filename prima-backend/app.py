@@ -1607,6 +1607,7 @@ def delete_pakd(pakd_id):
         try:
             cur = conn.cursor()
             cur.execute("DELETE FROM pakd WHERE id = %s", (pakd_id,))
+            cur.execute("DELETE FROM reconciliation_snapshots WHERE pakd_id = %s", (pakd_id,))
             conn.commit()
             cur.close()
             conn.close()
