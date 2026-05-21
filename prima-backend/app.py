@@ -222,7 +222,7 @@ PAKD_DEFAULT = [
             {"network": "bitcoin",  "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7Divfna",        "verified": False, "verified_at": None},
             {"network": "solana",   "address": "H13V5d2YdEvL9172K4jH5xfD7tGJN7UqEBR8y5Tb15B1", "verified": False, "verified_at": None},
         ],
-        "aset_dilaporkan": 103_000_000,
+        "aset_dilaporkan": 99_000_000,
         "equity_idr": None,
         "persediaan_akd_idr": None,
         "simpanan_pedagang_akd_idr": None,
