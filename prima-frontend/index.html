@@ -351,7 +351,7 @@ tr:hover td{background:var(--bg2)}
           </div>
           <div style="margin-bottom:10px;padding:10px 12px;background:var(--bg0);border:1px solid var(--border);border-radius:var(--r)">
             <div style="font-size:10px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:8px">
-              Opsional — Data Keuangan (Stress Test Pasal 50/91)
+              Opsional — Data Keuangan (Stress Test)
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
               <div>
@@ -1975,7 +1975,7 @@ function renderChips(containerId, items, showPass) {
       <input id="edit-pakd-aset" type="number" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1);box-sizing:border-box">
     </div>
     <div style="margin-bottom:16px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
-      <div style="font-size:10px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:10px">Opsional — Data Keuangan (Stress Test Pasal 50/91)</div>
+      <div style="font-size:10px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:10px">Opsional — Data Keuangan (Stress Test)</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div><label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Ekuitas (IDR)</label>
           <input id="edit-equity" type="number" placeholder="150000000000" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1);box-sizing:border-box;font-size:12px"></div>
@@ -2017,22 +2017,27 @@ function openAddModal() {
   renderWalletRows([]);
   document.getElementById('modal-pakd').style.display = 'flex';
 }
-function openEditModal(pakdId) {
-  const pakd = _pakdCache.find(p => p.id === pakdId);
-  if (!pakd) return alert('Data PAKD tidak ditemukan');
+async function openEditModal(pakdId) {
   _editPakdId = pakdId;
   document.getElementById('modal-pakd-title').textContent = 'Edit PAKD: ' + pakdId;
+  document.getElementById('modal-pakd').style.display = 'flex';
+  let pakd = null;
+  try {
+    const resp = await fetch(API + '/api/pakd');
+    const list = await resp.json();
+    pakd = list.find(p => p.id === pakdId);
+  } catch(e) { pakd = _pakdCache.find(p => p.id === pakdId); }
+  if (!pakd) return alert('Data PAKD tidak ditemukan');
   const idField = document.getElementById('edit-pakd-id');
   idField.value = pakd.id;
   idField.setAttribute('readonly', 'readonly');
   idField.style.opacity = '0.6';
-  document.getElementById('edit-pakd-nama').value = pakd.nama;
-  document.getElementById('edit-pakd-aset').value = pakd.aset_dilaporkan;
+  document.getElementById('edit-pakd-nama').value = pakd.nama || '';
+  document.getElementById('edit-pakd-aset').value = pakd.aset_dilaporkan || '';
   const _ef = ['edit-equity','edit-persediaan','edit-simpanan','edit-customer'];
   const _ev = [pakd.ekuitas, pakd.persediaan_akd, pakd.simpanan_pedagang_akd, pakd.akd_konsumen];
   _ef.forEach((id,i) => { const el = document.getElementById(id); if (el) el.value = _ev[i] || ''; });
   renderWalletRows(pakd.wallets || []);
-  document.getElementById('modal-pakd').style.display = 'flex';
 }
 
 function closeEditModal() {
