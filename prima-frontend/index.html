@@ -2093,7 +2093,10 @@ async function deletePakd(pakdId) {
   if (!confirm('Hapus PAKD ' + pakdId + '? Tindakan ini tidak dapat dibatalkan.')) return;
   try {
     const resp = await fetch(API + '/api/pakd/' + pakdId, {method: 'DELETE'});
-    if (!resp.ok) throw new Error(await resp.text());
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      throw new Error(body.error || 'Gagal menghapus');
+    }
     loadData();
   } catch(e) {
     alert('Gagal menghapus: ' + e.message);

@@ -1509,6 +1509,19 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
 # ---------------------------------------------------------------------------
 
 def init_data():
+    conn = _get_db_conn()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM pakd")
+            count = cur.fetchone()[0]
+            cur.close()
+            conn.close()
+            if count == 0:
+                save_pakd([dict(p) for p in PAKD_DEFAULT])
+            return
+        except Exception as e:
+            print(f"[DB] init_data check failed: {e}", flush=True)
     try:
         if not os.path.exists(DATA_FILE):
             save_pakd([dict(p) for p in PAKD_DEFAULT])
