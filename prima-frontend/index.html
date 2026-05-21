@@ -286,28 +286,28 @@ tr:hover td{background:var(--bg2)}
     </div>
 
     <div class="kpi-grid">
-      <div class="kpi-card green" style="position:relative">
-        <div class="kpi-label">PAKD Status Aman</div>
-        <div class="kpi-value green" id="kpi-aman">—</div>
+      <div class="kpi-card red" style="position:relative">
+        <div class="kpi-label">PAKD Tidak Patuh</div>
+        <div class="kpi-value red" id="kpi-aman">—</div>
         <div class="kpi-sub"><strong id="kpi-total-label">—</strong></div>
         <div class="chain-dots"><div class="chain-dot"></div><div class="chain-line"></div><div class="chain-dot"></div><div class="chain-line"></div><div class="chain-dot"></div></div>
       </div>
       <div class="kpi-card red" style="position:relative">
         <div class="kpi-label">Alert Aktif</div>
         <div class="kpi-value red" id="kpi-alert">—</div>
-        <div class="kpi-sub">memerlukan tindak lanjut</div>
+        <div class="kpi-sub" id="kpi-alert-sub">memerlukan tindak lanjut</div>
         <div class="chain-dots"><div class="chain-dot"></div><div class="chain-line"></div><div class="chain-dot"></div><div class="chain-line"></div><div class="chain-dot"></div></div>
       </div>
       <div class="kpi-card amber" style="position:relative">
-        <div class="kpi-label">Defisit Tertinggi</div>
+        <div class="kpi-label">Deviasi Negatif Terbesar</div>
         <div class="kpi-value amber" id="kpi-max-dev">—</div>
         <div class="kpi-sub">deviasi negatif terbesar</div>
         <div class="chain-dots"><div class="chain-dot"></div><div class="chain-line"></div><div class="chain-dot"></div><div class="chain-line"></div><div class="chain-dot"></div></div>
       </div>
       <div class="kpi-card blue" style="position:relative">
-        <div class="kpi-label">Koneksi Blockchain</div>
-        <div class="kpi-value blue" style="font-size:22px;margin-top:6px">AKTIF</div>
-        <div class="kpi-sub" id="kpi-blockchain-sub">Etherscan V2 · CoinGecko</div>
+        <div class="kpi-label">Snapshot Terakhir</div>
+        <div class="kpi-value blue" id="kpi-snapshot-val" style="font-size:18px;margin-top:6px">—</div>
+        <div class="kpi-sub" id="kpi-blockchain-sub">Sumber: Etherscan V2 · CoinGecko</div>
         <div class="chain-dots"><div class="chain-dot"></div><div class="chain-line"></div><div class="chain-dot"></div><div class="chain-line"></div><div class="chain-dot"></div></div>
       </div>
     </div>
@@ -897,8 +897,14 @@ async function loadData() {
       document.getElementById('kpi-blockchain-sub').textContent = 'Etherscan V2 · CoinGecko';
     }
     const aman = data.filter(d => d.status === 'Aman').length;
-    document.getElementById('kpi-aman').textContent = aman;
-    document.getElementById('kpi-total-label').textContent = 'dari ' + data.length + ' PAKD terdaftar';
+    const kritis = data.filter(d => d.status === 'Kritis').length;
+    const peringatan = data.filter(d => d.status === 'Deviasi').length;
+    document.getElementById('kpi-aman').textContent = data.length - aman;
+    document.getElementById('kpi-total-label').textContent = aman + ' entitas dalam status aman';
+    const _sub = document.getElementById('kpi-alert-sub');
+    if (_sub) _sub.textContent = kritis + ' kritis · ' + peringatan + ' peringatan';
+    const _snap = document.getElementById('kpi-snapshot-val');
+    if (_snap) { const _n = new Date(); _snap.textContent = _n.getDate() + ' ' + ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'][_n.getMonth()] + ' ' + _n.getFullYear() + ', ' + String(_n.getHours()).padStart(2,'0') + '.' + String(_n.getMinutes()).padStart(2,'0'); }
     document.getElementById('kpi-alert').textContent = data.length - aman;
     const defisits = data.filter(d => !d.surplus).map(d => Math.abs(d.deviasi_pct));
     document.getElementById('kpi-max-dev').textContent = defisits.length ? Math.max(...defisits).toFixed(2) + '%' : '0%';
@@ -1633,8 +1639,14 @@ async function loadSnapshot() {
     const fallbackNotice = document.getElementById('eth-fallback-notice');
     if (fallbackNotice) fallbackNotice.style.display = 'none';
     const aman = data.filter(d => d.status === 'Aman').length;
-    document.getElementById('kpi-aman').textContent = aman;
-    document.getElementById('kpi-total-label').textContent = 'dari ' + data.length + ' PAKD terdaftar';
+    const kritis = data.filter(d => d.status === 'Kritis').length;
+    const peringatan = data.filter(d => d.status === 'Deviasi').length;
+    document.getElementById('kpi-aman').textContent = data.length - aman;
+    document.getElementById('kpi-total-label').textContent = aman + ' entitas dalam status aman';
+    const _sub = document.getElementById('kpi-alert-sub');
+    if (_sub) _sub.textContent = kritis + ' kritis · ' + peringatan + ' peringatan';
+    const _snap = document.getElementById('kpi-snapshot-val');
+    if (_snap) { const _n = new Date(); _snap.textContent = _n.getDate() + ' ' + ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'][_n.getMonth()] + ' ' + _n.getFullYear() + ', ' + String(_n.getHours()).padStart(2,'0') + '.' + String(_n.getMinutes()).padStart(2,'0'); }
     document.getElementById('kpi-alert').textContent = data.length - aman;
     const defisits = data.filter(d => !d.surplus).map(d => Math.abs(d.deviasi_pct));
     document.getElementById('kpi-max-dev').textContent = defisits.length ? Math.max(...defisits).toFixed(2) + '%' : '0%';
