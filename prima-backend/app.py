@@ -21,6 +21,8 @@ app = Flask(__name__)
 CORS(app)
 
 SATOSHI_PER_BTC    = 100_000_000
+_last_rekon_time = 0
+REKON_COOLDOWN   = 60
 LAMPORTS_PER_SOL   = 1_000_000_000
 PRICE_CACHE        = {}
 BALANCE_CACHE      = {}
@@ -1634,6 +1636,12 @@ def delete_pakd(pakd_id):
 
 @app.route("/api/reconciliation")
 def reconciliation():
+    global _last_rekon_time
+    _now = time.time()
+    if not app.config.get('TESTING') and _now - _last_rekon_time < REKON_COOLDOWN:
+        _sisa = int(REKON_COOLDOWN - (_now - _last_rekon_time))
+        return jsonify({'error': f'Cooldown aktif. Tunggu {_sisa} detik.'}), 429
+    _last_rekon_time = _now
     try:
         _t_total = time.perf_counter()
         _timings = {}
