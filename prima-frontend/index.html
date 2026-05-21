@@ -317,6 +317,7 @@ tr:hover td{background:var(--bg2)}
     <div>
       <div class="section-header">
         <div class="section-title"><div class="section-title-bar"></div>Daftar Pedagang Aset Keuangan Digital</div>
+        <button onclick="openAddModal()" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><span style="font-size:16px;line-height:1">+</span>&nbsp;Tambah PAKD</button>
       </div>
       <div class="panel">
         <table>
@@ -1964,12 +1965,27 @@ const API = 'https://prima-ojk.onrender.com';
 let _editPakdId = null;
 let _pakdCache = [];
 
+function openAddModal() {
+  _editPakdId = null;
+  document.getElementById('modal-pakd-title').textContent = 'Tambah PAKD Baru';
+  const idField = document.getElementById('edit-pakd-id');
+  idField.value = '';
+  idField.removeAttribute('readonly');
+  idField.style.opacity = '1';
+  document.getElementById('edit-pakd-nama').value = '';
+  document.getElementById('edit-pakd-aset').value = '';
+  renderWalletRows([]);
+  document.getElementById('modal-pakd').style.display = 'flex';
+}
 function openEditModal(pakdId) {
   const pakd = _pakdCache.find(p => p.id === pakdId);
   if (!pakd) return alert('Data PAKD tidak ditemukan');
   _editPakdId = pakdId;
   document.getElementById('modal-pakd-title').textContent = 'Edit PAKD: ' + pakdId;
-  document.getElementById('edit-pakd-id').value = pakd.id;
+  const idField = document.getElementById('edit-pakd-id');
+  idField.value = pakd.id;
+  idField.setAttribute('readonly', 'readonly');
+  idField.style.opacity = '0.6';
   document.getElementById('edit-pakd-nama').value = pakd.nama;
   document.getElementById('edit-pakd-aset').value = pakd.aset_dilaporkan;
   renderWalletRows(pakd.wallets || []);
@@ -2025,17 +2041,27 @@ function getWalletsFromModal() {
 }
 
 async function saveEditModal() {
-  const body = {
-    nama: document.getElementById('edit-pakd-nama').value.trim(),
-    aset_dilaporkan: parseInt(document.getElementById('edit-pakd-aset').value) || 0,
-    wallets: getWalletsFromModal()
-  };
+  const nama = document.getElementById('edit-pakd-nama').value.trim();
+  const aset = parseInt(document.getElementById('edit-pakd-aset').value) || 0;
+  const wallets = getWalletsFromModal();
   try {
-    const resp = await fetch(API + '/api/pakd/' + _editPakdId, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body)
-    });
+    let resp;
+    if (_editPakdId === null) {
+      const newId = document.getElementById('edit-pakd-id').value.trim();
+      if (!newId) return alert('ID PAKD wajib diisi');
+      if (!nama) return alert('Nama PAKD wajib diisi');
+      resp = await fetch(API + '/api/input-manual', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: newId, nama: nama, aset_dilaporkan: aset, wallets: wallets})
+      });
+    } else {
+      resp = await fetch(API + '/api/pakd/' + _editPakdId, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({nama: nama, aset_dilaporkan: aset, wallets: wallets})
+      });
+    }
     if (!resp.ok) throw new Error(await resp.text());
     closeEditModal();
     loadData();
