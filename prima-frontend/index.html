@@ -137,7 +137,7 @@ tr:hover td{background:var(--bg2)}
 .chain-line{width:14px;height:1px;background:var(--blue)}
 .num-row{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--txt4);font-weight:500}
 .info-chip{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt3);background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;margin-bottom:16px}
-.wallet-mini-row{display:flex;align-items:center;gap:8px;font-size:10px;font-family:'JetBrains Mono',monospace;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)}
+.detail-expand-row>td{background:var(--bg2);border-bottom:1px solid var(--border)}.det-inner-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:14px 16px;border-top:2px solid var(--blue)}.det-inner-grid>div{padding:0 14px}.det-inner-grid>div:first-child{border-right:1px solid var(--border);padding-left:0}.det-section-lbl{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--txt3);font-weight:700;margin-bottom:8px}.wallet-mini-row{display:flex;align-items:center;gap:8px;font-size:10px;font-family:'JetBrains Mono',monospace;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)}
 .wallet-mini-row:first-of-type{margin-top:10px}
 .wallet-chain-tag{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:0.05em;flex-shrink:0}
 .wallet-chain-tag.eth{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border)}
@@ -324,7 +324,7 @@ tr:hover td{background:var(--bg2)}
             <tr>
               <th>#</th><th>Nama PAKD</th><th>Status</th>
               <th>Aset On-Chain (IDR)</th><th>Aset Dilaporkan (IDR)</th>
-              <th>Deviasi</th><th>Breakdown Aset</th><th>Aksi</th>
+              <th>Deviasi</th><th>Wallet</th><th>Aksi</th>
             </tr>
           </thead>
           <tbody id="pakd-tbody">
@@ -909,57 +909,52 @@ async function loadData() {
     const defisits = data.filter(d => !d.surplus).map(d => Math.abs(d.deviasi_pct));
     document.getElementById('kpi-max-dev').textContent = defisits.length ? Math.max(...defisits).toFixed(2) + '%' : '0%';
     tbody.innerHTML = data.map((d, i) => `
-      <tr style="background:${d.status==='Kritis'?'rgba(192,57,43,0.03)':d.status==='Deviasi'?'rgba(194,124,26,0.03)':''}">
+      <tr style="background:${d.status==='Kritis'?'rgba(192,57,43,0.03)':d.status==='Deviasi'?'rgba(194,124,26,0.03)':''};cursor:pointer" onclick="toggleDetail('det-${d.id}')">
         <td class="num-row" style="vertical-align:top;padding-top:18px">${String(i+1).padStart(2,'0')}</td>
-        <td style="vertical-align:top;padding-top:14px;min-width:280px">
+        <td style="vertical-align:top;padding-top:14px;min-width:220px">
           <span class="pakd-name">${escapeHtml(d.nama)}</span>
           <span class="pakd-id">${escapeHtml(d.id)} · Berizin</span>
-          ${renderWalletsCell(d)}
         </td>
         <td style="vertical-align:top;padding-top:18px"><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
         <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${formatIDR(d.aset_onchain_idr)}</td>
         <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
         <td style="vertical-align:top;padding-top:18px">${deviDisplay(d)}</td>
-        <td style="line-height:1.6;vertical-align:top;padding-top:14px">${renderBreakdown(d)}</td>
+        <td style="vertical-align:top;padding-top:14px">${renderWalletBadges(d)}</td>
         <td style="vertical-align:top;padding-top:16px">
-          <div style="display:flex;gap:6px">
-            <button onclick="openEditModal('${escapeHtml(d.id)}')"
+          <div style="display:flex;gap:6px;align-items:center">
+            <button onclick="event.stopPropagation();openEditModal('${escapeHtml(d.id)}')"
               style="background:none;border:none;cursor:pointer;color:#64748b;border-radius:6px;padding:6px 8px;transition:all 0.15s"
               onmouseover="this.style.background='#eff6ff';this.style.color='#2563eb'"
               onmouseout="this.style.background='none';this.style.color='#64748b'"
               title="Edit PAKD">✏️</button>
-            <button onclick="deletePakd('${escapeHtml(d.id)}')"
+            <button onclick="event.stopPropagation();deletePakd('${escapeHtml(d.id)}')"
               style="background:none;border:none;cursor:pointer;color:#64748b;border-radius:6px;padding:6px 8px;transition:all 0.15s"
               onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'"
               onmouseout="this.style.background='none';this.style.color='#64748b'"
               title="Hapus PAKD">🗑️</button>
+            <span id="icon-det-${d.id}" style="color:#94a3b8;font-size:11px;margin-left:2px">▼</span>
+          </div>
+        </td>
+      </tr>
+      <tr id="det-${d.id}" class="detail-expand-row" style="display:none">
+        <td colspan="8" style="padding:0">
+          <div class="det-inner-grid">
+            <div>
+              <div class="det-section-lbl">Alamat Wallet Terdaftar</div>
+              ${renderWalletsCell(d)}
+            </div>
+            <div>
+              <div class="det-section-lbl">Breakdown Aset On-Chain</div>
+              ${renderBreakdown(d)}
+            </div>
           </div>
         </td>
       </tr>`).join('');
   } catch (err) {
-    tbody.innerHTML = '<tr class="error-row"><td colspan="7">Gagal mengambil data: ' + escapeHtml(err.message) + '</td></tr>';
+    tbody.innerHTML = '<tr class="error-row"><td colspan="8">Gagal mengambil data: ' + escapeHtml(err.message) + '</td></tr>';
     const badge = document.getElementById('live-badge');
-    badge.textContent = 'OFFLINE';
-    badge.style.background = 'var(--red-bg)';
-    badge.style.borderColor = 'var(--red-border)';
-    badge.style.color = 'var(--red)';
+    if (badge) { badge.textContent = 'OFFLINE'; badge.style.background = 'var(--red)'; }
   }
-}
-
-function toggleLegal(id) {
-  var el = document.getElementById(id);
-  if (el) el.classList.toggle('open');
-}
-
-function renderChips(cid, perPakd, showEquity) {
-  var el = document.getElementById(cid);
-  if (!el || !perPakd) return;
-  el.innerHTML = perPakd.map(function(p) {
-    var cls = p.lulus ? 'pass' : 'fail';
-    var icon = p.lulus ? '✓' : '✕';
-    var eq = showEquity ? ' ' + formatRpCompact(p.equity_post) : '';
-    return '<span class="entity-chip ' + cls + '">' + icon + ' ' + p.nama + eq + '</span>';
-  }).join('');
 }
 
 function renderP91Cards(cid, perPakd) {
@@ -1552,6 +1547,26 @@ async function loadPengaturan() {
   }
 }
 
+function renderWalletBadges(d) {
+  if (!d.wallets || d.wallets.length === 0) return '<span style="font-size:11px;color:var(--txt3)">—</span>';
+  return d.wallets.map(function(w) {
+    var ch = (w.network || 'ETH').toLowerCase().replace('ethereum','eth').replace('bitcoin','btc').replace('solana','sol');
+    var cls = ch === 'btc' ? 'btc' : ch === 'sol' ? 'sol' : 'eth';
+    var lbl = ch === 'btc' ? 'BTC' : ch === 'sol' ? 'SOL' : 'ETH';
+    var dot = w.verified
+      ? '<span style="font-size:9px;color:var(--green);margin-left:2px">&#10003;</span>'
+      : '<span style="font-size:9px;color:var(--red);margin-left:2px">!</span>';
+    return '<span class="wallet-chain-tag ' + cls + '" style="display:inline-block;margin-bottom:3px">' + lbl + '</span>' + dot;
+  }).join(' ');
+}
+function toggleDetail(id) {
+  var row = document.getElementById(id);
+  if (!row) return;
+  var isOpen = row.style.display !== 'none';
+  row.style.display = isOpen ? 'none' : 'table-row';
+  var icon = document.getElementById('icon-' + id);
+  if (icon) icon.textContent = isOpen ? '▼' : '▲';
+}
 function loadAll() { loadData(); loadAudit(); }
 async function triggerManualRefresh() {
   const btn = document.querySelector('button.btn-primary[onclick="triggerManualRefresh()"]');
