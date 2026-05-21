@@ -1858,7 +1858,7 @@ function renderDetailTable(rows) {
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="no-data-state">Tidak ada data</td></tr>'; return; }
   tbody.innerHTML = rows.map((r, idx) => {
     const dev = parseFloat(r.deviasi_persen) || 0;
-    const devColor = Math.abs(dev) < 5 ? 'var(--green)' : Math.abs(dev) < 15 ? 'var(--amber)' : 'var(--red)';
+    const devColor = r.status === 'Aman' ? 'var(--green)' : r.status === 'Deviasi' ? 'var(--amber)' : 'var(--red)';
     const badgeClass = r.status === 'Aman' ? 'aman' : r.status === 'Deviasi' ? 'deviasi' : 'kritis';
     const hasBreakdown = r.network_breakdown && r.network_breakdown.length > 0;
     const mainRow = '<tr>' +
