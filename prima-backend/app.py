@@ -7,6 +7,7 @@ import tempfile
 from datetime import datetime
 import re
 import time
+import functools
 import secrets
 from datetime import datetime, timezone
 from eth_account import Account
@@ -1552,11 +1553,21 @@ def index():
 def status():
     return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.9-pasal50-pasal91"})
 
+def require_admin_token(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('X-Admin-Token', '')
+        if token != os.environ.get('ADMIN_TOKEN', ''):
+            return jsonify({'error': 'Unauthorized'}), 401
+        return f(*args, **kwargs)
+    return decorated
+
 @app.route("/api/pakd", methods=["GET"])
 def get_pakd():
     return jsonify(load_pakd())
 
 @app.route("/api/pakd", methods=["POST"])
+@require_admin_token
 def create_pakd():
     body = request.get_json(force=True)
     if not body.get("id") or not body.get("nama"):
@@ -1580,6 +1591,7 @@ def create_pakd():
     return jsonify(new_pakd), 201
 
 @app.route("/api/pakd/<pakd_id>", methods=["PUT"])
+@require_admin_token
 def update_pakd(pakd_id):
     body = request.get_json(force=True)
     data = load_pakd()
@@ -1599,6 +1611,7 @@ def update_pakd(pakd_id):
     return jsonify({"error": f"PAKD {pakd_id} tidak ditemukan"}), 404
 
 @app.route("/api/pakd/<pakd_id>", methods=["DELETE"])
+@require_admin_token
 def delete_pakd(pakd_id):
     data = load_pakd()
     new_data = [p for p in data if p["id"] != pakd_id]
@@ -2048,6 +2061,7 @@ def stress_test():
 
 
 @app.route("/api/input-manual", methods=["POST"])
+@require_admin_token
 def input_manual():
     try:
         body = request.get_json(silent=True)

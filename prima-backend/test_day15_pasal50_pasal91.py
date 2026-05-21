@@ -82,8 +82,16 @@ def _stress_patches():
 
 @pytest.fixture
 def client():
+    import os
     prima_app.app.config["TESTING"] = True
     with prima_app.app.test_client() as c:
+        original_open = c.open
+        def patched_open(*args, **kwargs):
+            headers = dict(kwargs.get('headers') or {})
+            headers['X-Admin-Token'] = os.environ.get('ADMIN_TOKEN', 'test-token-prima')
+            kwargs['headers'] = headers
+            return original_open(*args, **kwargs)
+        c.open = patched_open
         yield c
 
 

@@ -1981,6 +1981,13 @@ function renderChips(containerId, items, showPass) {
 
 <script>
 const API = 'https://prima-ojk.onrender.com';
+let _adminToken = '';
+function getAdminToken() {
+  if (!_adminToken) {
+    _adminToken = prompt('PRIMA Admin Token diperlukan untuk operasi ini:') || '';
+  }
+  return _adminToken;
+}
 let _editPakdId = null;
 let _pakdCache = [];
 
@@ -2084,13 +2091,13 @@ async function saveEditModal() {
       if (!nama) return alert('Nama PAKD wajib diisi');
       resp = await fetch(API + '/api/input-manual', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'X-Admin-Token': getAdminToken()},
         body: JSON.stringify({id: newId, nama: nama, aset_dilaporkan: aset, wallets: wallets, ekuitas, persediaan_akd, simpanan_pedagang_akd, akd_konsumen})
       });
     } else {
       resp = await fetch(API + '/api/pakd/' + _editPakdId, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'X-Admin-Token': getAdminToken()},
         body: JSON.stringify({nama: nama, aset_dilaporkan: aset, wallets: wallets, ekuitas, persediaan_akd, simpanan_pedagang_akd, akd_konsumen})
       });
     }
@@ -2105,7 +2112,7 @@ async function saveEditModal() {
 async function deletePakd(pakdId) {
   if (!confirm('Hapus PAKD ' + pakdId + '? Tindakan ini tidak dapat dibatalkan.')) return;
   try {
-    const resp = await fetch(API + '/api/pakd/' + pakdId, {method: 'DELETE'});
+    const resp = await fetch(API + '/api/pakd/' + pakdId, {method: 'DELETE', headers: {'X-Admin-Token': getAdminToken()}});
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
       loadData();
