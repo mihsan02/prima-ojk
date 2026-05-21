@@ -2095,6 +2095,7 @@ async function deletePakd(pakdId) {
     const resp = await fetch(API + '/api/pakd/' + pakdId, {method: 'DELETE'});
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
+      loadData();
       throw new Error(body.error || 'Gagal menghapus');
     }
     loadData();
