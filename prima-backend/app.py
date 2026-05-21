@@ -9,6 +9,7 @@ import re
 import time
 import functools
 import secrets
+import hmac
 from datetime import datetime, timezone
 from eth_account import Account
 from eth_account.messages import encode_defunct
@@ -307,13 +308,14 @@ def _save_snapshot(pakd_id, pakd_nama, aset_dilaporkan, aset_onchain, deviasi_pc
         return
     try:
         cur = conn.cursor()
+        _deviasi_clamped = max(-9999.9999, min(9999.9999, float(deviasi_pct)))
         cur.execute(
             """INSERT INTO reconciliation_snapshots
                (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
                 deviasi_persen, status, harga_fallback, network_breakdown)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
             (pakd_id, pakd_nama, int(aset_dilaporkan), int(aset_onchain),
-             float(deviasi_pct), status, harga_fallback,
+             _deviasi_clamped, status, harga_fallback,
              json.dumps(breakdown))
         )
         conn.commit()
@@ -1558,8 +1560,11 @@ def status():
 def require_admin_token(f):
     @functools.wraps(f)
     def decorated(*args, **kwargs):
+        expected = os.environ.get('ADMIN_TOKEN')
+        if not expected:
+            return jsonify({'error': 'Unauthorized'}), 401
         token = request.headers.get('X-Admin-Token', '')
-        if token != os.environ.get('ADMIN_TOKEN', ''):
+        if not hmac.compare_digest(token, expected):
             return jsonify({'error': 'Unauthorized'}), 401
         return f(*args, **kwargs)
     return decorated
@@ -1735,7 +1740,8 @@ def reconciliation():
 def internal_refresh_all():
     import time as _time
     token = request.headers.get("X-Internal-Token", "")
-    if token != os.environ.get("INTERNAL_TOKEN", ""):
+    _expected_internal = os.environ.get("INTERNAL_TOKEN")
+    if not _expected_internal or not hmac.compare_digest(token, _expected_internal):
         return jsonify({"status": "unauthorized"}), 401
     if REFRESH_LOCK["running"]:
         return jsonify({"status": "skipped", "reason": "previous run still active",
@@ -1751,7 +1757,7 @@ def internal_refresh_all():
             breakdown = result_bal["breakdown"]
             dilaporkan = pakd.get("aset_dilaporkan", 0)
             deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
-            status = "NORMAL" if abs(deviasi) <= 5 else ("WARNING" if abs(deviasi) <= 20 else "KRITIS")
+            status = "Aman" if abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
                 "aset_dilaporkan_idr": dilaporkan,
@@ -2429,7 +2435,7 @@ def _run_refresh_job(job_id):
             breakdown = result_bal["breakdown"]
             dilaporkan = pakd.get("aset_dilaporkan", 0)
             deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
-            status = "NORMAL" if abs(deviasi) <= 5 else ("WARNING" if abs(deviasi) <= 20 else "KRITIS")
+            status = "Aman" if abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
                 "aset_dilaporkan_idr": dilaporkan,
