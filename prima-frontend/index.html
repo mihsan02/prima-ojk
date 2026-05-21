@@ -655,16 +655,6 @@ tr:hover td{background:var(--bg2)}
     </div>
 
     <div>
-      <div class="section-header"><div class="section-title"><div class="section-title-bar"></div>Metodologi</div></div>
-      <div class="panel">
-        <div class="panel-body">
-          <div style="font-size:13px;color:var(--txt2);line-height:1.8">
-            <strong style="color:var(--txt1)">Pasal 50 (Risiko Pasar):</strong> simulasi penurunan harga volatile (ETH, BTC, SOL) −25%/−50%/−80% dan stablecoin (USDT, USDC) −3%/−8%/−13%. Threshold: ekuitas pasca-stress ≥ Rp 50.000.000.000 (Pasal 50(1)(o) POJK 23 Tahun 2025). Basis historis: BTC −64% sepanjang 2022 (Chainalysis 2024), BTC −84% siklus 2017–2018 (CoinMarketCap), USDC depeg USD 0,87 saat kolaps SVB Maret 2023 (Reuters).
-            <br><br>
-            <strong style="color:var(--txt1)">Pasal 91 (Risiko Siber):</strong> simulasi kehilangan AKD konsumen −23%/−50%/−100%. Threshold sama: ekuitas pasca-kehilangan ≥ Rp 50.000.000.000. Basis historis: GDAC April 2023 −23% (Chainalysis 2024), WazirX Juli 2024 −50% (Elliptic/Reuters), Mt Gox 2014 −100% AKD konsumen (public record).
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="dash-footer">
@@ -848,15 +838,11 @@ function showPage(id, el) {
 }
 
 function formatIDR(n) {
-  if (n >= 1e9) return 'Rp ' + (n/1e9).toFixed(2) + ' M';
-  if (n >= 1e6) return 'Rp ' + (n/1e6).toFixed(1) + ' jt';
   return 'Rp ' + Math.round(n).toLocaleString('id-ID');
 }
 
 function formatRpCompact(n) {
-  if (n >= 1e9) return 'Rp ' + (n/1e9).toFixed(1) + ' M';
-  if (n >= 1e6) return 'Rp ' + (n/1e6).toFixed(1) + ' jt';
-  return 'Rp ' + n.toLocaleString('id-ID');
+  return 'Rp ' + Math.round(n).toLocaleString('id-ID');
 }
 
 function statusClass(s) {
