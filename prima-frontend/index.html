@@ -1566,7 +1566,6 @@ function toggleDetail(id) {
   var icon = document.getElementById('icon-' + id);
   if (icon) icon.textContent = isOpen ? '▼' : '▲';
 }
-function loadAll() { loadData(); loadAudit(); }
 async function triggerManualRefresh() {
   const btn = document.querySelector('button.btn-primary[onclick="triggerManualRefresh()"]');
   const tbody = document.getElementById('pakd-tbody');
