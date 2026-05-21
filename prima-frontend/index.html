@@ -1806,12 +1806,7 @@ function renderDetailChart(rows) {
   const toY = v => PADT + (1 - (v - minV) / range) * cH;
   const toX = (i, len) => PADL + (i / (len - 1 || 1)) * cW;
 
-  const fmtRp = v => {
-    if (v >= 1e12) return 'Rp ' + (v/1e12).toFixed(1) + 'T';
-    if (v >= 1e9)  return 'Rp ' + (v/1e9).toFixed(1) + 'M';
-    if (v >= 1e6)  return 'Rp ' + (v/1e6).toFixed(1) + 'jt';
-    return 'Rp ' + v.toLocaleString('id-ID');
-  };
+  const fmtRp = v => 'Rp ' + Math.round(v).toLocaleString('id-ID');
   const fmtTime = iso => {
     const d = new Date(iso);
     return d.toLocaleString('id-ID', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
@@ -1936,8 +1931,7 @@ function renderChips(containerId, items, showPass) {
         var val = x.equity_post != null ? x.equity_post : (x.aset_stressed != null ? x.aset_stressed : null);
         var valStr = '';
         if (val != null) {
-            var m = Math.round(val / 1e6);
-            valStr = ' <span style="opacity:0.75">Rp ' + m.toLocaleString('id-ID') + ' M</span>';
+            valStr = ' <span style="opacity:0.75">Rp ' + Math.round(val).toLocaleString('id-ID') + '</span>';
         }
         return '<span style="background:' + bg + ';color:' + col + ';padding:3px 10px;border-radius:12px;font-size:11px;margin:2px;display:inline-block">' + prefix + label + valStr + '</span>';
     }).join('');
