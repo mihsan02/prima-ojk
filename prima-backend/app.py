@@ -264,6 +264,12 @@ def _normalize_wallet_entry(w, default_network="ethereum"):
 
 def _migrate_record(p):
     p = dict(p)
+    if "pakd_id" in p and "id" not in p:
+        p["id"] = p.pop("pakd_id")
+    if "nama_pakd" in p and "nama" not in p:
+        p["nama"] = p.pop("nama_pakd")
+    if "aset_dilaporkan_idr" in p and "aset_dilaporkan" not in p:
+        p["aset_dilaporkan"] = p.pop("aset_dilaporkan_idr")
     if "eth_wallet" in p and "wallets" not in p:
         eth_addr = p.pop("eth_wallet")
         p["wallets"] = [{"network": "ethereum", "address": eth_addr, "verified": False, "verified_at": None}]

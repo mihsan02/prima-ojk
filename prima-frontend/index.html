@@ -1927,6 +1927,27 @@ function toggleBreakdown(idx) {
 
 document.addEventListener('DOMContentLoaded', populateDetailSelect);
 addWalletRow('ethereum');
+
+function toggleLegal(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = (el.style.display === 'none' ? 'block' : 'none');
+}
+
+function renderChips(containerId, items, showPass) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var filtered = showPass ? items : items.filter(function(x) { return !x.lulus; });
+    if (!filtered || filtered.length === 0) {
+        container.innerHTML = '<span style="color:#888;font-size:12px">-</span>';
+        return;
+    }
+    container.innerHTML = filtered.map(function(x) {
+        var bg = x.lulus ? '#d1fae5' : '#fee2e2';
+        var col = x.lulus ? '#065f46' : '#991b1b';
+        return '<span style="background:' + bg + ';color:' + col + ';padding:2px 8px;border-radius:12px;font-size:11px;margin:2px;display:inline-block">' + (x.nama || x.id || '-') + '</span>';
+    }).join('');
+}
 </script>
 </body>
 <!-- Modal Edit PAKD -->
