@@ -55,7 +55,7 @@ PRIMA mengambil data saldo dompet langsung dari jaringan blockchain melalui API 
 | Harga SPL | Jupiter Price V3 | `https://lite.jupag.ag/v3/price` | two-gate filter. Lite-api deprecation watch. |
 | Token set terverifikasi | Jupiter Tokens V2 | `https://tokens.jup.ag/tokens?tags=verified` | Gate 1 SPL filter: Jupiter verified OR has-price. |
 
-**Cakupan ERC-20:** Curated 50 token dipilih berdasarkan tiga kriteria: terdaftar di Bappebti Keputusan No. 501, top market cap global per CoinGecko, relevan untuk profil PAKD Indonesia. Seluruh 50 contract diverifikasi via `scripts/verify_curated_list.py`. Token di luar 50 dilaporkan sebagai `eth_other_token_idr` dengan label `UNVALUED` di frontend.
+**Cakupan ERC-20:** Curated 50 token dipilih berdasarkan tiga kriteria: (1) termasuk dalam 821 aset ERC-20 yang terdaftar di Bursa Aset Keuangan Digital per 19 Mei 2026 representasi terkini dari aset kripto yang diizinkan beredar di Indonesia di bawah rezim OJK. Angka 821 berasal dari analisis pemetaan jaringan blockchain terhadap 1.266 aset CFX, di mana 65,2% beroperasi di Ethereum atau EVM-compatible L2 (analisis PRIMA, 19 Mei 2026). Di bawah POJK No. 27 Tahun 2024, penetapan Daftar Aset Kripto berpindah dari Bappebti ke Bursa (CFX), sehingga daftar CFX adalah referensi. (2) Termasuk dalam top market cap global per CoinGecko ranking memastikan token yang di-track memiliki likuiditas dan price feed yang reliabel untuk konversi IDR. (3) Relevan untuk profil PAKD Indonesia berdasarkan data perdagangan historis token long-tail dengan volume minim di pasar Indonesia diprioritaskan lebih rendah. Seluruh 50 contract diverifikasi via `scripts/verify_curated_list.py`. Token di luar 50 yang terdeteksi di wallet PAKD dilaporkan sebagai `eth_other_token_idr` dengan label `UNVALUED` di frontend.
 
 **SPL two-gate filter:** Gate 1 menerima token yang masuk Jupiter verified set ATAU memiliki harga di Jupiter Price V3. Gate 2 wajib has-price untuk masuk kalkulasi nilai IDR. Token yang lolos Gate 1 tapi gagal Gate 2 tetap dilaporkan sebagai `sol_other_token_idr` dengan label `UNVALUED`.
 
@@ -339,3 +339,5 @@ Deskripsi lengkap beserta rencana mitigasi ada di `docs/keterbatasan-sistem.md`.
 - Chainalysis. (2024). *The Chainalysis 2024 Crypto Crime Report*.
 - OWASP ASVS V4.0.3 — V2.10.3 Service Authentication.
 - POJK No. 23 Tahun 2025, Pasal 50 ayat (1) huruf o, Pasal 91 ayat (1).
+- PT Central Finansial X (CFX). Daftar Aset Kripto Terdaftar, 19 Mei 2026. Total 1.266 aset; analisis jaringan PRIMA: 821 ERC-20/Ethereum (65,2%), 93 Solana (7,4%), 28 Bitcoin (2,2%). https://www.cfx.co.id/
+
