@@ -87,14 +87,23 @@ Berdasarkan profiling empiris 20 Mei 2026 (4 PAKD aktif di production Render):
 
 | Segmen | Cold cache | Warm cache |
 |--------|-----------|-----------|
-| fetch_eth_total | 63.8 detik | 0.01 detik |
-| fetch_sol_total | 5.9 detik | 3.3 detik |
-| db_write (sequential, sebelum batch) | 5.5 detik | 5.5 detik |
-| Total | 77.5 detik | 11.1 detik |
+| fetch_eth_total | 63.775 detik | 0.010 detik |
+| fetch_sol_total | 5.897 detik | 3.645 detik |
+| db_write (sequential, sebelum batch) | 5.523 detik | 5.523 detik |
+| fetch_btc_total | 0.0 detik | 0.0 detik |
+| pricing_eth_fallback | 0.0 detik | 0.0 detik |
+| Total | 77.453 detik | 11.128 detik |
 
-ETH cold cache adalah 82.3% total waktu karena 53 sequential request per wallet ke Etherscan V2 free tier (1 native + 2 stablecoin + 50 curated ERC-20).
+Kondisi profiling: 4 PAKD aktif, wallet distribusi ETH-heavy, 0 BTC wallet aktif, commit `99de842`. Run 3 (mixed, jeda ~4 menit) menunjukkan total 10.808 detik — konfirmasi bahwa BALANCE_TTL=300 detik efektif mempertahankan ETH warm cache.
 
-Solusi: arsitektur hybrid dua lapis.
+ETH cold cache adalah 82.3% total waktu karena 53 sequential request per wallet ke Etherscan V2 free tier (1 native + 2 stablecoin + 50 curated ERC-20). SOL warm cache 3.3–3.6 detik karena Jupiter `_get_jupiter_verified_set()` masih hit network tiap call (bukan BALANCE_CACHE) — acceptable untuk demo scope. db_write flat 5.5 detik tidak terpengaruh cache status; proyeksi 25 PAKD dengan sequential insert = ~34 detik, wajib di-batch.
+
+Keputusan arsitektur berdasarkan profiling:
+- Path A (background snapshot): prioritas utama — solve cold start tanpa perlu Multicall3.
+- Batch db_write: wajib sebelum Path A, mengeliminasi proyeksi 34 detik untuk 25 PAKD.
+- Path B (Multicall3 untuk refresh manual <30 detik): dijadwalkan Phase 2 post-hackathon.
+
+Solusi yang diimplementasikan: arsitektur hybrid dua lapis.
 
 **Layer 1 — Background snapshot:**
 cron-job.org memanggil `POST /api/internal/refresh-all` tiap 5 menit. Endpoint ini menjalankan rekonsiliasi penuh semua PAKD dan menyimpan hasilnya ke Supabase via `_save_snapshots_batch()` (satu koneksi, satu `executemany()` — menggantikan sequential per-PAKD yang proyeksi 25 PAKD menghasilkan 34 detik hanya untuk DB write). Page load frontend memanggil `GET /api/reconciliation/latest` (DISTINCT ON query Supabase, response <1 detik).
