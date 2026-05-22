@@ -43,7 +43,7 @@ Jadwal rekonsiliasi bulanan pada MVP bersifat tetap. OJK disarankan untuk tidak 
 
 PRIMA v1.9 mendukung 3 chain native (BTC, ETH, SOL) dengan cakupan token sebagai berikut:
 
-- Ethereum: ETH native plus curated top-50 ERC-20 (dipilih berdasarkan daftar Bappebti No. 501, top market cap CoinGecko, dan relevansi profil PAKD Indonesia). Verifikasi seluruh 50 contract dilakukan via `scripts/verify_curated_list.py`. Token di luar 50 dilaporkan sebagai `UNVALUED` di frontend.
+- Ethereum: ETH native plus curated top-50 ERC-20 (dipilih dari 821 aset ERC-20 terdaftar di bursa CFX per 19 Mei 2026, berdasarkan top market cap CoinGecko dan relevansi profil PAKD Indonesia
 - Solana: SOL native plus seluruh SPL token yang muncul di wallet via Helius `getTokenAccountsByOwner`, difilter two-gate (Jupiter verified set ATAU has-price di Gate 1; has-price wajib di Gate 2 untuk masuk kalkulasi nilai).
 - Bitcoin: UTXO via Blockstream Esplora. Saldo native only, tidak ada token layer di BTC.
 
@@ -297,7 +297,7 @@ PRIMA v1.9 mengimplementasikan enumeration token ERC-20 di Ethereum menggunakan 
 4. Render timeout 30 detik. Instance Render free tier membatasi response time. Full enumeration dengan banyak token dapat melampaui batas ini pada wallet aktif dengan portofolio besar.
 5. Etherscan tokeninfo endpoint paid tier. Metadata token lengkap via endpoint `tokeninfo` membutuhkan Etherscan API paid plan. Demo plan tidak menyediakan akses ini secara reliable.
 
-Solusi yang diimplementasikan: daftar curated 50 token dipilih berdasarkan tiga kriteria: (1) terdaftar di Bappebti Keputusan No. 501 sebagai aset kripto yang diperdagangkan di Indonesia, (2) termasuk dalam top market cap global per CoinGecko ranking, (3) relevan untuk profil PAKD Indonesia berdasarkan data perdagangan historis Bappebti.
+Solusi yang diimplementasikan: daftar curated 50 token dipilih berdasarkan tiga kriteria: (1) termasuk dalam 821 aset ERC-20 yang terdaftar di bursa PT Central Finansial X (CFX) per 19 Mei 2026 representasi terkini Daftar Aset Kripto yang berlaku di Indonesia. Angka 821 berasal dari analisis pemetaan jaringan blockchain terhadap 1.266 aset CFX, di mana 65,2% beroperasi di Ethereum atau EVM-compatible L2. (2) Termasuk dalam top market cap global per CoinGecko ranking memastikan token yang di-track memiliki likuiditas dan price feed yang reliabel. (3) Relevan untuk profil PAKD Indonesia berdasarkan data perdagangan historis token long-tail dengan volume minim diprioritaskan lebih rendah.
 
 Token yang tidak teridentifikasi oleh curated list tetap dilaporkan sebagai `eth_other_token_idr` dengan label UNVALUED di frontend. Supervisor OJK mengetahui adanya token di luar cakupan tanpa nilai rupiah yang dapat direkonsiliasi, sehingga dapat memutuskan perlu tidaknya investigasi manual.
 
