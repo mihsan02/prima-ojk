@@ -21,7 +21,7 @@ PRIMA adalah sistem pemantauan berbasis blockchain yang dirancang untuk membantu
 
 Sistem ini melakukan rekonsiliasi antara saldo dompet on-chain yang diquery langsung dari tiga jaringan blockchain (Ethereum, Bitcoin, Solana) dengan kewajiban yang dilaporkan PAKD kepada regulator. Harga aset diambil secara live dengan cascade empat tingkat (CoinMarketCap v2 → CoinGecko Demo → cache stale → hardcoded fallback) untuk konversi ke IDR. Setiap selisih di atas ambang batas memicu klasifikasi alert berjenjang secara otomatis.
 
-PRIMA diposisikan sebagai baseline pengawasan minimum yang wajib, bukan pengganti audit. Sistem ini mengisi celah yang tidak bisa diisi oleh laporan periodik: keterlambatan deteksi, ketergantungan pada laporan yang tidak terverifikasi, dan absennya stress test solvabilitas terstandar.
+PRIMA diposisikan sebagai baseline pengawasan minimum yang wajib, bukan pengganti audit. Sistem ini mengisi celah yang tidak bisa diisi oleh laporan periodik: keterlambatan deteksi, ketergantungan pada laporan yang tidak terverifikasi, dan absennya stress test ketahanan ekuitas terstandar.
 
 ---
 
@@ -35,10 +35,10 @@ Tiga kelemahan struktural dari pendekatan pelaporan berbasis dokumen:
 Laporan bulanan tidak menangkap pergerakan aset harian. Kasus Zipmex pada Juli 2022 membekukan aset pengguna Indonesia senilai sekitar $53 juta (Bisnis Indonesia, 2022) tanpa sinyal peringatan yang terdeteksi regulator sebelumnya. Sistem berbasis laporan tidak dirancang untuk mendeteksi tekanan likuiditas yang berkembang dalam hitungan hari.
 
 **2. Tidak ada verifikasi independen.**
-Regulator tidak memiliki mekanisme untuk memvalidasi klaim aset secara mandiri. Seluruh proses verifikasi bergantung pada kejujuran pelaporan PAKD, struktur yang oleh FSB (2023) dikategorikan sebagai *insufficient supervisory oversight*.
+Regulator tidak memiliki mekanisme untuk memvalidasi klaim aset secara mandiri. Seluruh proses verifikasi bergantung pada integritas pelaporan PAKD, struktur yang oleh FSB (2023) dikategorikan sebagai *insufficient supervisory oversight*.
 
-**3. Tidak ada stress test solvabilitas terstandar.**
-Ketika Bitcoin turun 64% sepanjang 2022 (Chainalysis, 2024), tidak ada mekanisme yang memungkinkan OJK mengetahui berapa PAKD yang berisiko gagal bayar kewajiban nasabah sebelum krisis terjadi.
+**3. Tidak ada stress test ketahanan ekuitas terstandar.**
+Ketika Bitcoin turun 64% sepanjang 2022 (Chainalysis, 2024), tidak ada mekanisme yang memungkinkan OJK mengetahui berapa PAKD yang berisiko tidak mampu menjaga minimum ekuitas sesuai regulasi POJK 23 Tahun 2025.
 
 Referensi regulasi: POJK No. 27 Tahun 2024, POJK No. 23 Tahun 2025, OJK Peta Jalan IAKD 2024–2028, FSB (2023), IMF (2023).
 
@@ -75,7 +75,8 @@ Ambang batas deviasi        →      Rekonsiliasi otomatis          → Klasifik
   Surplus / defisit <= 5%:          (Python · pandas)                Aman / Deviasi / Kritis
   Aman
   Deviasi 5–20%: Deviasi                    ↓
-  Defisit > 20%: Kritis           Stress test solvabilitas        → Laporan ketahanan per skenario:
+  Defisit > 20%: Kritis           Stress test ketahanan           → Laporan ketahanan per skenario:
+                                  ekuitas
                                   Pasal 50 (Mild -30%)              Mild / Moderate / Severe
                                   Pasal 91 (Moderate -55%,
                                   Severe -80%): lulus jika aset
@@ -221,7 +222,7 @@ prima-ojk/
 
 ## Keterbatasan yang Didokumentasikan
 
-PRIMA dibangun dengan prinsip kejujuran teknis. Setiap keterbatasan disertai rencana mitigasi.
+PRIMA dibangun dengan prinsip integritas teknis. Setiap keterbatasan disertai rencana mitigasi.
 
 **Circular trust.**
 Verifikasi dompet bergantung pada daftar alamat yang dideklarasikan PAKD ke OJK. Dompet yang tidak dideklarasikan tidak terdeteksi. Wallet proof (EIP-191 dan Ed25519) memverifikasi kepemilikan dompet yang sudah dideklarasikan, bukan completeness daftar. Mitigasi roadmap: verifikasi on-site oleh OJK saat onboarding, wallet address dikunci setelah terdaftar.
