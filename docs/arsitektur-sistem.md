@@ -1,6 +1,5 @@
 # Arsitektur Sistem PRIMA
-### Pemantauan Transparansi Aset Pedagang Aset Keuangan Digital Berbasis Blockchain
-
+### Pemantauan Transparansi Multichain Aset Keuangan Digital 
 Versi: 1.9-pasal50-pasal91 · Terakhir diperbarui: 22 Mei 2026
 
 ---
