@@ -1,7 +1,7 @@
 # Keterbatasan Sistem PRIMA dan Rencana Mitigasi
-### Dokumen Kejujuran Teknis, Versi 2.0
+### Dokumen Integritas Teknis, Versi 2.0
 
-Terakhir diperbarui: Mei 2026
+Terakhir diperbarui: 22 Mei 2026 (v1.9-pasal50-pasal91)
 
 ---
 
@@ -41,18 +41,24 @@ Jadwal rekonsiliasi bulanan pada MVP bersifat tetap. OJK disarankan untuk tidak 
 
 ### Deskripsi
 
-PRIMA MVP mendukung 3 chain native (BTC, ETH, SOL) dan 4 token: USDT dan USDC di Ethereum (ERC-20) plus USDT dan USDC di Solana (SPL). Aset yang berada di luar cakupan saat ini:
+PRIMA v1.9 mendukung 3 chain native (BTC, ETH, SOL) dengan cakupan token sebagai berikut:
 
-- Token ERC-20 selain USDT dan USDC (misalnya WBTC, DAI, BUSD, LINK)
-- Token SPL selain USDT dan USDC
-- Aset di L1 lain (Polygon, BNB Chain, Avalanche, Tron, dan lainnya)
-- Aset yang disimpan di layanan kustodian pihak ketiga di luar wallet PAKD yang dideklarasikan
+- Ethereum: ETH native plus curated top-50 ERC-20 (dipilih berdasarkan daftar Bappebti No. 501, top market cap CoinGecko, dan relevansi profil PAKD Indonesia). Verifikasi seluruh 50 contract dilakukan via `scripts/verify_curated_list.py`. Token di luar 50 dilaporkan sebagai `UNVALUED` di frontend.
+- Solana: SOL native plus seluruh SPL token yang muncul di wallet via Helius `getTokenAccountsByOwner`, difilter two-gate (Jupiter verified set ATAU has-price di Gate 1; has-price wajib di Gate 2 untuk masuk kalkulasi nilai).
+- Bitcoin: UTXO via Blockstream Esplora. Saldo native only, tidak ada token layer di BTC.
+
+Aset yang berada di luar cakupan saat ini:
+
+- Token ERC-20 di luar 50 curated list (long-tail, token baru, token lokal). Dilaporkan UNVALUED.
+- Token SPL Token-2022 (menggunakan extension program berbeda dari SPL standar). Tidak dienumerasi oleh `getTokenAccountsByOwner` pada program standar.
+- Aset di L1 lain (Polygon, BNB Chain, Avalanche, Tron, dan lainnya).
+- Aset yang disimpan di layanan kustodian pihak ketiga di luar wallet yang dideklarasikan PAKD.
 
 Bitcoin proof-of-ownership belum diimplementasi (BIP-322 dijadwalkan Phase 2). Verifikasi kepemilikan dompet BTC saat ini hanya berdasarkan deklarasi PAKD tanpa cryptographic proof.
 
 ### Tingkat Risiko
 
-Menengah, dan menurun seiring waktu seiring pertumbuhan dominasi tiga chain utama plus stablecoin USDT dan USDC. Untuk PAKD yang portofolionya didominasi oleh token di luar cakupan atau aset di chain yang belum didukung, rekonsiliasi tidak akan menggambarkan posisi solvabilitas yang sebenarnya.
+Menengah, dan menurun seiring perluasan curated list. Untuk PAKD yang portofolionya didominasi token ERC-20 long-tail di luar 50 curated atau Token-2022, rekonsiliasi tidak menggambarkan posisi ekuitas yang sebenarnya. Untuk PAKD dengan portofolio SOL, cakupan sudah mendekati penuh (Jupiter two-gate filter mencakup token dengan harga terdaftar).
 
 ### Kondisi yang Memperburuk Risiko
 
@@ -69,7 +75,7 @@ Perluasan bertahap berdasarkan prioritas nilai aset:
 
 ### Status saat ini
 
-Pada laporan kewajiban PAKD kepada OJK, disarankan untuk mewajibkan PAKD mencantumkan proporsi aset per jenis dan per jaringan, sehingga OJK dapat mengetahui berapa persen dari total kewajiban yang sudah tercakup oleh rekonsiliasi PRIMA MVP.
+Curated top-50 ERC-20 aktif di v1.9. SPL token enumeration via Helius aktif dengan two-gate filter Jupiter. BTC hanya native balance. Token-2022 dan ERC-20 di luar curated list dilaporkan UNVALUED. Chain L1 selain ETH, BTC, SOL belum didukung. Full enumeration ERC-20 dijadwalkan Phase 2 setelah infrastruktur API berbayar tersedia (lihat Section 9 untuk detail cacat teknis Reading C).
 
 ---
 
@@ -101,11 +107,11 @@ ETH dan SOL signature verification implementasi via library `eth-account` (EIP-1
 
 ---
 
-## 4. Framework Stress Test Solvabilitas, Pasal 50 dan Pasal 91
+## 4. Framework Stress Test Ketahanan Ekuitas, Pasal 50 dan Pasal 91
 
 ### Deskripsi
 
-PRIMA menjalankan satu stress test solvabilitas dengan dua sumber shock yang di-anchor ke pasal POJK 27/2024. Output keduanya adalah pertanyaan yang sama: apakah ekuitas pasca shock masih di atas ambang batas Rp 50 miliar yang diatur Pasal 50 ayat (1) huruf o.
+PRIMA menjalankan satu stress test ketahanan ekuitas dengan dua sumber shock yang di-anchor ke pasal POJK 23/2025. Output keduanya adalah pertanyaan yang sama: apakah ekuitas pasca shock masih di atas ambang batas Rp 50 miliar yang diatur Pasal 50 ayat (1) huruf o.
 
 #### Test 1: Risiko Pasar (Pasal 50)
 
@@ -134,7 +140,7 @@ Tiga skenario kehilangan dengan benchmark historis insiden internasional:
 - 45%, benchmark WazirX Juli 2024. Sumber: Decrypt Januari 2025 menyebut 45% reserves, Crystal Intelligence dan CloudSEK menyebut 50%, range 43 sampai 50% di pernyataan resmi WazirX. PRIMA menggunakan 45% sebagai angka konservatif yang defensible.
 - 100%, benchmark Mt Gox Februari 2014. Sumber: Wikipedia Mt Gox dan filing kebangkrutan Tokyo Februari 2014, Mt Gox kehilangan 750.000 BTC milik Konsumen plus 100.000 BTC milik perusahaan. 200.000 BTC ditemukan kemudian dan disbursement ke kreditur baru dimulai Juli 2024 setelah 10 tahun proses.
 
-Cakupan tanggung jawab: stress test cyber risk PRIMA hanya menghitung kewajiban penggantian atas Aset Kripto Konsumen yang berada di wallet yang dilaporkan PAKD. Tidak include Aset Konsumen yang ada di Pengelola Tempat Penyimpanan (PTP). Skema kustodi 70/30 (minimum 70% di PTP per regulasi POJK 27/2024) berarti PAKD dalam praktiknya hanya pegang maksimum 30% Aset Konsumen, dan stress test cyber risk PRIMA terbatas pada porsi tersebut.
+Cakupan tanggung jawab: stress test cyber risk PRIMA hanya menghitung kewajiban penggantian atas Aset Kripto Konsumen yang berada di wallet yang dilaporkan PAKD. Tidak include Aset Konsumen yang ada di Pengelola Tempat Penyimpanan. Skema kustodi 70/30 (minimum 70% di Pengelola Tempat penyimpanan per regulasi POJK 23/2025) berarti PAKD dalam praktiknya hanya pegang maksimum 30% Aset Konsumen, dan stress test cyber risk PRIMA terbatas pada porsi tersebut.
 
 Logic perhitungan per skenario:
 liability_idr = customer_akd_idr × persentase_kehilangan
@@ -148,13 +154,13 @@ Rendah dalam konteks MVP. Skenario historis konsisten dengan praktik stress test
 ### Kondisi yang Memperburuk Risiko
 
 - Kondisi pasar yang belum pernah terjadi sebelumnya, krisis sistemik dengan drawdown > 80%.
-- Kehilangan custodial yang melibatkan PTP, di luar cakupan PRIMA MVP.
+- Kehilangan custodial yang melibatkan Pengelola Tempat penyimpanan, di luar cakupan PRIMA MVP.
 
 ### Mitigasi Roadmap (v2.0 sampai v3.0)
 
 - v2.0: Stablecoin stress scenario terpisah dari volatile assets, dengan threshold yang berbeda berdasarkan profil depeg historis (USDC pernah USD 0.87 saat SVB collapse 11 Maret 2023, Reuters reporting hari yang sama).
 - v3.0: Implied volatility dari pasar opsi kripto (Deribit API) untuk skenario forward-looking sebagai layer tambahan di atas baseline historis.
-- v3.0: Custodial scenario expansion mencakup Aset Konsumen di PTP berdasarkan regulasi yang berkembang.
+- v3.0: Custodial scenario expansion mencakup Aset Konsumen di Pengelola Tempat penyimpanan berdasarkan regulasi yang berkembang.
 
 ### Status saat ini
 
@@ -182,24 +188,32 @@ Threshold per asset class dan per PAKD risk profile, di-configure oleh OJK super
 
 ### Deskripsi
 
-PRIMA MVP tidak memiliki:
+PRIMA v1.9 memiliki lapisan autentikasi parsial yang sudah diimplementasikan:
 
-- Authentication mechanism. Tidak ada login, tidak ada session management, tidak ada user identity tracking.
+**Sudah diimplementasikan:**
+- Admin token via header `X-Admin-Token` pada seluruh endpoint write: `POST /api/input-manual`, `POST /api/pakd`, `PUT /api/pakd/<id>`, `DELETE /api/pakd/<id>`. Token dibandingkan menggunakan `hmac.compare_digest` (constant-time comparison per OWASP ASVS V2.10.3, mencegah timing attack).
+- Token guard: jika `ADMIN_TOKEN` tidak di-set di environment, endpoint langsung return 401. Tidak ada fallback ke empty string.
+- Internal token terpisah via `X-Internal-Token` untuk endpoint cron `POST /api/internal/refresh-all`. Digenerate via `openssl rand -hex 32`, disimpan di Render environment variable.
+- Rate limiting: `GET /api/reconciliation` dibatasi satu call per 60 detik via `_last_rekon_time` global state. Bypass aktif saat `TESTING=True` untuk mencegah regresi test suite.
+- Row Level Security (RLS) diaktifkan di seluruh tabel Supabase (`public.pakd`, `public.wallets`, `public.reconciliation_snapshots`) dengan policy `service_only` yang membatasi akses ke `service_role`.
+
+**Belum diimplementasikan:**
+- Authentication mechanism untuk pengguna dashboard (tidak ada login, tidak ada session management, tidak ada user identity tracking).
 - Role-based access control (RBAC). Tidak ada pembedaan akses antara OJK supervisor, OJK auditor, dan PAKD compliance officer.
 - Cryptographic integrity untuk audit log. File `audit_log.json` adalah plain JSON yang dapat dimodifikasi tanpa meninggalkan jejak. Tidak ada hash chain atau tamper-evident structure.
 
-Untuk konteks hackathon dengan data demonstrasi, ini aman. Untuk implementasi produksi dengan data regulasi nyata, ketiga komponen di atas bersifat mandatory.
+Untuk konteks hackathon dengan data demonstrasi, gap yang tersisa ini aman. Untuk implementasi produksi dengan data regulasi nyata, RBAC dan authentication pengguna bersifat mandatory.
 
 ## Keterbatasan Keamanan (Diketahui, Deferred Post-Demo)
 
-| ID | Temuan | Mitigation Plan |
-|----|--------|----------------|
-| CRIT-1 | Wildcard CORS, endpoint publik | Produksi: restrict origin ke domain OJK + API key middleware |
-| CRIT-2 | Tidak ada autentikasi endpoint | Produksi: Bearer token berbasis PKI OJK (POJK No. 27/2024 Pasal 50) |
-| CRIT-3 | CHALLENGE_STORE tidak dibatasi | Produksi: cachetools.TTLCache + flask-limiter |
-| CRIT-4 | File locking pakd_data.json | Produksi: SQLite WAL mode atau Redis |
-| HIGH-1 | API key di URL query string | Produksi: pass via params dict, sanitize logs |
-| HIGH-7 | PRICE_CACHE non-thread-safe | Produksi: threading.Lock atau Redis shared cache |
+| ID | Temuan | Status | Mitigation Plan |
+|----|--------|--------|----------------|
+| CRIT-1 | Wildcard CORS, endpoint publik | Terbuka | Produksi: restrict origin ke domain OJK + API key middleware |
+| CRIT-2 | Tidak ada autentikasi endpoint write | Sebagian — admin token aktif (lihat deskripsi di atas) | Produksi: Bearer token berbasis PKI OJK (POJK No. 27/2024 Pasal 50). Read endpoint masih terbuka. |
+| CRIT-3 | CHALLENGE_STORE tidak dibatasi | Terbuka | Produksi: cachetools.TTLCache + flask-limiter |
+| CRIT-4 | File locking pakd_data.json | Terbuka | Produksi: SQLite WAL mode atau Redis. Supabase sudah dipakai untuk snapshots. |
+| HIGH-1 | API key di URL query string | Terbuka | Produksi: pass via params dict, sanitize logs |
+| HIGH-7 | PRICE_CACHE non-thread-safe | Terbuka | Produksi: threading.Lock atau Redis shared cache |
 
 Catatan: PRIMA versi demo beroperasi sebagai single-worker instance (-w 1) untuk menghindari race condition cache. Skalabilitas multi-worker adalah item roadmap Phase 2.
 
@@ -221,20 +235,22 @@ Tinggi untuk produksi. Rendah untuk MVP demo dengan data ilustratif.
 
 Backend PRIMA di-deploy di Render free tier untuk demo hackathon. Konsekuensi arsitekturalnya:
 
-- Filesystem ephemeral. Setelah instance restart, baik karena deploy push, Render maintenance, atau idle spin-down, file `pakd_data.json` revert ke seed dan verified status hilang. Mitigasi sementara: warm-up cron job (cron-job.org) ping setiap 10 menit, plus prosedur baseline reset 5 menit sebelum demo.
-- Cold start latency. Instance idle lebih dari 15 menit di-spin-down, request pertama setelah idle butuh 30 sampai 60 detik untuk respawn.
+- Filesystem ephemeral untuk file lokal (`pakd_data.json`, `audit_log.json`). Setelah instance restart, seed data direload dari kode. Untuk snapshot rekonsiliasi, Supabase (`reconciliation_snapshots`) sudah diintegrasikan sebagai persistent storage — data snapshot tidak hilang saat restart.
+- Cold start latency. Instance idle lebih dari 15 menit di-spin-down, request pertama setelah idle butuh 30 sampai 60 detik untuk respawn. Mitigasi: cron-job.org ping setiap 5 menit (diubah dari 10 menit) via `POST /api/internal/refresh-all` yang sekaligus mengupdate snapshot Supabase.
+- Page load dari snapshot. Frontend memanggil `GET /api/reconciliation/latest` (response <1 detik dari Supabase) bukan `GET /api/reconciliation` (live fetch yang cold-cache bisa 77 detik). Bottleneck cold start ETH terkonfirmasi via profiling empiris 20 Mei 2026: `fetch_eth_total` cold = 63.8 detik, warm = 0.01 detik (82.3% total waktu ada di ETH fetch).
 
 Selain ephemeral filesystem, PRIMA bergantung pada API publik external:
 
-- Etherscan V2 (free tier 5 request per detik)
-- Blockstream Esplora (no formal limit publicly documented, rate-limit policies dapat berubah tanpa notice)
-- CoinGecko Demo API (30 contract address per call limit, digunakan untuk ETH ERC-20 curated price lookup)
-- Helius RPC (Solana SPL token enumeration via `getTokenAccountsByOwner`; dependency baru sejak Day 16)
-- Jupiter Tokens V2 (verified token set untuk SPL two-gate filter)
-- Jupiter Price V3 (harga SPL token untuk gate kedua two-gate filter; lite-api deprecation watch diperlukan)
-- Solana JSON-RPC mainnet-beta (public RPC, throttling tidak deterministik)
+- Etherscan V2 (free tier 5 request per detik, 100K request per hari). Mandatory param `chainid=1` sejak migrasi V1 ke V2.
+- Blockstream Esplora (no formal rate limit publicly documented, rate-limit policies dapat berubah tanpa notice).
+- CoinMarketCap v2 (15K credits per bulan, 50 req per menit). Primary price source. `PRICE_TTL=300` detik (bumped dari 60) untuk efisiensi credit budget.
+- CoinGecko Demo API (30 contract address per call limit, 30 call per menit). Fallback price source untuk ERC-20 batch lookup. Base URL: `api.coingecko.com`, auth via header `x-cg-demo-api-key`.
+- Helius RPC (Solana SPL token enumeration via `getTokenAccountsByOwner`; override via `SOLANA_RPC_URL` env var).
+- Jupiter Tokens V2 (verified token set untuk SPL two-gate filter Gate 1).
+- Jupiter Price V3 (harga SPL token untuk gate kedua two-gate filter; lite-api deprecation watch diperlukan).
+- Solana JSON-RPC via Helius (SOL native balance via `getBalance`).
 
-Caching layer in-memory dengan TTL 60 detik untuk price dan 30 detik untuk balance mengurangi external API call selama window demo, tapi tidak menghilangkan dependency.
+Price cascade empat tingkat aktif: CMC v2 (Tier 1) ke CoinGecko Demo (Tier 2) ke cache stale (Tier 3) ke hardcoded fallback (Tier 4). `harga_fallback=False` dikonfirmasi di production — CMC aktif.
 
 ### Tingkat Risiko
 
@@ -242,9 +258,10 @@ Tinggi untuk produksi karena single point of failure di external API tanpa contr
 
 ### Mitigasi Roadmap (v2.0 sampai v2.5)
 
-- v2.0: Migrasi backend ke Render paid tier dengan persistent disk, atau pindah ke external storage (PostgreSQL Supabase, atau OJK in-house infrastructure).
+- v1.9 (selesai): Supabase `reconciliation_snapshots` sebagai persistent storage untuk snapshot rekonsiliasi. Page load dari snapshot, bukan live fetch. Mengeliminasi cold start impact pada UX normal.
 - v2.0: Multi-source RPC fallback untuk Solana via Helius dan QuickNode, plus contracted SLA dengan API providers tier-1 untuk produksi.
-- v2.5: Internal price oracle yang aggregate beberapa sumber untuk reduce CoinGecko dependency.
+- v2.0: Backend ke Render paid tier dengan persistent disk untuk eliminasi ephemeral filesystem sepenuhnya.
+- v2.5: Internal price oracle yang aggregate beberapa sumber untuk reduce dependency ke CMC dan CoinGecko.
 
 ---
 
@@ -306,19 +323,60 @@ Curated 50-token list aktif di v1.9. Token di luar list dilaporkan sebagai UNVAL
 
 ---
 
-## Ringkasan Status Keterbatasan
+## 10. Fetch Performance dan Arsitektur Background Refresh
 
-| Keterbatasan | Tingkat Risiko | Target Mitigasi |
-|--------------|----------------|-----------------|
-| Window Dressing | Menengah | v2.0 |
-| Cakupan Aset On-Chain | Menengah | v2.0 sampai v3.0 |
-| Wallet Ownership Verification | Rendah ETH/SOL, Menengah BTC | v2.0 |
-| Framework Stress Test Pasal 50 dan 91 | Rendah | v2.0 sampai v3.0 |
-| Stablecoin Threshold Configurable | Rendah | v2.0 |
-| Authentication, RBAC, Audit Log Integrity | Tinggi (produksi), Rendah (MVP) | v2.0 |
-| Infrastruktur, Rate Limit, Persistence | Tinggi (produksi), Menengah (MVP) | v2.0 sampai v2.5 |
-| Polish UI dan Edge Cases | Rendah | v1.1 |
-| ETH ERC-20 Curated Enumeration (Reading C) | Menengah | v2.0 |
+### Deskripsi
+
+Profiling empiris pada 20 Mei 2026 mengukur latency rekonsiliasi live di production Render free tier untuk 4 PAKD aktif:
+
+| Segmen | Cold cache | Warm cache |
+|--------|-----------|-----------|
+| fetch_eth_total | 63.8 detik | 0.01 detik |
+| fetch_sol_total | 5.9 detik | 3.3 detik |
+| db_write (sequential) | 5.5 detik | 5.5 detik |
+| Total | 77.5 detik | 11.1 detik |
+
+ETH cold cache adalah 82.3% total waktu karena sequential request ke Etherscan V2 free tier (5 req/detik untuk 53 request per wallet: 1 native + 2 stablecoin + 50 ERC-20 curated). Proyeksi 25 PAKD dengan 100 ETH wallet: cold start di atas 10 menit.
+
+Solusi yang diimplementasikan adalah arsitektur hybrid dua lapis:
+
+**Layer 1 — Background snapshot (sudah live):** `POST /api/internal/refresh-all` dipanggil cron-job.org tiap 5 menit. Hasil disimpan via `_save_snapshots_batch()` ke Supabase dalam satu `executemany()`. Page load memanggil `GET /api/reconciliation/latest` (response <1 detik dari `DISTINCT ON` query Supabase). Badge dan timestamp "Data terakhir diperbarui" ditampilkan di frontend.
+
+**Layer 2 — Manual refresh async (sudah live):** `POST /api/reconciliation/refresh` generate `job_id` dan submit task ke `ThreadPoolExecutor`. `GET /api/reconciliation/refresh/<job_id>` di-poll frontend tiap 2 detik. `REFRESH_LOCK` global mencegah concurrent run. `JOBS` dict in-memory tidak persist antar restart (acceptable untuk hackathon scope).
+
+### Keterbatasan yang Tersisa
+
+- SOL warm cache masih 3.3 detik karena Jupiter `_get_jupiter_verified_set()` masih hit network tiap call (bukan `BALANCE_CACHE`). Acceptable untuk demo scope.
+- `JOBS` dict hilang saat Render restart. User perlu retry manual refresh setelah restart.
+- `[BATCH_SAVE]` debug log masih aktif di production (belum di-wrap `PRIMA_DEBUG`).
+
+### Tingkat Risiko
+
+Rendah untuk MVP. Live demo menggunakan snapshot dari Supabase, tidak tergantung cold start ETH.
+
+### Mitigasi Roadmap (v2.0)
+
+- Multicall3 via Etherscan V2 proxy `eth_call` untuk batch ETH native + ERC-20 dalam satu request.
+- Multi-provider race untuk BTC (Blockstream + mempool.space + BlockCypher via ThreadPoolExecutor).
+- Jupiter verified set caching ke `BALANCE_CACHE` untuk eliminasi SOL warm cache latency.
+- Persistent job queue via Redis untuk replace in-memory `JOBS` dict.
+
+---
+
+
+
+| Keterbatasan | Tingkat Risiko | Status v1.9 | Target Mitigasi |
+|--------------|----------------|-------------|-----------------|
+| Window Dressing | Menengah | Terbuka | v2.0 |
+| Cakupan Aset On-Chain | Menengah | ERC-20 curated 50, SPL full via Jupiter, BTC native only | v2.0 sampai v3.0 |
+| Wallet Ownership Verification | Rendah ETH/SOL, Menengah BTC | ETH dan SOL: selesai. BTC: belum (BIP-322) | v2.0 |
+| Framework Stress Test Pasal 50 dan 91 | Rendah | Selesai — dual test live | v2.0 sampai v3.0 |
+| Stablecoin Threshold Configurable | Rendah | Terbuka | v2.0 |
+| Authentication, RBAC, Audit Log Integrity | Tinggi (produksi) | Parsial — admin token write endpoints, RLS Supabase. RBAC dan user auth belum. | v2.0 |
+| Infrastruktur, Rate Limit, Persistence | Tinggi (produksi), Menengah (MVP) | Supabase live untuk snapshots. Fetch arsitektur hybrid (snapshot + async refresh) | v2.0 sampai v2.5 |
+| Polish UI dan Edge Cases | Rendah | Terbuka | v1.1 |
+| ETH ERC-20 Curated Enumeration (Reading C) | Menengah | Curated 50 aktif. Full enumeration deferred. | v2.0 |
+| Fetch Performance dan Arsitektur Background Refresh | Rendah (setelah hybrid arch) | Hybrid live. Manual refresh async live. SOL warm cache masih 3.3 detik. | v2.0 |
 
 ---
 
