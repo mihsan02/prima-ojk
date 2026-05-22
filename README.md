@@ -1,5 +1,5 @@
 # PRIMA
-### Pemantauan Transparansi Aset Pedagang Aset Keuangan Digital Berbasis Blockchain
+### Pemantauan Transparansi Multichain Aset Pedagang Aset Keuangan Digital 
 
 ![Status](https://img.shields.io/badge/Status-v1.9--pasal50--pasal91-0A7A4A?style=flat-square)
 ![Hackathon](https://img.shields.io/badge/DIGDAYA%20X%20Hackathon-2026-1B3A6B?style=flat-square)
