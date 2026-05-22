@@ -1,10 +1,10 @@
 # PRIMA
 ### Pemantauan Transparansi Aset Pedagang Aset Keuangan Digital Berbasis Blockchain
 
-![Status](https://img.shields.io/badge/Status-MVP%20Minggu%201%20Selesai-0A7A4A?style=flat-square)
+![Status](https://img.shields.io/badge/Status-v1.9--pasal50--pasal91-0A7A4A?style=flat-square)
 ![Hackathon](https://img.shields.io/badge/DIGDAYA%20X%20Hackathon-2026-1B3A6B?style=flat-square)
 ![Regulator](https://img.shields.io/badge/Regulator-OJK-003087?style=flat-square)
-![Chain](https://img.shields.io/badge/Chain-ETH-627EEA?style=flat-square)
+![Chain](https://img.shields.io/badge/Chain-ETH%20%7C%20BTC%20%7C%20SOL-627EEA?style=flat-square)
 ![Backend](https://img.shields.io/badge/Backend-Flask%203.x-000000?style=flat-square)
 
 > Prototype MVP · Dibangun untuk DIGDAYA X Hackathon 2026 · Pusat Inovasi Digital Indonesia
@@ -19,7 +19,7 @@
 
 PRIMA adalah sistem pemantauan berbasis blockchain yang dirancang untuk membantu OJK mengawasi kecukupan aset Pedagang Aset Keuangan Digital (PAKD) secara otomatis.
 
-Sistem ini melakukan rekonsiliasi antara saldo dompet on-chain yang diquery langsung dari jaringan Ethereum via Etherscan API dengan kewajiban yang dilaporkan PAKD kepada regulator. Harga ETH diambil live dari CoinGecko API untuk konversi ke IDR. Setiap selisih di atas ambang batas memicu klasifikasi alert berjenjang secara otomatis.
+Sistem ini melakukan rekonsiliasi antara saldo dompet on-chain yang diquery langsung dari tiga jaringan blockchain (Ethereum, Bitcoin, Solana) dengan kewajiban yang dilaporkan PAKD kepada regulator. Harga aset diambil secara live dengan cascade empat tingkat (CoinMarketCap v2 → CoinGecko Demo → cache stale → hardcoded fallback) untuk konversi ke IDR. Setiap selisih di atas ambang batas memicu klasifikasi alert berjenjang secara otomatis.
 
 PRIMA diposisikan sebagai baseline pengawasan minimum yang wajib, bukan pengganti audit. Sistem ini mengisi celah yang tidak bisa diisi oleh laporan periodik: keterlambatan deteksi, ketergantungan pada laporan yang tidak terverifikasi, dan absennya stress test solvabilitas terstandar.
 
@@ -40,7 +40,7 @@ Regulator tidak memiliki mekanisme untuk memvalidasi klaim aset secara mandiri. 
 **3. Tidak ada stress test solvabilitas terstandar.**
 Ketika Bitcoin turun 64% sepanjang 2022 (Chainalysis, 2024), tidak ada mekanisme yang memungkinkan OJK mengetahui berapa PAKD yang berisiko gagal bayar kewajiban nasabah sebelum krisis terjadi.
 
-Referensi regulasi: POJK No. 27 Tahun 2024, POJK No. 27 Tahun 2021, OJK Peta Jalan IAKD 2024–2028, FSB (2023), IMF (2023).
+Referensi regulasi: POJK No. 27 Tahun 2024, POJK No. 23 Tahun 2025, OJK Peta Jalan IAKD 2024–2028, FSB (2023), IMF (2023).
 
 ---
 
@@ -61,23 +61,32 @@ PRIMA dirancang untuk dioperasikan OJK secara in-house, dengan data yang tetap b
 ```
 INPUT                              PROSES                           OUTPUT
 ─────────────────────────────      ──────────────────────────────   ──────────────────────────
-Daftar alamat dompet ETH    →      Query Etherscan API            → Saldo ETH on-chain live
-PAKD (terdaftar di sistem)         (GET /api/reconciliation)        per PAKD, dikonversi ke IDR
+Daftar alamat dompet per chain     Background cron tiap 5 menit    Snapshot Supabase terakhir
+(ETH, BTC, SOL) per PAKD    →     query semua chain, simpan ke → dirender <1 detik saat
+                                   reconciliation_snapshots          halaman dibuka
 
-Laporan kewajiban PAKD      →      Harga ETH/IDR live             → Konversi nilai aset ke IDR
-(input manual via form)            dari CoinGecko API               pada saat rekonsiliasi
+Laporan kewajiban PAKD      →      Harga aset live:               → Konversi nilai aset ke IDR
+(input manual via form)             CMC v2 (Tier 1)                  pada saat rekonsiliasi
+                                    CoinGecko Demo (Tier 2)
+                                    Cache stale (Tier 3)
+                                    Hardcoded fallback (Tier 4)
 
 Ambang batas deviasi        →      Rekonsiliasi otomatis          → Klasifikasi per PAKD:
-  Surplus / defisit < 5%:          (Python · pandas)                Aman / Deviasi / Kritis
+  Surplus / defisit <= 5%:          (Python · pandas)                Aman / Deviasi / Kritis
   Aman
-  Defisit 5–15%: Deviasi                   ↓
-  Defisit > 15%: Kritis           Stress test solvabilitas        → Laporan ketahanan per skenario:
-                                  tiga skenario:                    Mild (-30%) · Moderate (-55%)
-                                  lulus jika aset post-stress        · Severe (-80%)
-                                  ≥ 80% aset dilaporkan
+  Deviasi 5–20%: Deviasi                    ↓
+  Defisit > 20%: Kritis           Stress test solvabilitas        → Laporan ketahanan per skenario:
+                                  Pasal 50 (Mild -30%)              Mild / Moderate / Severe
+                                  Pasal 91 (Moderate -55%,
+                                  Severe -80%): lulus jika aset
+                                  post-stress >= 80% dilaporkan
 
-Setiap aksi sistem          →      Pencatatan ke audit log        → Riwayat aktivitas dengan
-                                   (audit_log.json)                 timestamp per entri
+Dompet per PAKD             →      Wallet proof EIP-191 (ETH)     → Badge verified / unverified
+                                   Ed25519 (SOL)                    per dompet di tabel PAKD
+                                   via MetaMask / phantom
+
+Setiap aksi sistem          →      Pencatatan ke Supabase         → Riwayat rekonsiliasi,
+                                   + audit_log.json                 export CSV, donut chart
 ```
 
 ---
@@ -86,25 +95,39 @@ Setiap aksi sistem          →      Pencatatan ke audit log        → Riwayat 
 
 | Kluster | Teknologi | Justifikasi |
 |---------|-----------|-------------|
-| Backend | Python 3.11, Flask 3.x, Flask-CORS | Flask ringan untuk API prototype; Flask-CORS menangani request dari frontend di port yang sama |
-| Data Eksternal | Etherscan API v2, Blockstream Esplora, CoinMarketCap API v2, CoinGecko Demo API, Helius RPC, Jupiter Tokens V2, Jupiter Price V3, Solana JSON-RPC | Etherscan: saldo ERC-20 on-chain. Blockstream: saldo BTC. CMC: harga tier-1 dengan cascade fallback ke CoinGecko. Helius: SPL token enumeration via getTokenAccountsByOwner. Jupiter: two-gate filter verified token set dan harga SPL. |
+| Backend | Python 3.11, Flask 3.x, Flask-CORS | Flask ringan untuk API prototype; Flask-CORS menangani request dari frontend |
+| Data Eksternal | Etherscan API v2, Blockstream Esplora, CoinMarketCap API v2, CoinGecko Demo API, Helius RPC, Jupiter Tokens V2, Jupiter Price V3, Solana JSON-RPC | Etherscan: saldo ETH native + curated top-50 ERC-20. Blockstream: saldo BTC (UTXO). CMC: harga tier-1 dengan cascade fallback ke CoinGecko. Helius: SPL token enumeration via getTokenAccountsByOwner. Jupiter: two-gate filter token terverifikasi + harga SPL. |
 | Crypto Libraries | eth-account, PyNaCl, base58 | EIP-191 personal_sign verification (ETH) dan Ed25519 signature verification (SOL). Wallet ownership proof tanpa custodial dependency. |
-| Pemrosesan | Python requests, pandas, NumPy | Cukup untuk rekonsiliasi tabular dan kalkulasi deviasi di MVP |
-| Penyimpanan | JSON (pakd_data.json, audit_log.json) | Persistent storage tanpa dependensi database untuk tahap MVP; dapat diganti PostgreSQL di produksi |
+| Pemrosesan | Python requests, pandas, NumPy, hmac, secrets | Rekonsiliasi tabular, kalkulasi deviasi, constant-time token comparison (OWASP ASVS V2.10) |
+| Penyimpanan | Supabase (psycopg2), JSON (pakd_data.json, audit_log.json) | Supabase: snapshot rekonsiliasi persisten, riwayat per-PAKD, query DISTINCT ON untuk latest snapshot. JSON: audit log lokal dan PAKD state. |
 | Antarmuka | HTML, CSS, JavaScript (vanilla) | Dashboard read-only tanpa framework berat; dapat dihosting dalam infrastruktur OJK tanpa dependensi eksternal |
+| Infrastruktur | Render (Flask deployment), cron-job.org (background refresh) | Cron-job.org trigger POST /api/internal/refresh-all tiap 5 menit. Render single worker memastikan in-memory state konsisten. |
 
 ---
 
 ## API Endpoints
 
-| Endpoint | Method | Fungsi |
-|----------|--------|--------|
-| `/` | GET | Serve dashboard HTML |
-| `/api/status` | GET | Health check |
-| `/api/reconciliation` | GET | Rekonsiliasi live: query Etherscan + CoinGecko, hitung deviasi per PAKD |
-| `/api/stress-test` | GET | Stress test tiga skenario, catat ke audit log |
-| `/api/input-manual` | POST | Tambah atau perbarui data PAKD, validasi duplikat ID |
-| `/api/audit-log` | GET | Kembalikan 50 entri terakhir audit log |
+| Endpoint | Method | Auth | Fungsi |
+|----------|--------|------|--------|
+| `/` | GET | - | Serve dashboard HTML |
+| `/api/status` | GET | - | Health check |
+| `/api/reconciliation` | GET | - | Rekonsiliasi live: query semua chain + CMC/CoinGecko, hitung deviasi per PAKD. Rate limit: 60 detik. |
+| `/api/reconciliation/latest` | GET | - | Baca snapshot terakhir dari Supabase. Response <1 detik. |
+| `/api/reconciliation/refresh` | POST | - | Trigger background job rekonsiliasi. Return job_id instan. |
+| `/api/reconciliation/refresh/<job_id>` | GET | - | Poll status job. Return done/running/failed + result. |
+| `/api/reconciliation-history` | GET | - | Riwayat snapshot per PAKD dengan filter pakd_id dan limit. |
+| `/api/internal/refresh-all` | POST | X-Internal-Token | Cron-triggered: rekonsiliasi semua PAKD, simpan batch ke Supabase. REFRESH_LOCK mencegah concurrent run. |
+| `/api/stress-test` | GET | - | Stress test Pasal 50 (Mild) + Pasal 91 (Moderate/Severe). Catat ke audit log. |
+| `/api/pakd` | GET | - | Ambil semua PAKD |
+| `/api/pakd` | POST | X-Admin-Token | Tambah PAKD baru |
+| `/api/pakd/<pakd_id>` | PUT | X-Admin-Token | Perbarui data PAKD |
+| `/api/pakd/<pakd_id>` | DELETE | X-Admin-Token | Hapus PAKD |
+| `/api/input-manual` | POST | X-Admin-Token | Tambah atau perbarui data PAKD (legacy endpoint, tetap aktif) |
+| `/api/audit-log` | GET | - | Kembalikan 50 entri terakhir audit log |
+| `/api/export-csv` | GET | - | Export riwayat rekonsiliasi per PAKD (max 200 baris) |
+| `/api/export-csv-overview` | GET | - | Export snapshot terbaru per PAKD via DISTINCT ON |
+| `/api/wallet-proof/challenge` | POST | - | Generate challenge string untuk verifikasi kepemilikan dompet |
+| `/api/wallet-proof/verify` | POST | - | Verifikasi signature EIP-191 (ETH) atau Ed25519 (SOL) |
 
 ---
 
@@ -118,8 +141,14 @@ cd prima-ojk
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Set Etherscan API key (gratis di etherscan.io)
-export ETHERSCAN_API_KEY="api_key_kamu"
+# 3. Set environment variables
+export ETHERSCAN_API_KEY="..."       # Etherscan V2 (gratis di etherscan.io)
+export CMC_API_KEY="..."             # CoinMarketCap (gratis plan Basic)
+export COINGECKO_API_KEY="..."       # CoinGecko Demo (gratis)
+export HELIUS_API_KEY="..."          # Helius RPC untuk Solana SPL
+export DATABASE_URL="..."            # Supabase connection string (opsional — fallback ke JSON)
+export ADMIN_TOKEN="..."             # Token untuk endpoint write PAKD
+export INTERNAL_TOKEN="..."          # Token untuk cron internal refresh
 
 # 4. Jalankan Flask
 python prima-backend/app.py
@@ -128,7 +157,7 @@ python prima-backend/app.py
 # http://localhost:5000
 ```
 
-CoinGecko API tidak memerlukan API key. Dashboard akan langsung menampilkan data ETH live setelah Flask berjalan.
+Database Supabase opsional untuk pengembangan lokal. Tanpa `DATABASE_URL`, sistem menggunakan `pakd_data.json` sebagai storage. Snapshot dan riwayat rekonsiliasi hanya tersedia bila Supabase dikonfigurasi.
 
 ---
 
@@ -138,16 +167,18 @@ CoinGecko API tidak memerlukan API key. Dashboard akan langsung menampilkan data
 prima-ojk/
 ├── README.md
 ├── index.html                      # Landing page statis (GitHub Pages)
-├── requirements.txt                # flask, flask-cors, requests
+├── requirements.txt
 ├── prima-backend/
 │   ├── app.py                      # Flask server — semua route API
 │   ├── pakd_data.json              # Data PAKD (auto-generated saat pertama jalan)
 │   └── audit_log.json              # Riwayat aktivitas (auto-generated)
 ├── prima-frontend/
-│   └── index.html                  # Dashboard utama (4 halaman: Overview, Stress Test, Audit Log, Pengaturan)
+│   └── index.html                  # Dashboard utama (Overview, Detail Per-PAKD, Stress Test, Audit Log, Pengaturan)
+├── scripts/
+│   └── verify_curated_list.py      # Verifikasi Etherscan V2 tokenbalance + CoinGecko price untuk curated top-50 ERC-20
 └── docs/
     ├── arsitektur-sistem.md        # Desain arsitektur dan pseudocode lengkap
-    └── keterbatasan-sistem.md      # Batasan MVP yang didokumentasikan
+    └── keterbatasan-sistem.md      # Batasan MVP yang didokumentasikan per seksi
 ```
 
 ---
@@ -157,16 +188,34 @@ prima-ojk/
 | Komponen | Status |
 |----------|--------|
 | Flask backend + semua route API | Selesai |
-| Dashboard monitoring — live fetch dari Etherscan | Selesai |
-| Harga ETH/IDR live dari CoinGecko | Selesai |
+| Dashboard monitoring — multi-chain live fetch | Selesai |
+| ETH native balance via Etherscan V2 | Selesai |
+| ERC-20 curated top-50 via Etherscan V2 + CoinGecko batch | Selesai |
+| BTC balance via Blockstream Esplora | Selesai |
+| SOL native + SPL token via Helius RPC + Jupiter two-gate filter | Selesai |
+| Harga multi-aset: CMC v2 → CoinGecko → cache → hardcoded | Selesai |
 | Logika deviasi surplus/defisit yang benar | Selesai |
+| Stress test Pasal 50 + Pasal 91 (3 skenario) | Selesai |
+| Multi-wallet per PAKD (wallets array) | Selesai |
+| Wallet ownership proof EIP-191 (ETH) via MetaMask | Selesai |
+| Wallet ownership proof Ed25519 (SOL) via PyNaCl | Selesai |
+| Supabase: reconciliation_snapshots table | Selesai |
+| Background refresh via /api/internal/refresh-all | Selesai |
+| Page load dari snapshot Supabase (<1 detik) | Selesai |
+| Async manual refresh dengan job polling | Selesai |
+| Riwayat rekonsiliasi per-PAKD dengan donut chart | Selesai |
+| Export CSV per-PAKD dan overview (DISTINCT ON) | Selesai |
+| Admin token auth pada endpoint write (hmac.compare_digest) | Selesai |
+| Rate limiting rekonsiliasi (60 detik cooldown) | Selesai |
+| RLS di seluruh tabel Supabase | Selesai |
 | Manual input form (tambah PAKD baru) | Selesai |
 | Audit log (tulis + tampil) | Selesai |
-| Stress test endpoint + panel (3 skenario) | Selesai |
-| Navigasi multi-halaman (Stress Test, Audit Log, Pengaturan) | Selesai |
+| Navigasi multi-halaman dashboard | Selesai |
 | Landing page statis untuk GitHub Pages | Selesai |
-| Error handling dan timeout handling | Dalam pengerjaan |
-| Integrasi BTC dan SOL | Belum — roadmap pasca-MVP |
+| Error handling dan timeout handling | Selesai |
+| Format IDR full nominal (tanpa pembulatan M/T) | Selesai |
+| RBAC dan autentikasi pengguna | Belum — roadmap pasca-MVP |
+| Multi-point reconciliation (anti-window-dressing) | Belum — roadmap pasca-MVP |
 
 ---
 
@@ -175,35 +224,35 @@ prima-ojk/
 PRIMA dibangun dengan prinsip kejujuran teknis. Setiap keterbatasan disertai rencana mitigasi.
 
 **Circular trust.**
-Verifikasi dompet bergantung pada daftar alamat yang dideklarasikan PAKD ke OJK. Dompet yang tidak dideklarasikan tidak terdeteksi. Mitigasi roadmap: verifikasi on-site oleh OJK saat onboarding, wallet address dikunci setelah terdaftar dan tidak bisa diubah PAKD tanpa persetujuan regulator.
+Verifikasi dompet bergantung pada daftar alamat yang dideklarasikan PAKD ke OJK. Dompet yang tidak dideklarasikan tidak terdeteksi. Wallet proof (EIP-191 dan Ed25519) memverifikasi kepemilikan dompet yang sudah dideklarasikan, bukan completeness daftar. Mitigasi roadmap: verifikasi on-site oleh OJK saat onboarding, wallet address dikunci setelah terdaftar.
 
 **Window dressing.**
-Pemindahan aset sementara menjelang tanggal snapshot tidak tertangkap sistem satu titik. Mitigasi roadmap: rekonsiliasi multi-titik pada tanggal acak dalam satu periode untuk mengurangi prediktabilitas jadwal pemeriksaan.
+Rekonsiliasi berbasis snapshot memungkinkan pemindahan aset sementara menjelang tanggal pemeriksaan. Mitigasi roadmap: rekonsiliasi multi-titik pada tanggal acak dalam satu periode.
 
-**Cakupan aset MVP.**
-Versi ini hanya mencakup Ethereum. Bitcoin dan Solana belum diintegrasikan meski arsitekturnya sudah dirancang dan endpoint Solana RPC sudah diverifikasi. Mitigasi roadmap: perluasan bertahap setelah pola integrasi API divalidasi.
+**Cakupan ERC-20 dibatasi curated 50 token.**
+Etherscan full enumeration via tokentx memiliki lima cacat teknikal yang didokumentasikan (Section 9 keterbatasan-sistem.md): hasil tidak deterministik untuk transfer besar, data inkonsisten untuk token dengan custom transfer logic, tidak menangkap mint/burn, potensi duplikasi record, dan ketergantungan pada indexer Etherscan bukan on-chain state langsung. Pendekatan curated 50 token di-verifikasi via scripts/verify_curated_list.py.
 
-**Konversi IDR hanya ETH.**
-Aset kripto selain ETH belum memiliki konversi harga live. Mitigasi roadmap: tambah endpoint CoinGecko untuk BTC dan SOL bersamaan dengan perluasan integrasi chain.
+**SPL Token-2022 tidak dienumerasi.**
+Helius getTokenAccountsByOwner hanya mengembalikan token program standar. Token yang menggunakan Token-2022 program (extensions) tidak ter-cover.
 
-**Tidak ada autentikasi.**
-Dashboard tidak memiliki mekanisme login. Untuk konteks hackathon dengan data demonstrasi, ini aman. Untuk implementasi produksi dengan data regulasi nyata, RBAC dan autentikasi harus ditambahkan.
+**Tidak ada RBAC.**
+Dashboard memiliki admin token untuk endpoint write, tetapi tidak ada sistem login berbasis role untuk pengawas OJK. Untuk implementasi produksi dengan data regulasi nyata, RBAC dan autentikasi pengguna harus ditambahkan.
 
 ---
 
 ## Referensi
 
 1. OJK. (2024). *POJK Nomor 27 Tahun 2024 tentang Perdagangan Aset Keuangan Digital*.
-2. OJK. (2024). *Peta Jalan Inovasi Aset Keuangan Digital (IAKD) 2024–2028*.
-3. OJK. (2024). *Statistik Pasar Modal — Nilai Transaksi Aset Kripto 2024*.
-4. OJK. (2021). *POJK Nomor 27 Tahun 2021 tentang Penyelenggaraan Kegiatan di Bidang Pasar Modal*.
-5. Financial Stability Board. (2023). *Regulation, Supervision and Oversight of Crypto-Asset Activities*.
-6. International Monetary Fund. (2023). *Elements of Effective Policies for Crypto Assets*. IMF Policy Paper.
-7. Chainalysis. (2024). *The Chainalysis 2024 Crypto Crime Report*.
-8. IOSCO. (2023). *Policy Recommendations for Crypto and Digital Asset Markets*.
-9. PwC Switzerland. (2022). *Proof of Reserves: Bridging the Trust Gap in Crypto Exchanges*.
-10. Bisnis Indonesia. (2022, Juli). *Zipmex Bekukan Penarikan Dana Pengguna*. Bisnis.com.
+2. OJK. (2025). *POJK Nomor 23 Tahun 2025 tentang Penyelenggaraan Perdagangan Aset Keuangan Digital*.
+3. OJK. (2024). *Peta Jalan Inovasi Aset Keuangan Digital (IAKD) 2024–2028*.
+4. Financial Stability Board. (2023). *Regulation, Supervision and Oversight of Crypto-Asset Activities*.
+5. International Monetary Fund. (2023). *Elements of Effective Policies for Crypto Assets*. IMF Policy Paper.
+6. Chainalysis. (2024). *The Chainalysis 2024 Crypto Crime Report*.
+7. IOSCO. (2023). *Policy Recommendations for Crypto and Digital Asset Markets*.
+8. PwC Switzerland. (2022). *Proof of Reserves: Bridging the Trust Gap in Crypto Exchanges*.
+9. Bisnis Indonesia. (2022, Juli). *Zipmex Bekukan Penarikan Dana Pengguna*. Bisnis.com.
+10. OWASP. (2023). *Application Security Verification Standard (ASVS) v4.0.3 — V2.10 Service Authentication*.
 
 ---
 
-*PRIMA v1.0 · Dibangun untuk DIGDAYA X Hackathon 2026 · Pusat Inovasi Digital Indonesia*
+*PRIMA v1.9-pasal50-pasal91 · Dibangun untuk DIGDAYA X Hackathon 2026 · Pusat Inovasi Digital Indonesia*
