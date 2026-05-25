@@ -497,6 +497,25 @@ def write_audit(action, detail):
         print(f"[AUDIT_FILE] write failed: {type(e).__name__}: {e}", flush=True)
 
 
+def _check_wallet_uniqueness(wallets, pakd_id, existing_pakd_list):
+    """Periksa apakah wallet address sudah terdaftar di PAKD lain."""
+    for w in wallets:
+        addr_lc = w.get("address", "").lower()
+        net = w.get("network", "")
+        if not addr_lc:
+            continue
+        for other in existing_pakd_list:
+            if other["id"] == pakd_id:
+                continue
+            for ow in other.get("wallets", []):
+                if ow.get("address", "").lower() == addr_lc and ow.get("network") == net:
+                    return False, (
+                        f"Wallet {w['address']} ({net}) sudah terdaftar "
+                        f"pada PAKD {other['id']} ({other['nama']}). "
+                        f"Satu wallet hanya boleh dimiliki satu PAKD."
+                    )
+    return True, None
+
 def validate_wallet_address(network, address):
     if network not in SUPPORTED_NETWORKS:
         return False, f"Network '{network}' tidak didukung. Pilih: {', '.join(sorted(SUPPORTED_NETWORKS))}"
@@ -1648,6 +1667,10 @@ def create_pakd():
     data = load_pakd()
     if any(p["id"] == body["id"] for p in data):
         return jsonify({"error": f"PAKD {body['id']} sudah ada"}), 409
+    incoming_wallets = body.get("wallets", [])
+    ok, conflict_msg = _check_wallet_uniqueness(incoming_wallets, body["id"], data)
+    if not ok:
+        return jsonify({"error": conflict_msg}), 409
     new_pakd = {
         "id": body["id"],
         "nama": body["nama"],
@@ -1677,6 +1700,9 @@ def update_pakd(pakd_id):
             data[i]["simpanan_pedagang_akd_idr"] = body.get("simpanan_pedagang_akd_idr", p.get("simpanan_pedagang_akd_idr"))
             data[i]["customer_akd_idr"] = body.get("customer_akd_idr", p.get("customer_akd_idr"))
             if "wallets" in body:
+                ok, conflict_msg = _check_wallet_uniqueness(body["wallets"], pakd_id, data)
+                if not ok:
+                    return jsonify({"error": conflict_msg}), 409
                 data[i]["wallets"] = body["wallets"]
             save_pakd(data)
             write_audit("UPDATE_PAKD", f"Edit {pakd_id}")
@@ -2175,6 +2201,9 @@ def input_manual():
         for p in pakd_list:
             if p["id"] == pakd_id:
                 return jsonify({"status": "error", "message": f"ID {pakd_id} sudah terdaftar"}), 400
+        ok, conflict_msg = _check_wallet_uniqueness(canonical_wallets, pakd_id, pakd_list)
+        if not ok:
+            return jsonify({"status": "error", "message": conflict_msg}), 400
         equity_idr_val                 = body.get("equity_idr")
         persediaan_akd_idr_val         = body.get("persediaan_akd_idr")
         simpanan_pedagang_akd_idr_val  = body.get("simpanan_pedagang_akd_idr")
