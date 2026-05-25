@@ -32,6 +32,7 @@ REFRESH_LOCK       = {"running": False, "started_at": None}
 JOBS               = {}  # {job_id: {"status": "pending|running|done|failed", "result": None, "created_at": float}}
 PRICE_TTL          = 300   # bumped from 60 (Day 15): CMC credit budget guard
 BALANCE_TTL        = 300  # bumped: cache outlives request duration
+_SERVER_START_TIME = time.time()
 
 # ---- Jupiter API constants (Day 16) ----
 JUPITER_API_BASE      = "https://api.jup.ag"
@@ -2498,7 +2499,34 @@ def reconciliation_refresh_status(job_id):
 
 @app.route('/ping')
 def ping():
-    return {"status": "ok"}, 200
+    db_ok = False
+    db_latency = None
+    conn = _get_db_conn()
+    if conn:
+        try:
+            _t0 = time.time()
+            cur = conn.cursor()
+            cur.execute("SELECT 1")
+            cur.fetchone()
+            cur.close()
+            db_latency = round((time.time() - _t0) * 1000)
+            db_ok = True
+        except Exception as e:
+            print(f"[PING] DB check failed: {type(e).__name__}: {e}", flush=True)
+        finally:
+            conn.close()
+
+    status_code = 200 if db_ok else 503
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "db": "connected" if db_ok else "unreachable",
+        "db_latency_ms": db_latency,
+        "cache_entries": {
+            "balance": len(BALANCE_CACHE),
+            "price":   len(PRICE_CACHE),
+        },
+        "uptime_seconds": round(time.time() - _SERVER_START_TIME),
+    }, status_code
 
 if __name__ == "__main__":
     init_data()
