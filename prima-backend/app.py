@@ -461,12 +461,32 @@ def save_pakd(data):
         raise
 
 def write_audit(action, detail):
+    display_time  = datetime.now().strftime("%d %b %Y, %H:%M")
+    timestamp_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Primary: Supabase (persistent)
+    conn = _get_db_conn()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO audit_log (waktu, aksi, detail, created_at) VALUES (%s, %s, %s, %s)",
+                (display_time, action, detail, timestamp_utc)
+            )
+            conn.commit()
+            cur.close()
+        except Exception as e:
+            print(f"[AUDIT_DB] write failed: {type(e).__name__}: {e}", flush=True)
+        finally:
+            conn.close()
+
+    # Fallback: file (ephemeral)
     try:
         logs = []
         if os.path.exists(AUDIT_FILE):
             with open(AUDIT_FILE, "r") as f:
                 logs = json.load(f)
-        logs.insert(0, {"waktu": datetime.now().strftime("%d %b %Y, %H:%M"), "aksi": action, "detail": detail})
+        logs.insert(0, {"waktu": display_time, "aksi": action, "detail": detail})
         logs = logs[:50]
         dir_ = os.path.dirname(AUDIT_FILE) or "."
         fd, tmp_path = tempfile.mkstemp(dir=dir_, suffix=".tmp")
@@ -474,7 +494,7 @@ def write_audit(action, detail):
             json.dump(logs, f, indent=2)
         os.replace(tmp_path, AUDIT_FILE)
     except Exception as e:
-        print(f"[LOAD_PAKD] failed: {type(e).__name__}: {e}", flush=True)
+        print(f"[AUDIT_FILE] write failed: {type(e).__name__}: {e}", flush=True)
 
 
 def validate_wallet_address(network, address):
@@ -2187,12 +2207,30 @@ def input_manual():
 
 @app.route("/api/audit-log")
 def audit_log():
+    # Primary: Supabase
+    conn = _get_db_conn()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT waktu, aksi, detail FROM audit_log ORDER BY created_at DESC LIMIT 50")
+            rows = cur.fetchall()
+            cur.close()
+            conn.close()
+            return jsonify({
+                "data": [{"waktu": r[0], "aksi": r[1], "detail": r[2]} for r in rows],
+                "source": "database"
+            })
+        except Exception as e:
+            print(f"[AUDIT_DB] read failed: {type(e).__name__}: {e}", flush=True)
+            conn.close()
+
+    # Fallback: file
     try:
         if not os.path.exists(AUDIT_FILE):
-            return jsonify({"data": []})
+            return jsonify({"data": [], "source": "empty"})
         with open(AUDIT_FILE, "r") as f:
             logs = json.load(f)
-        return jsonify({"data": logs})
+        return jsonify({"data": logs, "source": "file"})
     except Exception as e:
         return jsonify({"status": "error", "message": "Gagal memuat audit log", "detail": str(e)}), 500
 
