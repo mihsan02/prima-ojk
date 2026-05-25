@@ -974,7 +974,7 @@ function renderP91Cards(cid, perPakd) {
 
 async function loadStressTest() {
   try {
-    const res = await fetch('/api/stress-test');
+    const res = await fetch('/api/stress-test?pakd_id=PAKD-OJK-001');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     const p50 = json.pasal50;

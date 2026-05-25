@@ -2008,6 +2008,13 @@ def reconciliation_history():
 
 @app.route("/api/stress-test")
 def stress_test():
+    pakd_id = request.args.get("pakd_id")
+    if not pakd_id:
+        return jsonify({"error": "pakd_id wajib diisi"}), 400
+
+    pakd_list = [p for p in load_pakd() if p["id"] == pakd_id]
+    if not pakd_list:
+        return jsonify({"error": f"PAKD {pakd_id} tidak ditemukan"}), 404
     """
     Dual stress test: Pasal 50 (Risiko Pasar) + Pasal 91 (Risiko Siber).
 
