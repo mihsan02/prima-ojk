@@ -19,6 +19,13 @@ import nacl.signing
 import nacl.exceptions
 
 app = Flask(__name__)
+
+def _error_response(message, detail=None, status_code=400):
+    """Format error response yang konsisten di seluruh endpoint."""
+    body = {"status": "error", "message": message}
+    if detail is not None:
+        body["detail"] = str(detail)
+    return jsonify(body), status_code
 ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'https://prima-ojk.onrender.com').split(',')
 CORS(app, origins=ALLOWED_ORIGINS)
 
@@ -1663,14 +1670,14 @@ def get_pakd():
 def create_pakd():
     body = request.get_json(force=True)
     if not body.get("id") or not body.get("nama"):
-        return jsonify({"error": "id dan nama wajib diisi"}), 400
+        return _error_response("id dan nama wajib diisi")
     data = load_pakd()
     if any(p["id"] == body["id"] for p in data):
-        return jsonify({"error": f"PAKD {body['id']} sudah ada"}), 409
+        return _error_response(f"PAKD {body['id']} sudah ada", status_code=409)
     incoming_wallets = body.get("wallets", [])
     ok, conflict_msg = _check_wallet_uniqueness(incoming_wallets, body["id"], data)
     if not ok:
-        return jsonify({"error": conflict_msg}), 409
+        return _error_response(conflict_msg, status_code=409)
     new_pakd = {
         "id": body["id"],
         "nama": body["nama"],
@@ -1702,12 +1709,12 @@ def update_pakd(pakd_id):
             if "wallets" in body:
                 ok, conflict_msg = _check_wallet_uniqueness(body["wallets"], pakd_id, data)
                 if not ok:
-                    return jsonify({"error": conflict_msg}), 409
+                    return _error_response(conflict_msg, status_code=409)
                 data[i]["wallets"] = body["wallets"]
             save_pakd(data)
             write_audit("UPDATE_PAKD", f"Edit {pakd_id}")
             return jsonify(data[i])
-    return jsonify({"error": f"PAKD {pakd_id} tidak ditemukan"}), 404
+    return _error_response(f"PAKD {pakd_id} tidak ditemukan", status_code=404)
 
 @app.route("/api/pakd/<pakd_id>", methods=["DELETE"])
 @require_admin_token
@@ -1715,7 +1722,7 @@ def delete_pakd(pakd_id):
     data = load_pakd()
     new_data = [p for p in data if p["id"] != pakd_id]
     if len(new_data) == len(data):
-        return jsonify({"error": f"PAKD {pakd_id} tidak ditemukan"}), 404
+        return _error_response(f"PAKD {pakd_id} tidak ditemukan", status_code=404)
     conn = _get_db_conn()
     if conn:
         try:
@@ -1825,7 +1832,7 @@ def reconciliation():
         return jsonify(resp)
 
     except Exception as e:
-        return jsonify({"status": "error", "message": "Rekonsiliasi gagal", "detail": str(e)}), 500
+        return _error_response("Rekonsiliasi gagal", detail=e, status_code=500)
 
 
 @app.route("/api/internal/refresh-all", methods=["POST"])
@@ -1863,7 +1870,7 @@ def internal_refresh_all():
         return jsonify({"status": "ok", "pakd_refreshed": len(hasil),
                         "timestamp": _time.time()})
     except Exception as e:
-        return jsonify({"status": "error", "detail": str(e)}), 500
+        return _error_response("Internal refresh gagal", detail=e, status_code=500)
     finally:
         REFRESH_LOCK["running"] = False
         REFRESH_LOCK["started_at"] = None
@@ -1872,7 +1879,7 @@ def internal_refresh_all():
 def reconciliation_latest():
     conn = _get_db_conn()
     if not conn:
-        return jsonify({"status": "error", "message": "Database tidak tersedia"}), 503
+        return _error_response("Database tidak tersedia", status_code=503)
     try:
         import psycopg2.extras
         cur = conn.cursor()
@@ -1917,14 +1924,14 @@ def reconciliation_latest():
             "source":     "snapshot",
         })
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return _error_response(str(e), status_code=500)
 
 
 @app.route("/api/reconciliation-history")
 def reconciliation_history():
     conn = _get_db_conn()
     if not conn:
-        return jsonify({"error": "Database tidak tersedia"}), 503
+        return _error_response("Database tidak tersedia", status_code=503)
     try:
         pakd_id = request.args.get("pakd_id")
         limit = min(int(request.args.get("limit", 30)), 100)
@@ -1965,7 +1972,7 @@ def reconciliation_history():
             })
         return jsonify({"data": hasil, "total": len(hasil)})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return _error_response(str(e), status_code=500)
     finally:
         conn.close()
 
@@ -2163,7 +2170,7 @@ def stress_test():
         })
 
     except Exception as e:
-        return jsonify({"status": "error", "message": "Stress test gagal", "detail": str(e)}), 500
+        return _error_response("Stress test gagal", detail=e, status_code=500)
 
 
 @app.route("/api/input-manual", methods=["POST"])
@@ -2172,38 +2179,38 @@ def input_manual():
     try:
         body = request.get_json(silent=True)
         if not body:
-            return jsonify({"status": "error", "message": "Request body tidak valid atau bukan JSON"}), 400
+            return _error_response("Request body tidak valid atau bukan JSON")
         nama    = body.get("nama", "").strip() if isinstance(body.get("nama"), str) else ""
         pakd_id = body.get("id", "").strip()   if isinstance(body.get("id"), str)   else ""
         aset    = body.get("aset_dilaporkan", None)
         if not nama:
-            return jsonify({"status": "error", "message": "Field nama wajib diisi"}), 400
+            return _error_response("Field nama wajib diisi")
         if not pakd_id:
-            return jsonify({"status": "error", "message": "Field id wajib diisi"}), 400
+            return _error_response("Field id wajib diisi")
         if aset is None or not isinstance(aset, (int, float)) or aset <= 0:
-            return jsonify({"status": "error", "message": "Field aset_dilaporkan harus berupa angka positif"}), 400
+            return _error_response("Field aset_dilaporkan harus berupa angka positif")
         raw_wallets = body.get("wallets")
         if raw_wallets is None and "eth_wallet" in body:
             eth_addr = body.get("eth_wallet")
             raw_wallets = [{"network": "ethereum", "address": eth_addr}] if isinstance(eth_addr, str) else []
         if not isinstance(raw_wallets, list) or len(raw_wallets) < 1:
-            return jsonify({"status": "error", "message": "Field wallets wajib berupa array minimal 1 entry"}), 400
+            return _error_response("Field wallets wajib berupa array minimal 1 entry")
         canonical_wallets = []
         for w in raw_wallets:
             entry = _normalize_wallet_entry(w, default_network="ethereum")
             if not entry or not entry.get("address"):
-                return jsonify({"status": "error", "message": "Setiap wallet entry harus punya field address"}), 400
+                return _error_response("Setiap wallet entry harus punya field address")
             ok, err = validate_wallet_address(entry["network"], entry["address"])
             if not ok:
-                return jsonify({"status": "error", "message": err}), 400
+                return _error_response(err)
             canonical_wallets.append(entry)
         pakd_list = load_pakd()
         for p in pakd_list:
             if p["id"] == pakd_id:
-                return jsonify({"status": "error", "message": f"ID {pakd_id} sudah terdaftar"}), 400
+                return _error_response(f"ID {pakd_id} sudah terdaftar")
         ok, conflict_msg = _check_wallet_uniqueness(canonical_wallets, pakd_id, pakd_list)
         if not ok:
-            return jsonify({"status": "error", "message": conflict_msg}), 400
+            return _error_response(conflict_msg)
         equity_idr_val                 = body.get("equity_idr")
         persediaan_akd_idr_val         = body.get("persediaan_akd_idr")
         simpanan_pedagang_akd_idr_val  = body.get("simpanan_pedagang_akd_idr")
@@ -2215,7 +2222,7 @@ def input_manual():
             ("customer_akd_idr", customer_akd_idr_val),
         ]:
             if field_val is not None and (not isinstance(field_val, (int, float)) or field_val < 0):
-                return jsonify({"status": "error", "message": f"Field {field_name} harus angka non-negatif jika diisi"}), 400
+                return _error_response(f"Field {field_name} harus angka non-negatif jika diisi")
         new_entry = {
             "id":                        pakd_id,
             "nama":                      nama,
@@ -2231,7 +2238,7 @@ def input_manual():
         write_audit("INPUT MANUAL", f"{nama} ({pakd_id}) ditambahkan oleh OJK")
         return jsonify({"success": True, "message": f"{nama} berhasil ditambahkan", "data": new_entry})
     except Exception as e:
-        return jsonify({"status": "error", "message": "Input manual gagal", "detail": str(e)}), 500
+        return _error_response("Input manual gagal", detail=e, status_code=500)
 
 
 @app.route("/api/audit-log")
@@ -2261,17 +2268,17 @@ def audit_log():
             logs = json.load(f)
         return jsonify({"data": logs, "source": "file"})
     except Exception as e:
-        return jsonify({"status": "error", "message": "Gagal memuat audit log", "detail": str(e)}), 500
+        return _error_response("Gagal memuat audit log", detail=e, status_code=500)
 
 @app.route("/api/wallet-challenge", methods=["POST"])
 def wallet_challenge():
     body = request.get_json(silent=True)
     if not body:
-        return jsonify({"status": "error", "message": "Request body tidak valid atau bukan JSON"}), 400
+        return _error_response("Request body tidak valid atau bukan JSON")
     address = (body.get("address") or "").strip()
     network = (body.get("network") or "ethereum").strip().lower()
     if not address:
-        return jsonify({"status": "error", "message": "Field address wajib diisi"}), 400
+        return _error_response("Field address wajib diisi")
 
     SUPPORTED_PROOF_NETWORKS = {"ethereum", "solana"}
     if network not in SUPPORTED_PROOF_NETWORKS:
@@ -2283,7 +2290,7 @@ def wallet_challenge():
 
     ok, err = validate_wallet_address(network, address)
     if not ok:
-        return jsonify({"status": "error", "message": err}), 400
+        return _error_response(err)
 
     nonce     = secrets.token_hex(16)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -2338,14 +2345,14 @@ def wallet_challenge():
 def wallet_verify():
     body = request.get_json(silent=True)
     if not body:
-        return jsonify({"status": "error", "message": "Request body tidak valid atau bukan JSON"}), 400
+        return _error_response("Request body tidak valid atau bukan JSON")
 
     address   = (body.get("address")   or "").strip()
     signature = (body.get("signature") or "").strip()
     pakd_id   = (body.get("pakd_id")   or "").strip()
 
     if not address or not signature:
-        return jsonify({"status": "error", "message": "Field address dan signature wajib diisi"}), 400
+        return _error_response("Field address dan signature wajib diisi")
 
     stored = CHALLENGE_STORE.get(address.lower())
     if not stored:
@@ -2357,7 +2364,7 @@ def wallet_verify():
 
     if time.time() > stored["expires"]:
         del CHALLENGE_STORE[address.lower()]
-        return jsonify({"status": "error", "message": "Challenge sudah expired. Minta challenge baru."}), 400
+        return _error_response("Challenge sudah expired. Minta challenge baru.")
 
     challenge = stored["challenge"]
     network   = stored.get("network", "ethereum")
@@ -2477,7 +2484,7 @@ def export_csv_overview():
         cur.close()
         conn.close()
     except Exception as e:
-        return {"error": str(e)}, 500
+        return _error_response(str(e), status_code=500)
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -2512,7 +2519,7 @@ def export_csv():
         cur.close()
         conn.close()
     except Exception as e:
-        return {"error": str(e)}, 500
+        return _error_response(str(e), status_code=500)
 
     output = io.StringIO()
     writer = csv.writer(output)
