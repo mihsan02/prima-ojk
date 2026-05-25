@@ -1601,7 +1601,7 @@ async function triggerManualRefresh() {
       const res = await fetch('/api/reconciliation/refresh?pakd_id=' + encodeURIComponent(pakd.id), {method: 'POST'});
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const {job_id} = await res.json();
-      const result = await pollJob('(' + (i+1) + '/' + pakdList.length + ') ' + pakd.nama, job_id);
+      const result = await pollJob(job_id, '(' + (i+1) + '/' + pakdList.length + ') ' + pakd.nama);
       if (result === 'timeout') {
         tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Timeout pada ' + pakd.nama + '. Coba lagi.</td></tr>';
         if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
