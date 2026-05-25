@@ -1569,38 +1569,47 @@ async function triggerManualRefresh() {
   const btn = document.querySelector('button.btn-primary[onclick="triggerManualRefresh()"]');
   const tbody = document.getElementById('pakd-tbody');
   if (btn) { btn.disabled = true; btn.textContent = 'Memuat...'; }
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Mengirim permintaan refresh...</td></tr>';
+  const pakdList = (_pakdCache && _pakdCache.length) ? _pakdCache.map(d => ({id: d.id, nama: d.nama})) : [];
+  if (!pakdList.length) {
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Data PAKD belum dimuat. Muat ulang halaman.</td></tr>';
+    if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
+    return;
+  }
+  async function pollJob(job_id, label) {
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        try {
+          const r = await fetch('/api/reconciliation/refresh/' + job_id);
+          const job = await r.json();
+          if (job.status === 'done' || job.status === 'failed') {
+            clearInterval(poll);
+            resolve(job.status);
+          } else {
+            tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Rekonsiliasi ' + label + '... (' + attempts * 2 + 's)</td></tr>';
+          }
+          if (attempts >= 75) { clearInterval(poll); resolve('timeout'); }
+        } catch(e) { clearInterval(poll); resolve('error'); }
+      }, 2000);
+    });
+  }
   try {
-    const res = await fetch('/api/reconciliation/refresh', {method: 'POST'});
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const {job_id} = await res.json();
-    let attempts = 0;
-    const poll = setInterval(async () => {
-      attempts++;
-      try {
-        const r = await fetch('/api/reconciliation/refresh/' + job_id);
-        const job = await r.json();
-        if (job.status === 'done') {
-          clearInterval(poll);
-          await loadSnapshot();
-          if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
-        } else if (job.status === 'failed') {
-          clearInterval(poll);
-          tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Refresh gagal: ' + (job.result && job.result.detail || 'unknown') + '</td></tr>';
-          if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
-        } else {
-          tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Refresh berjalan... (' + attempts * 2 + 's)</td></tr>';
-        }
-        if (attempts >= 60) {
-          clearInterval(poll);
-          tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Timeout. Coba lagi.</td></tr>';
-          if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
-        }
-      } catch(e) {
-        clearInterval(poll);
+    for (let i = 0; i < pakdList.length; i++) {
+      const pakd = pakdList[i];
+      tbody.innerHTML = '<tr class="loading-row"><td colspan="7">(' + (i+1) + '/' + pakdList.length + ') Mengirim job untuk ' + pakd.nama + '...</td></tr>';
+      const res = await fetch('/api/reconciliation/refresh?pakd_id=' + encodeURIComponent(pakd.id), {method: 'POST'});
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const {job_id} = await res.json();
+      const result = await pollJob('(' + (i+1) + '/' + pakdList.length + ') ' + pakd.nama, job_id);
+      if (result === 'timeout') {
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Timeout pada ' + pakd.nama + '. Coba lagi.</td></tr>';
         if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
+        return;
       }
-    }, 2000);
+    }
+    await loadSnapshot();
+    if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
   } catch(e) {
     tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Gagal menghubungi server: ' + e.message + '</td></tr>';
     if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }

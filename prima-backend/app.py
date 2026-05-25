@@ -2611,10 +2611,12 @@ def _cleanup_old_jobs():
         if now - JOBS[jid]["created_at"] > 600:
             del JOBS[jid]
 
-def _run_refresh_job(job_id):
+def _run_refresh_job(job_id, pakd_id_filter=None):
     JOBS[job_id]["status"] = "running"
     try:
         pakd_list = load_pakd()
+        if pakd_id_filter:
+            pakd_list = [p for p in pakd_list if p["id"] == pakd_id_filter]
         hasil = []
         for pakd in pakd_list:
             result_bal = get_total_balance_idr(pakd.get("wallets", []))
@@ -2642,9 +2644,10 @@ def _run_refresh_job(job_id):
 @app.route("/api/reconciliation/refresh", methods=["POST"])
 def reconciliation_refresh():
     _cleanup_old_jobs()
+    pakd_id_filter = request.args.get("pakd_id") or None
     job_id = str(uuid.uuid4())
     JOBS[job_id] = {"status": "pending", "result": None, "created_at": time.time()}
-    _REFRESH_EXECUTOR.submit(_run_refresh_job, job_id)
+    _REFRESH_EXECUTOR.submit(_run_refresh_job, job_id, pakd_id_filter)
     return jsonify({"job_id": job_id, "status": "pending"})
 
 @app.route("/api/reconciliation/refresh/<job_id>", methods=["GET"])
