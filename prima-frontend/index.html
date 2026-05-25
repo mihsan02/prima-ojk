@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=1280">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
 <title>PRIMA — Dashboard Monitoring OJK</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -190,6 +190,21 @@ tr:hover td{background:var(--bg2)}
 .chart-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt3)}
 .chart-legend-line{width:20px;height:2px;border-radius:2px}
 .no-data-state{text-align:center;padding:40px 20px;color:var(--txt4);font-size:13px}
+
+@media (max-width: 1024px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .detail-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .topbar { padding: 0 12px; }
+  .breadcrumb { display: none; }
+  .main { padding: 12px; }
+  table { font-size: 11px; }
+  td, th { padding: 8px; }
+}
 </style>
 </head>
 <body>
@@ -839,7 +854,7 @@ function formatIDR(n) {
   return 'Rp ' + Math.round(n).toLocaleString('id-ID');
 }
 
-function formatRpCompact(n) {
+function formatIDR(n) {
   return 'Rp ' + Math.round(n).toLocaleString('id-ID');
 }
 
@@ -948,10 +963,10 @@ function renderP91Cards(cid, perPakd) {
     var icon = p.lulus ? '✓' : '✕';
     var eqVal = p.equity_post;
     var eqCls = eqVal >= 0 ? 'green' : 'red';
-    var eqStr = (eqVal < 0 ? '−' : '') + formatRpCompact(Math.abs(eqVal));
+    var eqStr = (eqVal < 0 ? '−' : '') + formatIDR(Math.abs(eqVal));
     return '<div class="entity-card-st ' + cls + '">' +
       '<div class="entity-card-st-name ' + cls + '">' + icon + ' ' + p.nama + '</div>' +
-      '<div class="entity-card-st-row"><span class="entity-card-st-lbl">AKD hilang</span><span class="entity-card-st-val red">−' + formatRpCompact(p.loss_idr) + '</span></div>' +
+      '<div class="entity-card-st-row"><span class="entity-card-st-lbl">AKD hilang</span><span class="entity-card-st-val red">−' + formatIDR(p.loss_idr) + '</span></div>' +
       '<div class="entity-card-st-row"><span class="entity-card-st-lbl">Sisa ekuitas</span><span class="entity-card-st-val ' + eqCls + '">' + eqStr + '</span></div>' +
       '</div>';
   }).join('');
@@ -984,7 +999,7 @@ async function loadStressTest() {
     }
 
     document.getElementById('stress-price-note').innerHTML =
-      'ETH ' + formatRpCompact(ethPrice) + ' · BTC ' + formatRpCompact(btcPrice) + ' · SOL ' + formatRpCompact(solPrice) + ' · Basis: ' + p50.mild.total + ' PAKD';
+      'ETH ' + formatIDR(ethPrice) + ' · BTC ' + formatIDR(btcPrice) + ' · SOL ' + formatIDR(solPrice) + ' · Basis: ' + p50.mild.total + ' PAKD';
     var riskCount = {}; var riskNames = {};
     ['mild','moderate','severe'].forEach(function(k) {
       (p50[k].per_pakd||[]).forEach(function(p){if(!p.lulus){riskCount[p.id]=(riskCount[p.id]||0)+1;riskNames[p.id]=p.nama;}});
@@ -1012,7 +1027,7 @@ async function loadStressTest() {
       count.innerHTML = p50[key].lulus + '/' + p50[key].total + '<span style="font-size:9px;color:var(--txt3)"> lulus</span>';
       count.style.color = color;
       var subEl = document.getElementById('p50-' + key + '-sub');
-      if (subEl) subEl.innerHTML = 'ETH <span style="color:var(--txt1)">' + formatRpCompact(p50[key].eth_stressed) + '</span> · BTC <span style="color:var(--txt1)">' + formatRpCompact(p50[key].btc_stressed) + '</span> · SOL <span style="color:var(--txt1)">' + formatRpCompact(p50[key].sol_stressed) + '</span>';
+      if (subEl) subEl.innerHTML = 'ETH <span style="color:var(--txt1)">' + formatIDR(p50[key].eth_stressed) + '</span> · BTC <span style="color:var(--txt1)">' + formatIDR(p50[key].btc_stressed) + '</span> · SOL <span style="color:var(--txt1)">' + formatIDR(p50[key].sol_stressed) + '</span>';
       renderChips('p50-chips-' + key, p50[key].per_pakd, true);
     });
 
@@ -1181,22 +1196,22 @@ function renderBreakdown(d) {
   const parts = [];
   if (d.eth_balance_idr > 0) {
     let s = `<div style="margin-bottom:3px"><span style="color:var(--blue);font-family:'JetBrains Mono',monospace;font-size:9px;margin-right:4px;letter-spacing:0.05em">ETH</span>`;
-    s += `<span style="color:var(--txt2)">${formatRpCompact(d.eth_native_idr)}</span>`;
-    if (d.eth_usdt_idr > 0) s += `<span style="color:var(--txt3)"> · USDT ${formatRpCompact(d.eth_usdt_idr)}</span>`;
-    if (d.eth_usdc_idr > 0) s += `<span style="color:var(--txt3)"> · USDC ${formatRpCompact(d.eth_usdc_idr)}</span>`;
-    if (d.eth_other_token_idr > 0) s += `<span style="color:var(--txt3)"> · OTHER ${formatRpCompact(d.eth_other_token_idr)}</span>`;
+    s += `<span style="color:var(--txt2)">${formatIDR(d.eth_native_idr)}</span>`;
+    if (d.eth_usdt_idr > 0) s += `<span style="color:var(--txt3)"> · USDT ${formatIDR(d.eth_usdt_idr)}</span>`;
+    if (d.eth_usdc_idr > 0) s += `<span style="color:var(--txt3)"> · USDC ${formatIDR(d.eth_usdc_idr)}</span>`;
+    if (d.eth_other_token_idr > 0) s += `<span style="color:var(--txt3)"> · OTHER ${formatIDR(d.eth_other_token_idr)}</span>`;
     if (d.eth_unvalued_count > 0) s += `<span style="color:var(--amber);font-size:9px;margin-left:4px" title="Token terdeteksi tanpa harga di CoinGecko">⚠ ${d.eth_unvalued_count} unvalued</span>`;
     parts.push(s + '</div>');
   }
   if (d.btc_balance_idr > 0) {
-    parts.push(`<div style="margin-bottom:3px"><span style="color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:9px;margin-right:4px;letter-spacing:0.05em">BTC</span><span style="color:var(--txt2)">${formatRpCompact(d.btc_balance_idr)}</span></div>`);
+    parts.push(`<div style="margin-bottom:3px"><span style="color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:9px;margin-right:4px;letter-spacing:0.05em">BTC</span><span style="color:var(--txt2)">${formatIDR(d.btc_balance_idr)}</span></div>`);
   }
   if (d.sol_balance_idr > 0) {
     let s = `<div><span style="color:var(--green);font-family:'JetBrains Mono',monospace;font-size:9px;margin-right:4px;letter-spacing:0.05em">SOL</span>`;
-    s += `<span style="color:var(--txt2)">${formatRpCompact(d.sol_native_idr)}</span>`;
-    if (d.sol_usdt_idr > 0) s += `<span style="color:var(--txt3)"> · USDT ${formatRpCompact(d.sol_usdt_idr)}</span>`;
-    if (d.sol_usdc_idr > 0) s += `<span style="color:var(--txt3)"> · USDC ${formatRpCompact(d.sol_usdc_idr)}</span>`;
-    if (d.sol_other_token_idr > 0) s += `<span style="color:var(--txt3)"> · OTHER ${formatRpCompact(d.sol_other_token_idr)}</span>`;
+    s += `<span style="color:var(--txt2)">${formatIDR(d.sol_native_idr)}</span>`;
+    if (d.sol_usdt_idr > 0) s += `<span style="color:var(--txt3)"> · USDT ${formatIDR(d.sol_usdt_idr)}</span>`;
+    if (d.sol_usdc_idr > 0) s += `<span style="color:var(--txt3)"> · USDC ${formatIDR(d.sol_usdc_idr)}</span>`;
+    if (d.sol_other_token_idr > 0) s += `<span style="color:var(--txt3)"> · OTHER ${formatIDR(d.sol_other_token_idr)}</span>`;
     if (d.sol_unvalued_count > 0) s += `<span style="color:var(--amber);font-size:9px;margin-left:4px" title="Mint terdeteksi tanpa harga di Jupiter">⚠ ${d.sol_unvalued_count} unvalued</span>`;
     parts.push(s + '</div>');
   }

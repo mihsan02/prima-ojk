@@ -19,7 +19,8 @@ import nacl.signing
 import nacl.exceptions
 
 app = Flask(__name__)
-CORS(app)
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'https://prima-ojk.onrender.com').split(',')
+CORS(app, origins=ALLOWED_ORIGINS)
 
 SATOSHI_PER_BTC    = 100_000_000
 _last_rekon_time = 0
@@ -357,20 +358,32 @@ def load_pakd():
             cur = conn.cursor()
             cur.execute("SELECT id, nama, aset_dilaporkan, equity_idr, persediaan_akd_idr, simpanan_pedagang_akd_idr, customer_akd_idr FROM pakd ORDER BY id")
             pakd_rows = cur.fetchall()
+            if not pakd_rows:
+                cur.close()
+                conn.close()
+                return []
+            pakd_ids = [row[0] for row in pakd_rows]
+            cur.execute("SELECT pakd_id, network, address, verified, verified_at FROM wallets WHERE pakd_id = ANY(%s) ORDER BY pakd_id", (pakd_ids,))
+            wallet_rows = cur.fetchall()
+            cur.close()
+            conn.close()
+            from collections import defaultdict
+            wallets_by_pakd = defaultdict(list)
+            for w in wallet_rows:
+                wallets_by_pakd[w[0]].append({
+                    "network": w[1], "address": w[2],
+                    "verified": w[3],
+                    "verified_at": str(w[4]) if w[4] else None
+                })
             result = []
             for row in pakd_rows:
-                pakd_id = row[0]
-                cur.execute("SELECT network, address, verified, verified_at FROM wallets WHERE pakd_id = %s", (pakd_id,))
-                wallets = [{"network": w[0], "address": w[1], "verified": w[2], "verified_at": str(w[3]) if w[3] else None} for w in cur.fetchall()]
                 result.append({
                     "id": row[0], "nama": row[1],
                     "aset_dilaporkan": row[2] or 0,
                     "equity_idr": row[3], "persediaan_akd_idr": row[4],
                     "simpanan_pedagang_akd_idr": row[5], "customer_akd_idr": row[6],
-                    "wallets": wallets
+                    "wallets": wallets_by_pakd.get(row[0], [])
                 })
-            cur.close()
-            conn.close()
             if result:
                 return result
         except Exception as e:
@@ -1440,9 +1453,25 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         _f_eth = _ex.submit(_proc_eth, eth_wallets)
         _f_btc = _ex.submit(_proc_btc, btc_wallets)
         _f_sol = _ex.submit(_proc_sol, sol_wallets)
-        _r_eth = _f_eth.result(timeout=90)
-        _r_btc = _f_btc.result(timeout=30)
-        _r_sol = _f_sol.result(timeout=90)
+        from concurrent.futures import TimeoutError as FuturesTimeout
+        try:
+            _r_eth = _f_eth.result(timeout=25)
+        except (FuturesTimeout, Exception) as e:
+            print(f"[CHAIN_FETCH] ETH timeout/error: {e}", flush=True)
+            _r_eth = {"entries": [], "eth_total": 0, "eth_native": 0,
+                      "eth_usdt": 0, "eth_usdc": 0, "eth_other": 0,
+                      "eth_unvalued_count": 0, "eth_unvalued_contracts": [], "t": 0}
+        try:
+            _r_btc = _f_btc.result(timeout=15)
+        except (FuturesTimeout, Exception) as e:
+            print(f"[CHAIN_FETCH] BTC timeout/error: {e}", flush=True)
+            _r_btc = {"entries": [], "btc_total": 0, "t": 0}
+        try:
+            _r_sol = _f_sol.result(timeout=25)
+        except (FuturesTimeout, Exception) as e:
+            print(f"[CHAIN_FETCH] SOL timeout/error: {e}", flush=True)
+            _r_sol = {"entries": [], "sol_total": 0, "sol_native": 0,
+                      "sol_usdt": 0, "sol_usdc": 0, "sol_other": 0, "t": 0}
 
     # --- Merge results ---
     other_entries = []
@@ -2371,7 +2400,7 @@ def export_csv_overview():
     writer.writerow(col_names)
     writer.writerows(rows)
 
-    filename = f"prima-overview-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.csv"
+    filename = f"prima-overview-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.csv"
     response = make_response(output.getvalue())
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
     response.headers["Content-Type"] = "text/csv"
@@ -2406,7 +2435,7 @@ def export_csv():
     writer.writerow(col_names)
     writer.writerows(rows)
 
-    filename = f"prima-export-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.csv"
+    filename = f"prima-export-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.csv"
     response = make_response(output.getvalue())
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
     response.headers["Content-Type"] = "text/csv"
