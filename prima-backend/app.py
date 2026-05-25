@@ -325,7 +325,7 @@ def _init_db_pool():
         return None
     try:
         import psycopg2.pool
-        _DB_POOL = psycopg2.pool.SimpleConnectionPool(
+        _DB_POOL = psycopg2.pool.ThreadedConnectionPool(
             minconn=1, maxconn=5, dsn=db_url, connect_timeout=5
         )
         return _DB_POOL
@@ -2624,7 +2624,24 @@ def _cleanup_old_jobs():
             del JOBS[jid]
 
 def _run_refresh_job(job_id, pakd_id_filter=None):
-    JOBS[job_id]["status"] = "running"
+    def _job_update(status, result=None):
+        conn = _get_db_conn()
+        if not conn:
+            return
+        try:
+            cur = conn.cursor()
+            import json as _json
+            cur.execute(
+                "UPDATE reconciliation_jobs SET status=%s, result=%s WHERE job_id=%s",
+                (status, _json.dumps(result) if result else None, job_id)
+            )
+            conn.commit()
+            cur.close()
+        except Exception as e:
+            print(f"[JOBS] update failed: {e}", flush=True)
+        finally:
+            _return_db_conn(conn)
+    _job_update("running")
     try:
         pakd_list = load_pakd()
         if pakd_id_filter:
@@ -2647,27 +2664,47 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
             })
         _, eth_fallback = get_eth_price_idr()
         _save_snapshots_batch(hasil, eth_fallback)
-        JOBS[job_id]["status"] = "done"
-        JOBS[job_id]["result"] = {"pakd_refreshed": len(hasil), "timestamp": time.time()}
+        _job_update("done", {"pakd_refreshed": len(hasil), "timestamp": time.time()})
     except Exception as e:
-        JOBS[job_id]["status"] = "failed"
-        JOBS[job_id]["result"] = {"detail": str(e)}
+        _job_update("failed", {"detail": str(e)})
 
 @app.route("/api/reconciliation/refresh", methods=["POST"])
 def reconciliation_refresh():
     _cleanup_old_jobs()
     pakd_id_filter = request.args.get("pakd_id") or None
     job_id = str(uuid.uuid4())
-    JOBS[job_id] = {"status": "pending", "result": None, "created_at": time.time()}
+    conn = _get_db_conn()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("INSERT INTO reconciliation_jobs (job_id, status) VALUES (%s, %s)", (job_id, "pending"))
+            conn.commit()
+            cur.close()
+        except Exception as e:
+            print(f"[JOBS] insert failed: {e}", flush=True)
+        finally:
+            _return_db_conn(conn)
     _REFRESH_EXECUTOR.submit(_run_refresh_job, job_id, pakd_id_filter)
     return jsonify({"job_id": job_id, "status": "pending"})
 
 @app.route("/api/reconciliation/refresh/<job_id>", methods=["GET"])
 def reconciliation_refresh_status(job_id):
-    job = JOBS.get(job_id)
-    if not job:
+    conn = _get_db_conn()
+    if not conn:
+        return jsonify({"status": "error", "detail": "db unavailable"}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT status, result FROM reconciliation_jobs WHERE job_id=%s", (job_id,))
+        row = cur.fetchone()
+        cur.close()
+    except Exception as e:
+        print(f"[JOBS] select failed: {e}", flush=True)
+        return jsonify({"status": "error", "detail": str(e)}), 500
+    finally:
+        _return_db_conn(conn)
+    if not row:
         return jsonify({"status": "not_found"}), 404
-    return jsonify({"job_id": job_id, "status": job["status"], "result": job["result"]})
+    return jsonify({"job_id": job_id, "status": row[0], "result": row[1]})
 
 @app.route('/ping')
 def ping():
