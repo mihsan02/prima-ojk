@@ -1602,7 +1602,6 @@ async function triggerManualRefresh() {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const {job_id} = await res.json();
       const result = await pollJob(job_id, '(' + (i+1) + '/' + pakdList.length + ') ' + pakd.nama);
-      if (result === 'timeout') {
       if (result === 'timeout' || result === 'error') {
         console.warn('Timeout/error pada ' + pakd.nama + ', lanjut ke PAKD berikutnya');
       } else if (result === 'failed') {
