@@ -695,20 +695,20 @@ tr:hover td{background:var(--bg2)}
       <div class="panel">
         <div class="panel-body">
           <div class="setting-row">
-            <div><div class="setting-label">Ambang Deviasi Tier 1</div><div class="setting-desc">Deviasi defisit yang memicu peringatan Deviasi</div></div>
-            <span class="setting-val">5% – 15%</span>
+            <div><div class="setting-label">Ambang Deviasi Tier 1</div><div class="setting-desc">Deviasi defisit 0.01-10% memicu status Deviasi</div></div>
+            <span class="setting-val">0.01% – 10% defisit</span>
           </div>
           <div class="setting-row">
-            <div><div class="setting-label">Ambang Deviasi Tier 2</div><div class="setting-desc">Deviasi defisit yang memicu status Kritis</div></div>
-            <span class="setting-val">&gt; 15%</span>
+            <div><div class="setting-label">Ambang Deviasi Tier 2</div><div class="setting-desc">Deviasi defisit lebih dari 10% memicu status Kritis</div></div>
+            <span class="setting-val">&gt; 10% defisit</span>
           </div>
           <div class="setting-row">
             <div><div class="setting-label">Logika Surplus</div><div class="setting-desc">Aset on-chain melebihi aset dilaporkan diklasifikasikan sebagai Aman</div></div>
             <span class="setting-val">AKTIF</span>
           </div>
           <div class="setting-row">
-            <div><div class="setting-label">Ambang Stress Test (Rasio Minimum)</div><div class="setting-desc">PAKD dinyatakan lulus jika aset on-chain stres minimal 80% dari kewajiban</div></div>
-            <span class="setting-val">80%</span>
+            <div><div class="setting-label">Ambang Stress Test (Rasio Minimum)</div><div class="setting-desc">PAKD dinyatakan lulus jika ekuitas pasca-stres >= Rp 50 miliar (POJK 23/2025 Pasal 50(1)(o))</div></div>
+            <span class="setting-val">Rp 50.000.000.000</span>
           </div>
         </div>
       </div>
@@ -1968,7 +1968,7 @@ function renderChips(containerId, items, showPass) {
     <div style="margin-bottom:20px">
       <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:8px">Wallets</label>
       <div id="edit-wallets-container"></div>
-      <button onclick="addWalletRow()" style="margin-top:8px;background:none;border:1px dashed var(--border);border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--blue);font-size:12px">+ Tambah Wallet</button>
+      <button onclick="addEditWalletRow()" style="margin-top:8px;background:none;border:1px dashed var(--border);border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--blue);font-size:12px">+ Tambah Wallet</button>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button onclick="closeEditModal()" style="padding:8px 20px;border-radius:6px;border:1px solid var(--border);background:none;cursor:pointer;color:var(--txt1)">Batal</button>
@@ -2009,7 +2009,7 @@ async function openEditModal(pakdId) {
   document.getElementById('modal-pakd').style.display = 'flex';
   let pakd = null;
   try {
-    const resp = await fetch(API + '/api/pakd');
+    const resp = await fetch('/api/pakd');
     const list = await resp.json();
     pakd = list.find(p => p.id === pakdId);
   } catch(e) { pakd = _pakdCache.find(p => p.id === pakdId); }
@@ -2042,11 +2042,11 @@ function renderWalletRows(wallets) {
         <option ${w.network==='solana'?'selected':''}>solana</option>
       </select>
       <input value="${escapeHtml(w.address)}" placeholder="Alamat wallet" style="flex:1;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1)">
-      <button onclick="removeWalletRow(${i})" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer">✕</button>
+      <button onclick="removeEditWalletRow(${i})" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer">✕</button>
     </div>`).join('');
 }
 
-function addWalletRow() {
+function addEditWalletRow() {
   const container = document.getElementById('edit-wallets-container');
   const i = container.children.length;
   const div = document.createElement('div');
@@ -2061,7 +2061,7 @@ function addWalletRow() {
   container.appendChild(div);
 }
 
-function removeWalletRow(i) {
+function removeEditWalletRow(i) {
   document.getElementById('wallet-row-' + i).remove();
 }
 
@@ -2097,13 +2097,13 @@ async function saveEditModal() {
       const newId = document.getElementById('edit-pakd-id').value.trim();
       if (!newId) return alert('ID PAKD wajib diisi');
       if (!nama) return alert('Nama PAKD wajib diisi');
-      resp = await fetch(API + '/api/input-manual', {
+      resp = await fetch('/api/input-manual', {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-Admin-Token': getAdminToken()},
         body: JSON.stringify({id: newId, nama: nama, aset_dilaporkan: aset, wallets: wallets, equity_idr, persediaan_akd_idr, simpanan_pedagang_akd_idr, customer_akd_idr})
       });
     } else {
-      resp = await fetch(API + '/api/pakd/' + _editPakdId, {
+      resp = await fetch('/api/pakd/' + _editPakdId, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json', 'X-Admin-Token': getAdminToken()},
         body: JSON.stringify({nama: nama, aset_dilaporkan: aset, wallets: wallets, equity_idr, persediaan_akd_idr, simpanan_pedagang_akd_idr, customer_akd_idr})
@@ -2120,7 +2120,7 @@ async function saveEditModal() {
 async function deletePakd(pakdId) {
   if (!confirm('Hapus PAKD ' + pakdId + '? Tindakan ini tidak dapat dibatalkan.')) return;
   try {
-    const resp = await fetch(API + '/api/pakd/' + pakdId, {method: 'DELETE', headers: {'X-Admin-Token': getAdminToken()}});
+    const resp = await fetch('/api/pakd/' + pakdId, {method: 'DELETE', headers: {'X-Admin-Token': getAdminToken()}});
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
       loadData();
