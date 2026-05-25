@@ -329,7 +329,7 @@ tr:hover td{background:var(--bg2)}
             </tr>
           </thead>
           <tbody id="pakd-tbody">
-            <tr class="loading-row"><td colspan="7">Mengambil data dari blockchain...</td></tr>
+            <tr class="loading-row"><td colspan="8">Mengambil data dari blockchain...</td></tr>
           </tbody>
         </table>
       </div>
@@ -641,15 +641,13 @@ tr:hover td{background:var(--bg2)}
             <div class="stress-count" style="color:var(--amber)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
           </div>
           <div class="entity-card-grid" id="p91-cards-moderate"></div>
-          <div class="entity-card-grid" id="p91-cards-moderate"></div>
-          <div id="p91-severe" class="stress-row severe">
+                    <div id="p91-severe" class="stress-row severe">
             <div class="stress-label-wrap"><div class="stress-name severe">Severe</div><div class="stress-pct-label">−100% AKD hilang · Ref: Mt Gox 2014</div></div>
             <div class="stress-bar-wrap"><div class="stress-bar severe" style="width:0%"></div></div>
             <div class="stress-count" style="color:var(--red)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
           </div>
           <div class="entity-card-grid" id="p91-cards-severe"></div>
-          <div class="entity-card-grid" id="p91-cards-severe"></div>
-          <div id="p91-note" style="margin-top:14px;padding:12px 16px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--txt4);font-size:13px;color:var(--txt3)">Memuat hasil stress test...</div>
+                    <div id="p91-note" style="margin-top:14px;padding:12px 16px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--txt4);font-size:13px;color:var(--txt3)">Memuat hasil stress test...</div>
         </div>
       </div>
     </div>
@@ -862,7 +860,7 @@ function deviDisplay(d) {
 
 async function loadData() {
   const tbody = document.getElementById('pakd-tbody');
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Mengambil data dari blockchain...</td></tr>';
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="8">Mengambil data dari blockchain...</td></tr>';
   try {
     const res = await fetch('/api/reconciliation');
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -2001,6 +1999,7 @@ function openAddModal() {
   document.getElementById('edit-pakd-nama').value = '';
   document.getElementById('edit-pakd-aset').value = '';
   ['edit-equity','edit-persediaan','edit-simpanan','edit-customer'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  _editingWallets = null;
   renderWalletRows([]);
   document.getElementById('modal-pakd').style.display = 'flex';
 }
@@ -2022,8 +2021,9 @@ async function openEditModal(pakdId) {
   document.getElementById('edit-pakd-nama').value = pakd.nama || '';
   document.getElementById('edit-pakd-aset').value = pakd.aset_dilaporkan || '';
   const _ef = ['edit-equity','edit-persediaan','edit-simpanan','edit-customer'];
-  const _ev = [pakd.ekuitas, pakd.persediaan_akd, pakd.simpanan_pedagang_akd, pakd.akd_konsumen];
+  const _ev = [pakd.equity_idr, pakd.persediaan_akd_idr, pakd.simpanan_pedagang_akd_idr, pakd.customer_akd_idr];
   _ef.forEach((id,i) => { const el = document.getElementById(id); if (el) el.value = _ev[i] || ''; });
+  _editingWallets = pakd.wallets || [];
   renderWalletRows(pakd.wallets || []);
 }
 
@@ -2065,24 +2065,32 @@ function removeWalletRow(i) {
   document.getElementById('wallet-row-' + i).remove();
 }
 
+let _editingWallets = null;
 function getWalletsFromModal() {
   const rows = document.getElementById('edit-wallets-container').children;
-  return Array.from(rows).map(row => ({
-    network: row.querySelector('select').value,
-    address: row.querySelector('input').value.trim(),
-    verified: false,
-    verified_at: null
-  })).filter(w => w.address);
+  return Array.from(rows).map(row => {
+    const address = row.querySelector('input').value.trim();
+    const network = row.querySelector('select').value;
+    const existing = _editingWallets ? _editingWallets.find(
+      w => w.address.toLowerCase() === address.toLowerCase() && w.network === network
+    ) : null;
+    return {
+      network,
+      address,
+      verified: existing ? existing.verified : false,
+      verified_at: existing ? existing.verified_at : null
+    };
+  }).filter(w => w.address);
 }
 
 async function saveEditModal() {
   const nama = document.getElementById('edit-pakd-nama').value.trim();
   const aset = parseInt(document.getElementById('edit-pakd-aset').value) || 0;
   const wallets = getWalletsFromModal();
-  const ekuitas = parseInt(document.getElementById('edit-equity').value) || null;
-  const persediaan_akd = parseInt(document.getElementById('edit-persediaan').value) || null;
-  const simpanan_pedagang_akd = parseInt(document.getElementById('edit-simpanan').value) || null;
-  const akd_konsumen = parseInt(document.getElementById('edit-customer').value) || null;
+  const equity_idr = parseInt(document.getElementById('edit-equity').value) || null;
+  const persediaan_akd_idr = parseInt(document.getElementById('edit-persediaan').value) || null;
+  const simpanan_pedagang_akd_idr = parseInt(document.getElementById('edit-simpanan').value) || null;
+  const customer_akd_idr = parseInt(document.getElementById('edit-customer').value) || null;
   try {
     let resp;
     if (_editPakdId === null) {
@@ -2092,13 +2100,13 @@ async function saveEditModal() {
       resp = await fetch(API + '/api/input-manual', {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-Admin-Token': getAdminToken()},
-        body: JSON.stringify({id: newId, nama: nama, aset_dilaporkan: aset, wallets: wallets, ekuitas, persediaan_akd, simpanan_pedagang_akd, akd_konsumen})
+        body: JSON.stringify({id: newId, nama: nama, aset_dilaporkan: aset, wallets: wallets, equity_idr, persediaan_akd_idr, simpanan_pedagang_akd_idr, customer_akd_idr})
       });
     } else {
       resp = await fetch(API + '/api/pakd/' + _editPakdId, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json', 'X-Admin-Token': getAdminToken()},
-        body: JSON.stringify({nama: nama, aset_dilaporkan: aset, wallets: wallets, ekuitas, persediaan_akd, simpanan_pedagang_akd, akd_konsumen})
+        body: JSON.stringify({nama: nama, aset_dilaporkan: aset, wallets: wallets, equity_idr, persediaan_akd_idr, simpanan_pedagang_akd_idr, customer_akd_idr})
       });
     }
     if (!resp.ok) throw new Error(await resp.text());
