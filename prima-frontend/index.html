@@ -1603,9 +1603,10 @@ async function triggerManualRefresh() {
       const {job_id} = await res.json();
       const result = await pollJob(job_id, '(' + (i+1) + '/' + pakdList.length + ') ' + pakd.nama);
       if (result === 'timeout') {
-        tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Timeout pada ' + pakd.nama + '. Coba lagi.</td></tr>';
-        if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
-        return;
+      if (result === 'timeout' || result === 'error') {
+        console.warn('Timeout/error pada ' + pakd.nama + ', lanjut ke PAKD berikutnya');
+      } else if (result === 'failed') {
+        console.warn('Job gagal pada ' + pakd.nama + ', lanjut ke PAKD berikutnya');
       }
     }
     await loadSnapshot();
