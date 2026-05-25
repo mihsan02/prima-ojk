@@ -2053,18 +2053,49 @@ def stress_test():
 
         pakd_list = load_pakd()
 
-        # Baseline on-chain balances at current prices (used by Pasal 91)
+        # Baseline dari snapshot Supabase (hindari live RPC / OOM)
         baseline_result = {}
+        import psycopg2, json as _json
+        _db = psycopg2.connect(os.environ["DATABASE_URL"])
+        _cur = _db.cursor()
         for pakd in pakd_list:
-            result = get_total_balance_idr(
-                pakd["wallets"],
-                eth_price_idr=eth_price,
-                btc_price_idr=btc_price,
-                sol_price_idr=sol_price,
-                usdt_price_idr=usdt_price,
-                usdc_price_idr=usdc_price,
+            _cur.execute(
+                "SELECT aset_onchain_idr, network_breakdown FROM reconciliation_snapshots "
+                "WHERE pakd_id = %s ORDER BY created_at DESC LIMIT 1",
+                (pakd["id"],)
             )
-            baseline_result[pakd["id"]] = result
+            row = _cur.fetchone()
+            if row:
+                total_idr = row[0] or 0
+                nb = row[1] if isinstance(row[1], list) else []
+                eth_native   = sum(w.get("eth_native_idr", 0) or 0 for w in nb if w.get("network") == "ethereum")
+                eth_usdt     = sum(w.get("usdt_idr", 0) or 0 for w in nb if w.get("network") == "ethereum")
+                eth_usdc     = sum(w.get("usdc_idr", 0) or 0 for w in nb if w.get("network") == "ethereum")
+                eth_other    = sum(w.get("eth_other_token_idr", 0) or 0 for w in nb if w.get("network") == "ethereum")
+                btc_idr      = sum(w.get("balance_idr", 0) or 0 for w in nb if w.get("network") == "bitcoin")
+                sol_native   = sum(w.get("sol_native_idr", 0) or 0 for w in nb if w.get("network") == "solana")
+                sol_usdt     = sum(w.get("sol_usdt_idr", 0) or 0 for w in nb if w.get("network") == "solana")
+                sol_usdc     = sum(w.get("sol_usdc_idr", 0) or 0 for w in nb if w.get("network") == "solana")
+                sol_other    = sum(w.get("sol_other_token_idr", 0) or 0 for w in nb if w.get("network") == "solana")
+                baseline_result[pakd["id"]] = {
+                    "total_idr": total_idr,
+                    "eth_native_idr": eth_native,
+                    "eth_usdt_idr": eth_usdt,
+                    "eth_usdc_idr": eth_usdc,
+                    "eth_other_token_idr": eth_other,
+                    "btc_balance_idr": btc_idr,
+                    "sol_native_idr": sol_native,
+                    "sol_usdt_idr": sol_usdt,
+                    "sol_usdc_idr": sol_usdc,
+                    "sol_other_token_idr": sol_other,
+                }
+            else:
+                baseline_result[pakd["id"]] = {"total_idr": 0, "eth_native_idr": 0,
+                    "eth_usdt_idr": 0, "eth_usdc_idr": 0, "eth_other_token_idr": 0,
+                    "btc_balance_idr": 0, "sol_native_idr": 0, "sol_usdt_idr": 0,
+                    "sol_usdc_idr": 0, "sol_other_token_idr": 0}
+        _cur.close()
+        _db.close()
 
         # ----------------------------------------------------------------
         # Pasal 50: Risiko Pasar
