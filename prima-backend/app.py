@@ -319,8 +319,8 @@ def _save_snapshot(pakd_id, pakd_nama, aset_dilaporkan, aset_onchain, deviasi_pc
              json.dumps(breakdown))
         )
         conn.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[SNAPSHOT] failed: {type(e).__name__}: {e}", flush=True)
     finally:
         conn.close()
 
@@ -381,8 +381,8 @@ def load_pakd():
                 data = json.load(f)
             if data:
                 return [_migrate_record(p) for p in data]
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[AUDIT] failed: {type(e).__name__}: {e}", flush=True)
     return [dict(p) for p in PAKD_DEFAULT]
 
 
@@ -443,8 +443,8 @@ def write_audit(action, detail):
         with os.fdopen(fd, "w") as f:
             json.dump(logs, f, indent=2)
         os.replace(tmp_path, AUDIT_FILE)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[LOAD_PAKD] failed: {type(e).__name__}: {e}", flush=True)
 
 
 def validate_wallet_address(network, address):
