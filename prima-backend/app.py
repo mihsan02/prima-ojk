@@ -34,6 +34,22 @@ PRICE_TTL          = 300   # bumped from 60 (Day 15): CMC credit budget guard
 BALANCE_TTL        = 300  # bumped: cache outlives request duration
 _SERVER_START_TIME = time.time()
 
+MAX_BALANCE_CACHE       = 500
+MAX_PRICE_CACHE         = 100
+MAX_JUPITER_PRICE_CACHE = 300
+
+def _evict_stale_entries(cache_dict, max_entries):
+    """Hapus entry terlama jika cache melebihi batas."""
+    if len(cache_dict) <= max_entries:
+        return
+    sorted_keys = sorted(
+        cache_dict.keys(),
+        key=lambda k: cache_dict[k][0] if isinstance(cache_dict[k], tuple) else 0
+    )
+    to_remove = len(cache_dict) - max_entries
+    for k in sorted_keys[:to_remove]:
+        del cache_dict[k]
+
 # ---- Jupiter API constants (Day 16) ----
 JUPITER_API_BASE      = "https://api.jup.ag"
 JUPITER_API_KEY       = os.environ.get("JUPITER_API_KEY", "")
@@ -582,11 +598,12 @@ def _refresh_price_cache_from_cmc():
         success = all(k in PRICE_CACHE for k in cgkeys)
         if os.environ.get('PRIMA_DEBUG'):
             print(f"[CMC] refresh success={success}, populated={list(PRICE_CACHE.keys())}", flush=True)
+        _evict_stale_entries(PRICE_CACHE, MAX_PRICE_CACHE)
         return success
     except Exception as e:
         # Log to stdout for Render Logs visibility (Day 15 cascade debug)
         if os.environ.get('PRIMA_DEBUG'):
-            print(f"[CMC] refresh failed: {type(e).__name__}: {e}", flush=True)
+            print(f"[JUPITER] price fetch failed: {type(e).__name__}: {e}", flush=True)
         return False
 
 
@@ -1032,10 +1049,8 @@ def _get_jupiter_prices(mints):
     except Exception as e:
         if os.environ.get('PRIMA_DEBUG'):
             print(f"[JUPITER] price fetch failed: {type(e).__name__}: {e}", flush=True)
-
+    _evict_stale_entries(JUPITER_PRICE_CACHE, MAX_JUPITER_PRICE_CACHE)
     return result
-
-
 def _get_dexscreener_price(mint: str):
     """
     Fallback price source for SPL tokens not priced by Jupiter Price V3.
@@ -1519,6 +1534,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     }
     if os.environ.get("PRIMA_DEBUG"):
         print(f"[PROFILING] chain timings: {_chain_timings}", flush=True)
+    _evict_stale_entries(BALANCE_CACHE, MAX_BALANCE_CACHE)
     return {
         "total_idr":       total_idr,
         "_chain_timings":  _chain_timings,
