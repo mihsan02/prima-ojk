@@ -316,15 +316,44 @@ def _migrate_record(p):
     p.setdefault("customer_akd_idr", None)
     return p
 
-def _get_db_conn():
+_DB_POOL = None
+
+def _init_db_pool():
+    global _DB_POOL
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         return None
     try:
-        import psycopg2
-        return psycopg2.connect(db_url, connect_timeout=5)
-    except Exception:
+        import psycopg2.pool
+        _DB_POOL = psycopg2.pool.SimpleConnectionPool(
+            minconn=1, maxconn=5, dsn=db_url, connect_timeout=5
+        )
+        return _DB_POOL
+    except Exception as e:
+        print(f"[DB_POOL] init failed: {type(e).__name__}: {e}", flush=True)
         return None
+
+def _get_db_conn():
+    global _DB_POOL
+    pool = _DB_POOL or _init_db_pool()
+    if not pool:
+        return None
+    try:
+        return pool.getconn()
+    except Exception as e:
+        print(f"[DB_POOL] getconn failed: {type(e).__name__}: {e}", flush=True)
+        return None
+
+def _return_db_conn(conn):
+    global _DB_POOL
+    if _DB_POOL and conn:
+        try:
+            _DB_POOL.putconn(conn)
+        except Exception:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 def _save_snapshot(pakd_id, pakd_nama, aset_dilaporkan, aset_onchain, deviasi_pct, status, harga_fallback, breakdown):
@@ -347,7 +376,7 @@ def _save_snapshot(pakd_id, pakd_nama, aset_dilaporkan, aset_onchain, deviasi_pc
     except Exception as e:
         print(f"[SNAPSHOT] failed: {type(e).__name__}: {e}", flush=True)
     finally:
-        conn.close()
+        _return_db_conn(conn)
 
 
 def _save_snapshots_batch(hasil_list, harga_fallback):
@@ -373,7 +402,7 @@ def _save_snapshots_batch(hasil_list, harga_fallback):
         if os.environ.get('PRIMA_DEBUG'):
             print(f'[BATCH_SAVE] ERROR: {type(_e).__name__}: {_e}', flush=True)
     finally:
-        conn.close()
+        _return_db_conn(conn)
 
 def load_pakd():
     conn = _get_db_conn()
@@ -384,13 +413,13 @@ def load_pakd():
             pakd_rows = cur.fetchall()
             if not pakd_rows:
                 cur.close()
-                conn.close()
+                _return_db_conn(conn)
                 return []
             pakd_ids = [row[0] for row in pakd_rows]
             cur.execute("SELECT pakd_id, network, address, verified, verified_at FROM wallets WHERE pakd_id = ANY(%s) ORDER BY pakd_id", (pakd_ids,))
             wallet_rows = cur.fetchall()
             cur.close()
-            conn.close()
+            _return_db_conn(conn)
             from collections import defaultdict
             wallets_by_pakd = defaultdict(list)
             for w in wallet_rows:
@@ -450,7 +479,7 @@ def save_pakd(data):
                     """, (pakd["id"], w["network"], w["address"], w.get("verified", False), w.get("verified_at")))
             conn.commit()
             cur.close()
-            conn.close()
+            _return_db_conn(conn)
             return
         except Exception as e:
             print(f"[DB] save_pakd failed: {e}", flush=True)
@@ -485,7 +514,7 @@ def write_audit(action, detail):
         except Exception as e:
             print(f"[AUDIT_DB] write failed: {type(e).__name__}: {e}", flush=True)
         finally:
-            conn.close()
+            _return_db_conn(conn)
 
     # Fallback: file (ephemeral)
     try:
@@ -1615,7 +1644,7 @@ def init_data():
             cur.execute("SELECT COUNT(*) FROM pakd")
             count = cur.fetchone()[0]
             cur.close()
-            conn.close()
+            _return_db_conn(conn)
             if count == 0:
                 save_pakd([dict(p) for p in PAKD_DEFAULT])
             return
@@ -1731,7 +1760,7 @@ def delete_pakd(pakd_id):
             cur.execute("DELETE FROM reconciliation_snapshots WHERE pakd_id = %s", (pakd_id,))
             conn.commit()
             cur.close()
-            conn.close()
+            _return_db_conn(conn)
         except Exception as e:
             print(f"[DB] delete_pakd failed: {e}", flush=True)
     save_pakd(new_data)
@@ -1916,7 +1945,7 @@ def reconciliation_latest():
                 "network_breakdown":    network_breakdown,
             })
         cur.close()
-        conn.close()
+        _return_db_conn(conn)
         return jsonify({
             "data":       hasil,
             "total_pakd": len(hasil),
@@ -1974,7 +2003,7 @@ def reconciliation_history():
     except Exception as e:
         return _error_response(str(e), status_code=500)
     finally:
-        conn.close()
+        _return_db_conn(conn)
 
 
 @app.route("/api/stress-test")
@@ -2251,14 +2280,14 @@ def audit_log():
             cur.execute("SELECT waktu, aksi, detail FROM audit_log ORDER BY created_at DESC LIMIT 50")
             rows = cur.fetchall()
             cur.close()
-            conn.close()
+            _return_db_conn(conn)
             return jsonify({
                 "data": [{"waktu": r[0], "aksi": r[1], "detail": r[2]} for r in rows],
                 "source": "database"
             })
         except Exception as e:
             print(f"[AUDIT_DB] read failed: {type(e).__name__}: {e}", flush=True)
-            conn.close()
+            _return_db_conn(conn)
 
     # Fallback: file
     try:
@@ -2482,7 +2511,7 @@ def export_csv_overview():
         rows = cur.fetchall()
         col_names = [desc[0] for desc in cur.description]
         cur.close()
-        conn.close()
+        _return_db_conn(conn)
     except Exception as e:
         return _error_response(str(e), status_code=500)
 
@@ -2517,7 +2546,7 @@ def export_csv():
         rows = cur.fetchall()
         col_names = [desc[0] for desc in cur.description]
         cur.close()
-        conn.close()
+        _return_db_conn(conn)
     except Exception as e:
         return _error_response(str(e), status_code=500)
 
@@ -2604,7 +2633,7 @@ def ping():
         except Exception as e:
             print(f"[PING] DB check failed: {type(e).__name__}: {e}", flush=True)
         finally:
-            conn.close()
+            _return_db_conn(conn)
 
     status_code = 200 if db_ok else 503
     return {
