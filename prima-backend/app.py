@@ -206,7 +206,7 @@ PAKD_DEFAULT = [
         "nama": "Alpha Kripto Nusantara",
         "wallets": [
             {"network": "ethereum", "address": "0xB6da511B4550B440415f8c640E986Ec41d9020C0", "verified": True,  "verified_at": "2026-05-21T06:00:00Z"},
-            {"network": "bitcoin",  "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7Divfna",         "verified": False, "verified_at": None},
+            {"network": "bitcoin",  "address": "bc1pcjpx4xd6lje4drllupg54tmzetvth48gwvwarzk939hlw229xzyqtmn33q",         "verified": False, "verified_at": None},
             {"network": "solana",   "address": "H13V5d2YdEvL9172K4jH5xfD7tGJN7UqEBR8y5Tb15B1", "verified": False, "verified_at": None},
         ],
         "aset_dilaporkan": 70_000_000,
@@ -220,7 +220,7 @@ PAKD_DEFAULT = [
         "nama": "Beta Aset Digital",
         "wallets": [
             {"network": "ethereum", "address": "0x28C6c06298d514Db089934071355E5743bf21d60", "verified": False, "verified_at": None},
-            {"network": "bitcoin",  "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7Divfna",        "verified": False, "verified_at": None},
+            {"network": "bitcoin",  "address": "bc1qy3dvzw3rm9zxyzdhfjh6auv833gu4y4pahcanf",        "verified": False, "verified_at": None},
             {"network": "solana",   "address": "H13V5d2YdEvL9172K4jH5xfD7tGJN7UqEBR8y5Tb15B1", "verified": False, "verified_at": None},
         ],
         "aset_dilaporkan": 4_500_000_000_000,
@@ -234,7 +234,7 @@ PAKD_DEFAULT = [
         "nama": "Gamma Perdagangan Kripto",
         "wallets": [
             {"network": "ethereum", "address": "0x71660c4005BA85c37ccec55d0C4493E66Fe775d3", "verified": False, "verified_at": None},
-            {"network": "bitcoin",  "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7Divfna",        "verified": False, "verified_at": None},
+            {"network": "bitcoin",  "address": "bc1qm34lsc65zpw79lxes69zkqmk6ee3ewf0j77s3h",        "verified": False, "verified_at": None},
             {"network": "solana",   "address": "H13V5d2YdEvL9172K4jH5xfD7tGJN7UqEBR8y5Tb15B1", "verified": False, "verified_at": None},
         ],
         "aset_dilaporkan": 1_200_000_000_000,
@@ -248,7 +248,7 @@ PAKD_DEFAULT = [
         "nama": "Delta Exchange Digital",
         "wallets": [
             {"network": "ethereum", "address": "0x2910543Af39abA0CD09dBb2D50200b3E800A63D2", "verified": False, "verified_at": None},
-            {"network": "bitcoin",  "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7Divfna",        "verified": False, "verified_at": None},
+            {"network": "bitcoin",  "address": "bc1qewn3pue4jjryur6wmwj7vmcajj0vcexdahgsr0",        "verified": False, "verified_at": None},
             {"network": "solana",   "address": "H13V5d2YdEvL9172K4jH5xfD7tGJN7UqEBR8y5Tb15B1", "verified": False, "verified_at": None},
         ],
         "aset_dilaporkan": 99_000_000,
@@ -262,7 +262,7 @@ PAKD_DEFAULT = [
         "nama": "Epsilon Kripto Nusantara",
         "wallets": [
             {"network": "ethereum", "address": "0x71660c4005BA85c37ccec55d0C4493E66Fe775d3", "verified": True,  "verified_at": "2026-05-20T10:00:00Z"},
-            {"network": "bitcoin",  "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7Divfna",        "verified": False, "verified_at": None},
+            {"network": "bitcoin",  "address": "1K5WjXwZY8Mn58EpFJewGL17Dj7QXyTzJQ",        "verified": False, "verified_at": None},
             {"network": "solana",   "address": "H13V5d2YdEvL9172K4jH5xfD7tGJN7UqEBR8y5Tb15B1", "verified": True,  "verified_at": "2026-05-20T10:05:00Z"},
         ],
         "aset_dilaporkan": 400_000_000,
