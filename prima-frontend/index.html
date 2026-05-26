@@ -2139,8 +2139,17 @@ async function saveEditModal() {
     const refreshResp = await fetch('/api/reconciliation/refresh', {method:'POST', headers:{'X-Admin-Token': _adminToken}});
     const refreshJson = await refreshResp.json().catch(() => ({}));
     const jid = refreshJson.job_id;
-    if (jid) { setTimeout(loadSnapshot, 12000); }
-    loadSnapshot();
+    if (jid) {
+      const _poll = setInterval(async () => {
+        try {
+          const s = await fetch('/api/reconciliation/refresh/' + jid).then(r => r.json());
+          if (s.status === 'done' || s.status === 'failed') {
+            clearInterval(_poll);
+            loadSnapshot();
+          }
+        } catch(_) { clearInterval(_poll); loadSnapshot(); }
+      }, 5000);
+    } else { loadSnapshot(); }
   } catch(e) {
     alert('Gagal menyimpan: ' + e.message);
   }
