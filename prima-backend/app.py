@@ -1886,7 +1886,7 @@ def internal_refresh_all():
             breakdown = result_bal["breakdown"]
             dilaporkan = pakd.get("aset_dilaporkan", 0)
             deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
-            status = "Aman" if abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
+            status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
                 "aset_dilaporkan_idr": dilaporkan,
@@ -2654,7 +2654,7 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
             breakdown = result_bal["breakdown"]
             dilaporkan = pakd.get("aset_dilaporkan", 0)
             deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
-            status = "Aman" if abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
+            status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
                 "aset_dilaporkan_idr": dilaporkan,
