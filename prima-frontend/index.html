@@ -2143,7 +2143,10 @@ async function saveEditModal() {
     }
     if (resp.status === 401) { _adminToken = ''; throw new Error('Token salah atau kosong. Coba lagi.'); }
     if (!resp.ok) throw new Error(await resp.text());
+    const saveBtn = document.querySelector('#edit-modal button[onclick="saveEditModal()"]');
     closeEditModal();
+    const tbody = document.getElementById('pakd-tbody');
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--blue)">Menyimpan dan memperbarui data rekonsiliasi...</td></tr>';
     const refreshResp = await fetch('/api/reconciliation/refresh', {method:'POST', headers:{'X-Admin-Token': _adminToken}});
     const refreshJson = await refreshResp.json().catch(() => ({}));
     const jid = refreshJson.job_id;
