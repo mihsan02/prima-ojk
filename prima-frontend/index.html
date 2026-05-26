@@ -1624,7 +1624,7 @@ async function loadSnapshot() {
     const res = await fetch('/api/reconciliation/latest');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
-    if (!json.data || json.data.length === 0) { loadData(); return; }
+    if (!json.data || json.data.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#e74c3c">Snapshot kosong. Jalankan Rekonsiliasi Manual.</td></tr>'; return; }
     const statusMap = {'NORMAL':'Aman','WARNING':'Deviasi','KRITIS':'Kritis'};
     const data = json.data.map(r => {
       const nb = r.network_breakdown || [];
@@ -1701,7 +1701,7 @@ async function loadSnapshot() {
       </tr>`).join('');
   } catch(e) {
     console.warn('Snapshot gagal, fallback ke live fetch:', e);
-    loadData();
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#e74c3c">Gagal memuat snapshot. Refresh halaman.</td></tr>';
   }
 }
 
@@ -2135,7 +2135,7 @@ async function saveEditModal() {
     }
     if (!resp.ok) throw new Error(await resp.text());
     closeEditModal();
-    loadData();
+    loadSnapshot();
   } catch(e) {
     alert('Gagal menyimpan: ' + e.message);
   }
@@ -2147,10 +2147,10 @@ async function deletePakd(pakdId) {
     const resp = await fetch('/api/pakd/' + pakdId, {method: 'DELETE', headers: {'X-Admin-Token': getAdminToken()}});
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
-      loadData();
+      loadSnapshot();
       throw new Error(body.error || 'Gagal menghapus');
     }
-    loadData();
+    loadSnapshot();
   } catch(e) {
     alert('Gagal menghapus: ' + e.message);
   }
