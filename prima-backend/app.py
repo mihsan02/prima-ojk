@@ -1769,7 +1769,7 @@ def recalc_snapshot(pakd_id):
                 deviasi_persen, status, harga_fallback, network_breakdown)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
             (pakd_id, pakd_nama, int(aset_dilaporkan), int(aset_onchain),
-             deviasi_clamped, status, harga_fallback, breakdown)
+             deviasi_clamped, status, harga_fallback, json.dumps(breakdown) if isinstance(breakdown, (list, dict)) else breakdown)
         )
         conn.commit()
         cur.close()
