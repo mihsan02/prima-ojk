@@ -2133,8 +2133,13 @@ async function saveEditModal() {
         body: JSON.stringify({nama: nama, aset_dilaporkan: aset, wallets: wallets, equity_idr, persediaan_akd_idr, simpanan_pedagang_akd_idr, customer_akd_idr})
       });
     }
+    if (resp.status === 401) { _adminToken = ''; throw new Error('Token salah atau kosong. Coba lagi.'); }
     if (!resp.ok) throw new Error(await resp.text());
     closeEditModal();
+    const refreshResp = await fetch('/api/reconciliation/refresh', {method:'POST', headers:{'X-Admin-Token': _adminToken}});
+    const refreshJson = await refreshResp.json().catch(() => ({}));
+    const jid = refreshJson.job_id;
+    if (jid) { setTimeout(loadSnapshot, 12000); }
     loadSnapshot();
   } catch(e) {
     alert('Gagal menyimpan: ' + e.message);
