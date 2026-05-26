@@ -1972,11 +1972,12 @@ def reconciliation_latest():
         import psycopg2.extras
         cur = conn.cursor()
         cur.execute("""
-            SELECT DISTINCT ON (pakd_id)
-                pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
-                deviasi_persen, status, harga_fallback, network_breakdown, captured_at, created_at
-            FROM reconciliation_snapshots
-            ORDER BY pakd_id, captured_at DESC
+            SELECT DISTINCT ON (s.pakd_id)
+                s.pakd_id, s.pakd_nama, s.aset_dilaporkan_idr, s.aset_onchain_idr,
+                s.deviasi_persen, s.status, s.harga_fallback, s.network_breakdown, s.captured_at, s.created_at
+            FROM reconciliation_snapshots s
+            INNER JOIN pakd p ON p.id = s.pakd_id
+            ORDER BY s.pakd_id, s.captured_at DESC
         """)
         rows = cur.fetchall()
         hasil = []
