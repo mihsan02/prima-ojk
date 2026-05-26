@@ -1562,7 +1562,8 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     except (FuturesTimeout, Exception) as e:
             print(f"[CHAIN_FETCH] SOL timeout/error: {e}", flush=True)
             _r_sol = {"entries": [], "sol_total": 0, "sol_native": 0,
-                      "sol_usdt": 0, "sol_usdc": 0, "sol_other": 0, "t": 0}
+                      "sol_usdt": 0, "sol_usdc": 0, "sol_other": 0,
+                      "sol_unvalued_count": 0, "sol_unvalued_mints": [], "t": 0}
 
     # --- Merge results ---
     other_entries = []
