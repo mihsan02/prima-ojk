@@ -1540,26 +1540,26 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 "t": _t}
 
     from concurrent.futures import ThreadPoolExecutor as _ChainTPE
-    with _ChainTPE(max_workers=3) as _ex:
-        _f_eth = _ex.submit(_proc_eth, eth_wallets)
-        _f_btc = _ex.submit(_proc_btc, btc_wallets)
-        _f_sol = _ex.submit(_proc_sol, sol_wallets)
-        from concurrent.futures import TimeoutError as FuturesTimeout
-        try:
+    _ex = _ChainTPE(max_workers=3)
+    _f_eth = _ex.submit(_proc_eth, eth_wallets)
+    _f_btc = _ex.submit(_proc_btc, btc_wallets)
+    _f_sol = _ex.submit(_proc_sol, sol_wallets)
+    from concurrent.futures import TimeoutError as FuturesTimeout
+    try:
             _r_eth = _f_eth.result(timeout=25)
-        except (FuturesTimeout, Exception) as e:
+    except (FuturesTimeout, Exception) as e:
             print(f"[CHAIN_FETCH] ETH timeout/error: {e}", flush=True)
             _r_eth = {"entries": [], "eth_total": 0, "eth_native": 0,
                       "eth_usdt": 0, "eth_usdc": 0, "eth_other": 0,
                       "eth_unvalued_count": 0, "eth_unvalued_contracts": [], "t": 0}
-        try:
+    try:
             _r_btc = _f_btc.result(timeout=15)
-        except (FuturesTimeout, Exception) as e:
+    except (FuturesTimeout, Exception) as e:
             print(f"[CHAIN_FETCH] BTC timeout/error: {e}", flush=True)
             _r_btc = {"entries": [], "btc_total": 0, "t": 0}
-        try:
+    try:
             _r_sol = _f_sol.result(timeout=25)
-        except (FuturesTimeout, Exception) as e:
+    except (FuturesTimeout, Exception) as e:
             print(f"[CHAIN_FETCH] SOL timeout/error: {e}", flush=True)
             _r_sol = {"entries": [], "sol_total": 0, "sol_native": 0,
                       "sol_usdt": 0, "sol_usdc": 0, "sol_other": 0, "t": 0}
@@ -2615,7 +2615,7 @@ def export_csv():
 import uuid
 from concurrent.futures import ThreadPoolExecutor as _TPE
 
-_REFRESH_EXECUTOR = _TPE(max_workers=1)
+_REFRESH_EXECUTOR = _TPE(max_workers=3)
 
 def _cleanup_old_jobs():
     now = time.time()
