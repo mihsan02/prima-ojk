@@ -2148,7 +2148,9 @@ async function saveEditModal() {
     closeEditModal();
     const tbody = document.getElementById('pakd-tbody');
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--blue)">Memperbarui snapshot...</td></tr>';
-    await fetch('/api/pakd/' + _savedPakdId + '/recalc-snapshot', {method:'POST', headers:{'X-Admin-Token': _adminToken}}).catch(() => {});
+    if (_savedPakdId) {
+      await fetch('/api/pakd/' + _savedPakdId + '/recalc-snapshot', {method:'POST', headers:{'X-Admin-Token': _adminToken}}).catch(() => {});
+    }
     loadSnapshot();
   } catch(e) {
     alert('Gagal menyimpan: ' + e.message);
