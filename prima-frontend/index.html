@@ -1994,7 +1994,11 @@ function renderChips(containerId, items, showPass) {
       <div id="edit-wallets-container"></div>
       <button onclick="addEditWalletRow()" style="margin-top:8px;background:none;border:1px dashed var(--border);border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--blue);font-size:12px">+ Tambah Wallet</button>
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
+    <div style="margin-top:12px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Admin Token</label>
+      <input id="edit-admin-token" type="password" placeholder="Masukkan admin token" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1);box-sizing:border-box;font-family:monospace">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
       <button onclick="closeEditModal()" style="padding:8px 20px;border-radius:6px;border:1px solid var(--border);background:none;cursor:pointer;color:var(--txt1)">Batal</button>
       <button onclick="saveEditModal()" style="padding:8px 20px;border-radius:6px;border:none;background:var(--blue);color:#fff;cursor:pointer">Simpan</button>
     </div>
@@ -2005,6 +2009,10 @@ function renderChips(containerId, items, showPass) {
 const API = 'https://prima-ojk.onrender.com';
 let _adminToken = '';
 function getAdminToken() {
+  const field = document.getElementById('edit-admin-token');
+  if (field && field.value.trim()) {
+    _adminToken = field.value.trim();
+  }
   if (!_adminToken) {
     _adminToken = prompt('PRIMA Admin Token diperlukan untuk operasi ini:') || '';
   }
