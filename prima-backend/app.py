@@ -1756,12 +1756,17 @@ def recalc_snapshot(pakd_id):
         else:
             deviasi = (aset_onchain - aset_dilaporkan) / aset_dilaporkan * 100
         deviasi_clamped = max(-9999.9999, min(9999.9999, deviasi))
-        if deviasi_clamped >= -5:
-            status = "NORMAL"
-        elif deviasi_clamped >= -15:
-            status = "WARNING"
+        surplus = aset_onchain >= aset_dilaporkan
+        if surplus:
+            status = "Aman"
         else:
-            status = "KRITIS"
+            deficit_pct = abs(deviasi_clamped)
+            if deficit_pct < 0.01:
+                status = "Aman"
+            elif deficit_pct <= 10:
+                status = "Deviasi"
+            else:
+                status = "Kritis"
         # Insert new snapshot
         cur.execute(
             """INSERT INTO reconciliation_snapshots
