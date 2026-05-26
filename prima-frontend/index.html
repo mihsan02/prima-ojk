@@ -2144,10 +2144,11 @@ async function saveEditModal() {
     if (resp.status === 401) { _adminToken = ''; throw new Error('Token salah atau kosong. Coba lagi.'); }
     if (!resp.ok) throw new Error(await resp.text());
     const saveBtn = document.querySelector('#edit-modal button[onclick="saveEditModal()"]');
+    const _savedPakdId = _editPakdId;
     closeEditModal();
     const tbody = document.getElementById('pakd-tbody');
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--blue)">Memperbarui snapshot...</td></tr>';
-    await fetch('/api/pakd/' + _editPakdId + '/recalc-snapshot', {method:'POST', headers:{'X-Admin-Token': _adminToken}}).catch(() => {});
+    await fetch('/api/pakd/' + _savedPakdId + '/recalc-snapshot', {method:'POST', headers:{'X-Admin-Token': _adminToken}}).catch(() => {});
     loadSnapshot();
   } catch(e) {
     alert('Gagal menyimpan: ' + e.message);
