@@ -449,7 +449,8 @@ def load_pakd():
                 return [_migrate_record(p) for p in data]
     except Exception as e:
         print(f"[AUDIT] failed: {type(e).__name__}: {e}", flush=True)
-    return [dict(p) for p in PAKD_DEFAULT]
+    print("[DB] load_pakd: all sources failed, returning empty list", flush=True)
+    return []
 
 
 def save_pakd(data):
@@ -1639,28 +1640,22 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
 
 def init_data():
     conn = _get_db_conn()
-    if conn:
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT COUNT(*) FROM pakd")
-            count = cur.fetchone()[0]
-            cur.close()
-            _return_db_conn(conn)
-            if count == 0:
-                save_pakd([dict(p) for p in PAKD_DEFAULT])
-            return
-        except Exception as e:
-            print(f"[DB] init_data check failed: {e}", flush=True)
+    if not conn:
+        print("[DB] init_data: no DB connection, skipping seed", flush=True)
+        return
     try:
-        if not os.path.exists(DATA_FILE):
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM pakd")
+        count = cur.fetchone()[0]
+        cur.close()
+        _return_db_conn(conn)
+        if count == 0:
+            print("[DB] init_data: empty table, seeding PAKD_DEFAULT", flush=True)
             save_pakd([dict(p) for p in PAKD_DEFAULT])
-            return
-        with open(DATA_FILE, "r") as f:
-            data = json.load(f)
-        if not data:
-            save_pakd([dict(p) for p in PAKD_DEFAULT])
-    except Exception:
-        save_pakd([dict(p) for p in PAKD_DEFAULT])
+        else:
+            print(f"[DB] init_data: {count} PAKD exist, skipping seed", flush=True)
+    except Exception as e:
+        print(f"[DB] init_data check failed: {e}, skipping seed", flush=True)
 
 
 # ---------------------------------------------------------------------------
