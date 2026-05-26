@@ -1718,6 +1718,69 @@ def create_pakd():
     write_audit("CREATE_PAKD", f"Tambah {body['id']} - {body['nama']}")
     return jsonify(new_pakd), 201
 
+@app.route("/api/pakd/<pakd_id>/recalc-snapshot", methods=["POST"])
+@require_admin_token
+def recalc_snapshot(pakd_id):
+    """Recalculate snapshot deviasi from existing on-chain data without blockchain re-fetch."""
+    conn = _get_db_conn()
+    if not conn:
+        return jsonify({"error": "DB unavailable"}), 503
+    try:
+        cur = conn.cursor()
+        # Get latest on-chain data from snapshot
+        cur.execute(
+            "SELECT aset_onchain_idr, network_breakdown, harga_fallback "
+            "FROM reconciliation_snapshots WHERE pakd_id = %s ORDER BY created_at DESC LIMIT 1",
+            (pakd_id,)
+        )
+        snap = cur.fetchone()
+        if not snap:
+            cur.close()
+            _return_db_conn(conn)
+            return jsonify({"error": "Tidak ada snapshot sebelumnya untuk PAKD ini"}), 404
+        aset_onchain = snap[0]
+        breakdown = snap[1]
+        harga_fallback = snap[2]
+        # Get updated aset_dilaporkan from pakd table
+        cur.execute("SELECT nama, aset_dilaporkan FROM pakd WHERE id = %s", (pakd_id,))
+        pakd = cur.fetchone()
+        if not pakd:
+            cur.close()
+            _return_db_conn(conn)
+            return jsonify({"error": "PAKD tidak ditemukan"}), 404
+        pakd_nama = pakd[0]
+        aset_dilaporkan = pakd[1] or 0
+        # Recalculate deviasi
+        if aset_dilaporkan == 0:
+            deviasi = 0.0 if aset_onchain == 0 else 9999.9999
+        else:
+            deviasi = (aset_onchain - aset_dilaporkan) / aset_dilaporkan * 100
+        deviasi_clamped = max(-9999.9999, min(9999.9999, deviasi))
+        if deviasi_clamped >= -5:
+            status = "NORMAL"
+        elif deviasi_clamped >= -15:
+            status = "WARNING"
+        else:
+            status = "KRITIS"
+        # Insert new snapshot
+        cur.execute(
+            """INSERT INTO reconciliation_snapshots
+               (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
+                deviasi_persen, status, harga_fallback, network_breakdown)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            (pakd_id, pakd_nama, int(aset_dilaporkan), int(aset_onchain),
+             deviasi_clamped, status, harga_fallback, breakdown)
+        )
+        conn.commit()
+        cur.close()
+        _return_db_conn(conn)
+        write_audit("RECALC_SNAPSHOT", f"PAKD {pakd_id}: dilaporkan={aset_dilaporkan}, onchain={aset_onchain}, deviasi={deviasi_clamped:.2f}%")
+        return jsonify({"status": "ok", "pakd_id": pakd_id, "aset_dilaporkan": aset_dilaporkan, "aset_onchain": aset_onchain, "deviasi_pct": round(deviasi_clamped, 4), "status_rekonsiliasi": status})
+    except Exception as e:
+        print(f"[RECALC] failed: {type(e).__name__}: {e}", flush=True)
+        _return_db_conn(conn)
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/pakd/<pakd_id>", methods=["PUT"])
 @require_admin_token
 def update_pakd(pakd_id):

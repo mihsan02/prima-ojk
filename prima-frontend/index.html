@@ -2146,21 +2146,9 @@ async function saveEditModal() {
     const saveBtn = document.querySelector('#edit-modal button[onclick="saveEditModal()"]');
     closeEditModal();
     const tbody = document.getElementById('pakd-tbody');
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--blue)">Menyimpan dan memperbarui data rekonsiliasi...</td></tr>';
-    const refreshResp = await fetch('/api/reconciliation/refresh', {method:'POST', headers:{'X-Admin-Token': _adminToken}});
-    const refreshJson = await refreshResp.json().catch(() => ({}));
-    const jid = refreshJson.job_id;
-    if (jid) {
-      const _poll = setInterval(async () => {
-        try {
-          const s = await fetch('/api/reconciliation/refresh/' + jid).then(r => r.json());
-          if (s.status === 'done' || s.status === 'failed') {
-            clearInterval(_poll);
-            loadSnapshot();
-          }
-        } catch(_) { clearInterval(_poll); loadSnapshot(); }
-      }, 5000);
-    } else { loadSnapshot(); }
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--blue)">Memperbarui snapshot...</td></tr>';
+    await fetch('/api/pakd/' + _editPakdId + '/recalc-snapshot', {method:'POST', headers:{'X-Admin-Token': _adminToken}}).catch(() => {});
+    loadSnapshot();
   } catch(e) {
     alert('Gagal menyimpan: ' + e.message);
   }
