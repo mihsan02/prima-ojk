@@ -1,5 +1,5 @@
 # PRIMA
-### Pemantauan Transparansi Multichain Aset Pedagang Aset Keuangan Digital 
+### Pemantauan Transparansi Multichain Aset Keuangan Digital 
 
 ![Status](https://img.shields.io/badge/Status-v1.9--pasal50--pasal91-0A7A4A?style=flat-square)
 ![Hackathon](https://img.shields.io/badge/DIGDAYA%20X%20Hackathon-2026-1B3A6B?style=flat-square)
@@ -17,7 +17,7 @@
 
 ## Apa itu PRIMA?
 
-PRIMA adalah sistem pemantauan berbasis blockchain yang dirancang untuk membantu OJK mengawasi kecukupan aset Pedagang Aset Keuangan Digital (PAKD) secara otomatis.
+PRIMA adalah sistem pemantauan berbasis blockchain yang dirancang untuk membantu OJK mengawasi kecukupan aset keuangan digital yang dikelola Pedagang Aset Keuangan Digital (PAKD) secara otomatis.
 
 Sistem ini melakukan rekonsiliasi antara saldo dompet on-chain yang diquery langsung dari tiga jaringan blockchain (Ethereum, Bitcoin, Solana) dengan kewajiban yang dilaporkan PAKD kepada regulator. Harga aset diambil secara live dengan cascade empat tingkat (CoinMarketCap v2 → CoinGecko Demo → cache stale → hardcoded fallback) untuk konversi ke IDR. Setiap selisih di atas ambang batas memicu klasifikasi alert berjenjang secara otomatis.
 
@@ -72,19 +72,20 @@ Laporan kewajiban PAKD      →      Harga aset live:               → Konversi
                                     Hardcoded fallback (Tier 4)
 
 Ambang batas deviasi        →      Rekonsiliasi otomatis          → Klasifikasi per PAKD:
-  Surplus / defisit <= 5%:          (Python · pandas)                Aman / Deviasi / Kritis
-  Aman
-  Deviasi 5–20%: Deviasi                    ↓
-  Defisit > 20%: Kritis           Stress test ketahanan           → Laporan ketahanan per skenario:
-                                  ekuitas
-                                  Pasal 50 (Mild -30%)              Mild / Moderate / Severe
-                                  Pasal 91 (Moderate -55%,
-                                  Severe -80%): lulus jika aset
-                                  post-stress >= 80% dilaporkan
+  Surplus (on-chain >=              saldo on-chain vs kewajiban      Aman / Deviasi / Kritis
+  dilaporkan): Aman
+  Defisit 0.01–10%: Deviasi                 ↓
+  Defisit > 10%: Kritis          Stress test ketahanan ekuitas   → Laporan ketahanan per skenario:
+                                  Pasal 50 POJK 23/2025             Mild / Moderate / Severe
+                                  (market: -25%/-50%/-80%)
+                                  Pasal 91 POJK 23/2025
+                                  (cyber: -23%/-45%/-100%)
+                                  Lulus: ekuitas pasca-shock
+                                  >= Rp 50 miliar (Pasal 50(1)(o))
 
 Dompet per PAKD             →      Wallet proof EIP-191 (ETH)     → Badge verified / unverified
                                    Ed25519 (SOL)                    per dompet di tabel PAKD
-                                   via MetaMask / phantom
+                                   via MetaMask (convenience)
 
 Setiap aksi sistem          →      Pencatatan ke Supabase         → Riwayat rekonsiliasi,
                                    + audit_log.json                 export CSV, donut chart
@@ -99,7 +100,7 @@ Setiap aksi sistem          →      Pencatatan ke Supabase         → Riwayat 
 | Backend | Python 3.11, Flask 3.x, Flask-CORS | Flask ringan untuk API prototype; Flask-CORS menangani request dari frontend |
 | Data Eksternal | Etherscan API v2, Blockstream Esplora, CoinMarketCap API v2, CoinGecko Demo API, Helius RPC, Jupiter Tokens V2, Jupiter Price V3, Solana JSON-RPC | Etherscan: saldo ETH native + curated top-50 ERC-20. Blockstream: saldo BTC (UTXO). CMC: harga tier-1 dengan cascade fallback ke CoinGecko. Helius: SPL token enumeration via getTokenAccountsByOwner. Jupiter: two-gate filter token terverifikasi + harga SPL. |
 | Crypto Libraries | eth-account, PyNaCl, base58 | EIP-191 personal_sign verification (ETH) dan Ed25519 signature verification (SOL). Wallet ownership proof tanpa custodial dependency. |
-| Pemrosesan | Python requests, pandas, NumPy, hmac, secrets | Rekonsiliasi tabular, kalkulasi deviasi, constant-time token comparison (OWASP ASVS V2.10) |
+| Pemrosesan | Python requests, hmac, secrets, concurrent.futures | Rekonsiliasi via native dict/list, kalkulasi deviasi, constant-time token comparison (OWASP ASVS V2.10), parallel chain fetch |
 | Penyimpanan | Supabase (psycopg2), JSON (pakd_data.json, audit_log.json) | Supabase: snapshot rekonsiliasi persisten, riwayat per-PAKD, query DISTINCT ON untuk latest snapshot. JSON: audit log lokal dan PAKD state. |
 | Antarmuka | HTML, CSS, JavaScript (vanilla) | Dashboard read-only tanpa framework berat; dapat dihosting dalam infrastruktur OJK tanpa dependensi eksternal |
 | Infrastruktur | Render (Flask deployment), cron-job.org (background refresh) | Cron-job.org trigger POST /api/internal/refresh-all tiap 5 menit. Render single worker memastikan in-memory state konsisten. |
