@@ -1,7 +1,7 @@
 # Keterbatasan Sistem PRIMA dan Rencana Mitigasi
 ### Dokumen Integritas Teknis, Versi 2.0
 
-Terakhir diperbarui: 22 Mei 2026 (v1.9-pasal50-pasal91)
+Terakhir diperbarui: 28 Mei 2026 (v1.9-pasal50-pasal91)
 
 ---
 
@@ -164,7 +164,7 @@ Rendah dalam konteks MVP. Skenario historis konsisten dengan praktik stress test
 
 ### Status saat ini
 
-Dual-test framework Pasal 50 plus Pasal 91 telah diimplementasikan per versi 1.9-pasal50-pasal91 (Mei 2026). Pasal 50 (Risiko Pasar) mensimulasikan penurunan harga volatile -25%/-50%/-80% dengan threshold ekuitas minimum Rp 50.000.000.000 sesuai Pasal 50(1)(o) POJK No. 27 Tahun 2024. Pasal 91 (Risiko Siber) mensimulasikan kehilangan AKD konsumen -23%/-50%/-100% dengan basis historis GDAC 2023, WazirX 2024, dan Mt Gox 2014.
+Dual-test framework Pasal 50 plus Pasal 91 telah diimplementasikan per versi 1.9-pasal50-pasal91 (Mei 2026). Pasal 50 (Risiko Pasar) mensimulasikan penurunan harga volatile -25%/-50%/-80% dengan threshold ekuitas minimum Rp 50.000.000.000 sesuai Pasal 50(1)(o) POJK No. 23 Tahun 2025. Pasal 91 (Risiko Siber) mensimulasikan kehilangan AKD konsumen -23%/-45%/-100% dengan basis historis GDAC 2023, WazirX 2024, dan Mt Gox 2014. Parameter `pakd_id` wajib diisi pada endpoint `/api/stress-test` (return 400 jika kosong). Baseline aset diambil dari snapshot `reconciliation_snapshots` Supabase terbaru untuk menghindari OOM pada Render free tier 512MB yang terjadi saat live RPC fetch semua PAKD sekaligus.
 
 ---
 
@@ -196,11 +196,15 @@ PRIMA v1.9 memiliki lapisan autentikasi parsial yang sudah diimplementasikan:
 - Internal token terpisah via `X-Internal-Token` untuk endpoint cron `POST /api/internal/refresh-all`. Digenerate via `openssl rand -hex 32`, disimpan di Render environment variable.
 - Rate limiting: `GET /api/reconciliation` dibatasi satu call per 60 detik via `_last_rekon_time` global state. Bypass aktif saat `TESTING=True` untuk mencegah regresi test suite.
 - Row Level Security (RLS) diaktifkan di seluruh tabel Supabase (`public.pakd`, `public.wallets`, `public.reconciliation_snapshots`) dengan policy `service_only` yang membatasi akses ke `service_role`.
+- CORS origin restriction via `CORS(app, origins=ALLOWED_ORIGINS)`. Default: `prima-ojk.onrender.com`. Override via env `ALLOWED_ORIGINS` untuk staging atau custom domain.
+- Connection pool: `psycopg2.pool.SimpleConnectionPool(minconn=1, maxconn=5)` menggantikan per-query `psycopg2.connect()`. Mengurangi koneksi TCP dari 2-4 per request ke reuse pool. `SimpleConnectionPool` bukan thread-safe, aman karena DB calls terjadi di main thread.
+- Wallet uniqueness cross-PAKD: `_check_wallet_uniqueness()` mencegah satu alamat wallet terdaftar di lebih dari satu PAKD. Dipanggil di `create_pakd`, `update_pakd`, dan `input_manual`. Mencegah double-counting saldo on-chain.
+- Unified error response: `_error_response(message, detail, status_code)` menstandarkan format error di seluruh endpoint. Menggantikan 4 format error yang sebelumnya tidak konsisten.
 
 **Belum diimplementasikan:**
 - Authentication mechanism untuk pengguna dashboard (tidak ada login, tidak ada session management, tidak ada user identity tracking).
 - Role-based access control (RBAC). Tidak ada pembedaan akses antara OJK supervisor, OJK auditor, dan PAKD compliance officer.
-- Cryptographic integrity untuk audit log. File `audit_log.json` adalah plain JSON yang dapat dimodifikasi tanpa meninggalkan jejak. Tidak ada hash chain atau tamper-evident structure.
+- Cryptographic integrity untuk audit log. Audit log telah di-upgrade ke arsitektur dual-write (primary: tabel `audit_log` di Supabase, fallback: `audit_log.json` lokal), tetapi belum memiliki hash chain atau tamper-evident structure. Data audit persisten antar restart Render.
 
 Untuk konteks hackathon dengan data demonstrasi, gap yang tersisa ini aman. Untuk implementasi produksi dengan data regulasi nyata, RBAC dan authentication pengguna bersifat mandatory.
 
@@ -208,10 +212,10 @@ Untuk konteks hackathon dengan data demonstrasi, gap yang tersisa ini aman. Untu
 
 | ID | Temuan | Status | Mitigation Plan |
 |----|--------|--------|----------------|
-| CRIT-1 | Wildcard CORS, endpoint publik | Terbuka | Produksi: restrict origin ke domain OJK + API key middleware |
-| CRIT-2 | Tidak ada autentikasi endpoint write | Sebagian — admin token aktif (lihat deskripsi di atas) | Produksi: Bearer token berbasis PKI OJK (POJK No. 27/2024 Pasal 50). Read endpoint masih terbuka. |
+| CRIT-1 | Wildcard CORS, endpoint publik | Sebagian -- `ALLOWED_ORIGINS` env-based restriction aktif, default `prima-ojk.onrender.com` | Produksi: restrict origin ke domain OJK + API key middleware |
+| CRIT-2 | Tidak ada autentikasi endpoint write | Sebagian -- admin token aktif (lihat deskripsi di atas) | Produksi: Bearer token berbasis PKI OJK (POJK No. 23/2025 Pasal 50). Read endpoint masih terbuka. |
 | CRIT-3 | CHALLENGE_STORE tidak dibatasi | Terbuka | Produksi: cachetools.TTLCache + flask-limiter |
-| CRIT-4 | File locking pakd_data.json | Terbuka | Produksi: SQLite WAL mode atau Redis. Supabase sudah dipakai untuk snapshots. |
+| CRIT-4 | File locking pakd_data.json | Berkurang -- `pakd_data.json` hanya seed/fallback, primary storage di Supabase | Produksi: eliminasi file-based state sepenuhnya. `audit_log.json` juga sudah dual-write ke Supabase. |
 | HIGH-1 | API key di URL query string | Terbuka | Produksi: pass via params dict, sanitize logs |
 | HIGH-7 | PRICE_CACHE non-thread-safe | Terbuka | Produksi: threading.Lock atau Redis shared cache |
 
@@ -342,7 +346,7 @@ Solusi yang diimplementasikan adalah arsitektur hybrid dua lapis:
 
 **Layer 1 — Background snapshot (sudah live):** `POST /api/internal/refresh-all` dipanggil cron-job.org tiap 5 menit. Hasil disimpan via `_save_snapshots_batch()` ke Supabase dalam satu `executemany()`. Page load memanggil `GET /api/reconciliation/latest` (response <1 detik dari `DISTINCT ON` query Supabase). Badge dan timestamp "Data terakhir diperbarui" ditampilkan di frontend.
 
-**Layer 2 — Manual refresh async (sudah live):** `POST /api/reconciliation/refresh` generate `job_id` dan submit task ke `ThreadPoolExecutor`. `GET /api/reconciliation/refresh/<job_id>` di-poll frontend tiap 2 detik. `REFRESH_LOCK` global mencegah concurrent run. `JOBS` dict in-memory tidak persist antar restart (acceptable untuk hackathon scope).
+**Layer 2 -- Manual refresh async (sudah live):** `POST /api/reconciliation/refresh` generate `job_id` dan submit task ke `ThreadPoolExecutor(max_workers=3)`. `GET /api/reconciliation/refresh/<job_id>` di-poll frontend tiap 2 detik. `REFRESH_LOCK` global mencegah concurrent run. `JOBS` dict in-memory tidak persist antar restart (acceptable untuk hackathon scope). Rekonsiliasi berjalan sequential per-PAKD dengan chain timeout graceful degradation (ETH 25 detik, BTC 15 detik, SOL 25 detik). Jika satu chain timeout, chain tersebut return empty result dengan nilai 0 tanpa menghentikan PAKD berikutnya. Executor digunakan tanpa `with` block untuk mencegah hang akibat `shutdown(wait=True)` yang menunggu thread lambat selesai meskipun timeout sudah tercapai.
 
 ### Keterbatasan yang Tersisa
 
@@ -370,13 +374,13 @@ Rendah untuk MVP. Live demo menggunakan snapshot dari Supabase, tidak tergantung
 | Window Dressing | Menengah | Terbuka | v2.0 |
 | Cakupan Aset On-Chain | Menengah | ERC-20 curated 50, SPL full via Jupiter, BTC native only | v2.0 sampai v3.0 |
 | Wallet Ownership Verification | Rendah ETH/SOL, Menengah BTC | ETH dan SOL: selesai. BTC: belum (BIP-322) | v2.0 |
-| Framework Stress Test Pasal 50 dan 91 | Rendah | Selesai — dual test live | v2.0 sampai v3.0 |
+| Framework Stress Test Pasal 50 dan 91 | Rendah | Selesai -- dual test live, pakd_id wajib, baseline dari Supabase snapshot | v2.0 sampai v3.0 |
 | Stablecoin Threshold Configurable | Rendah | Terbuka | v2.0 |
-| Authentication, RBAC, Audit Log Integrity | Tinggi (produksi) | Parsial — admin token write endpoints, RLS Supabase. RBAC dan user auth belum. | v2.0 |
-| Infrastruktur, Rate Limit, Persistence | Tinggi (produksi), Menengah (MVP) | Supabase live untuk snapshots. Fetch arsitektur hybrid (snapshot + async refresh) | v2.0 sampai v2.5 |
+| Authentication, RBAC, Audit Log Integrity | Tinggi (produksi) | Parsial -- admin token write, RLS Supabase, CORS restriction, connection pool, wallet uniqueness, unified error. RBAC dan user auth belum. Audit log dual-write Supabase. | v2.0 |
+| Infrastruktur, Rate Limit, Persistence | Tinggi (produksi), Menengah (MVP) | Supabase live. Hybrid fetch (snapshot + async per-PAKD). Connection pool maxconn=5. Cache eviction aktif. N+1 query eliminated. | v2.0 sampai v2.5 |
 | Polish UI dan Edge Cases | Rendah | Terbuka | v1.1 |
 | ETH ERC-20 Curated Enumeration (Reading C) | Menengah | Curated 50 aktif. Full enumeration deferred. | v2.0 |
-| Fetch Performance dan Arsitektur Background Refresh | Rendah (setelah hybrid arch) | Hybrid live. Manual refresh async live. SOL warm cache masih 3.3 detik. | v2.0 |
+| Fetch Performance dan Arsitektur Background Refresh | Rendah (setelah hybrid arch) | Hybrid live. Manual refresh per-PAKD sequential dengan chain timeout graceful (ETH 25s/BTC 15s/SOL 25s). SOL warm cache masih 3.3 detik. | v2.0 |
 
 ---
 
