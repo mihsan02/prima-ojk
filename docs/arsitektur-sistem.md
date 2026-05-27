@@ -1,6 +1,6 @@
 # Arsitektur Sistem PRIMA
 ### Pemantauan Transparansi Multichain Aset Keuangan Digital 
-Versi: 1.9-pasal50-pasal91 · Terakhir diperbarui: 22 Mei 2026
+Versi: 1.9-pasal50-pasal91 · Terakhir diperbarui: 28 Mei 2026
 
 ---
 
@@ -19,7 +19,7 @@ PRIMA beroperasi dalam empat tahap: pengambilan data on-chain dari tiga jaringan
 │  │ per PAKD     │    │ ETH + BTC + SOL    │    │ snapshots  │    │<1 dtk │  │
 │  │ (array)      │    │                    │    │            │    │       │  │
 │  │              │    │ Harga: CMC v2      │    │ audit_log  │    │Export │  │
-│  │ Laporan      │───▶│ → CoinGecko        │───▶│ .json      │───▶│CSV    │  │
+│  │ Laporan      │───▶│ → CoinGecko        │───▶│ Supabase   │───▶│CSV    │  │
 │  │ kewajiban    │    │ → cache stale      │    │            │    │       │  │
 │  │ PAKD         │    │ → hardcoded        │    │            │    │Alert  │  │
 │  │              │    │                    │    │            │    │berjenjang│
@@ -101,6 +101,8 @@ Keputusan arsitektur berdasarkan profiling:
 - Path A (background snapshot): prioritas utama — solve cold start tanpa perlu Multicall3.
 - Batch db_write: wajib sebelum Path A, mengeliminasi proyeksi 34 detik untuk 25 PAKD.
 - Path B (Multicall3 untuk refresh manual <30 detik): dijadwalkan Phase 2 post-hackathon.
+- N+1 query elimination: `load_pakd()` menggunakan 2-query flat pattern (`SELECT FROM pakd` + `SELECT FROM wallets WHERE pakd_id = ANY(%s)`) dengan `defaultdict` grouping, menggantikan loop N query per PAKD. Untuk 25 PAKD, round-trip ke Supabase turun dari 26 ke 2.
+- Cache eviction: `BALANCE_CACHE`, `PRICE_CACHE`, `JUPITER_PRICE_CACHE` dibatasi masing-masing 500, 100, 300 entry. Fungsi `_evict_stale_entries()` menghapus entry terlama berdasarkan timestamp untuk mencegah OOM pada Render free tier 512MB.
 
 Solusi yang diimplementasikan: arsitektur hybrid dua lapis.
 
@@ -109,6 +111,8 @@ cron-job.org memanggil `POST /api/internal/refresh-all` tiap 5 menit. Endpoint i
 
 **Layer 2 — Manual refresh async:**
 Tombol "Rekonsiliasi Manual" memanggil `POST /api/reconciliation/refresh`, mendapat `job_id` instan, dan polling `GET /api/reconciliation/refresh/<job_id>` tiap 2 detik. `REFRESH_LOCK` global mencegah concurrent run. `JOBS` dict in-memory tidak persist antar restart.
+
+Rekonsiliasi manual berjalan sequential per-PAKD (bukan parallel semua PAKD sekaligus) untuk menghindari OOM pada Render free tier 512MB. Setiap PAKD di-fetch dengan chain timeout graceful degradation: ETH 25 detik, BTC 15 detik, SOL 25 detik. Jika satu chain timeout, chain tersebut return empty result dengan nilai 0 (bukan crash seluruh PAKD). `ThreadPoolExecutor(max_workers=3)` digunakan tanpa context manager `with` block untuk mencegah executor hang akibat `shutdown(wait=True)` yang menunggu thread lambat selesai meskipun timeout sudah tercapai.
 
 ### 3.2 Pseudocode Rekonsiliasi
 
@@ -178,11 +182,11 @@ Threshold 10% lebih konservatif dari praktik industri Proof-of-Reserves pasca-ko
 
 Threshold ini bersifat dapat dikonfigurasi dan dimaksudkan untuk difinalisasi bersama OJK berdasarkan asesmen risiko aktual industri PAKD Indonesia.
 
-**Catatan inkonsistensi:** Background batch refresh (endpoint `/api/internal/refresh-all`) saat ini masih menggunakan threshold lama (5%/20%) di dua lokasi kode. Snapshot Supabase yang dihasilkan dapat memiliki klasifikasi status berbeda dari live endpoint untuk deviasi di rentang 5–10%. Homogenisasi dijadwalkan sebelum code freeze 24 Mei 2026.
-
 ### 3.4 Pseudocode Stress Test: Pasal 50 dan Pasal 91
 
-PRIMA menjalankan dua test solvabilitas yang di-anchor ke POJK No. 27 Tahun 2024. Threshold pass: ekuitas pasca-shock >= Rp 50.000.000.000 (Pasal 50 ayat (1) huruf o).
+PRIMA menjalankan dua test solvabilitas yang di-anchor ke POJK No. 23 Tahun 2025. Threshold pass: ekuitas pasca-shock >= Rp 50.000.000.000 (Pasal 50 ayat (1) huruf o).
+
+Parameter `pakd_id` wajib diisi (return 400 jika kosong). Pembatasan ini mencegah OOM pada Render free tier 512MB yang terjadi saat stress test memuat semua PAKD sekaligus via live RPC. Baseline aset diambil dari snapshot `reconciliation_snapshots` Supabase terbaru (bukan live blockchain fetch), sehingga stress test response time tidak tergantung pada latency Etherscan atau Helius.
 
 ```python
 # Test 1: Risiko Pasar (Pasal 50)
@@ -270,10 +274,14 @@ PAKD                            PRIMA Backend
 | Rate limiting rekonsiliasi | 60 detik cooldown via `_last_rekon_time` global state. Bypass aktif saat `TESTING=True`. | — |
 | Row Level Security Supabase | RLS diaktifkan di tiga tabel: `public.pakd`, `public.wallets`, `public.reconciliation_snapshots`. Policy `service_only` membatasi ke `service_role`. | — |
 | SQL injection | Seluruh query parameterized via psycopg2. Zero f-string atau `.format()` interpolation. Diverifikasi via grep audit. | — |
+| CORS origin restriction | `CORS(app, origins=ALLOWED_ORIGINS)`. Default: `prima-ojk.onrender.com`. Override via env `ALLOWED_ORIGINS`. | — |
+| Connection pool | `psycopg2.pool.SimpleConnectionPool(minconn=1, maxconn=5)` menggantikan per-query `psycopg2.connect()`. Mengurangi koneksi TCP dari 2-4 per request ke reuse pool. | Supabase free tier: 60 koneksi simultan |
+| Wallet uniqueness cross-PAKD | `_check_wallet_uniqueness()` dipanggil di `create_pakd`, `update_pakd`, `input_manual`. Mencegah double-counting saldo on-chain. | — |
+| Unified error response | `_error_response(message, detail, status_code)` menstandarkan format error di seluruh 27 endpoint. | — |
 
 ### 5.2 Keterbatasan Keamanan yang Masih Terbuka
 
-Lihat `docs/keterbatasan-sistem.md` Section 6 untuk tabel lengkap dengan status per temuan. Yang masih terbuka: wildcard CORS, tidak ada authentication untuk pengguna dashboard (read endpoints terbuka), CHALLENGE_STORE tidak dibatasi, PRICE_CACHE non-thread-safe.
+Lihat `docs/keterbatasan-sistem.md` Section 6 untuk tabel lengkap dengan status per temuan. Yang masih terbuka: tidak ada authentication untuk pengguna dashboard (read endpoints terbuka), CHALLENGE_STORE tidak dibatasi, PRICE_CACHE non-thread-safe. CORS wildcard telah dimitigasi via `ALLOWED_ORIGINS` env-based restriction.
 
 ---
 
@@ -293,7 +301,7 @@ Export: `GET /api/export-csv` (riwayat per-PAKD, max 200 baris) dan `GET /api/ex
 
 ### 6.2 Audit Trail
 
-Setiap operasi rekonsiliasi menghasilkan entri di `audit_log.json` (append-only, plain JSON) dan snapshot di tabel Supabase `reconciliation_snapshots`. Catatan: audit_log.json tidak memiliki hash chain atau tamper-evident structure pada versi MVP. Lihat `docs/keterbatasan-sistem.md` Section 6 untuk rencana mitigasi.
+Setiap operasi rekonsiliasi menghasilkan entri audit dan snapshot di tabel Supabase `reconciliation_snapshots`. Audit log menggunakan arsitektur dual-write: primary ke tabel Supabase `audit_log` (persisten antar restart), fallback ke `audit_log.json` (file lokal, best-effort). Endpoint `GET /api/audit-log` membaca dari Supabase dengan fallback ke file jika database unreachable, dan menyertakan field `source` (`"database"` atau `"file"`) di response. Catatan: audit log belum memiliki hash chain atau tamper-evident structure pada versi MVP. Lihat `docs/keterbatasan-sistem.md` Section 6 untuk rencana mitigasi.
 
 ---
 
@@ -304,7 +312,7 @@ Setiap operasi rekonsiliasi menghasilkan entri di `audit_log.json` (append-only,
 | Background snapshot | Setiap 5 menit | cron-job.org → `POST /api/internal/refresh-all` |
 | Warm-up instance | Setiap 5 menit | Sekaligus dengan background snapshot |
 | Manual refresh | Ad-hoc | Supervisor OJK klik tombol di dashboard → async job polling |
-| Stress test | Ad-hoc | Supervisor OJK request `GET /api/stress-test` |
+| Stress test | Ad-hoc | Supervisor OJK request `GET /api/stress-test?pakd_id=X` (pakd_id wajib, baseline dari snapshot Supabase) |
 | Rekonsiliasi live (legacy) | Ad-hoc | `GET /api/reconciliation` — rate limit 60 detik |
 
 ---
@@ -338,6 +346,7 @@ Deskripsi lengkap beserta rencana mitigasi ada di `docs/keterbatasan-sistem.md`.
 - PwC Switzerland. (2022). *Proof of Reserves: Bridging the Trust Gap in Crypto Exchanges*.
 - Chainalysis. (2024). *The Chainalysis 2024 Crypto Crime Report*.
 - OWASP ASVS V4.0.3 — V2.10.3 Service Authentication.
-- POJK No. 23 Tahun 2025, Pasal 50 ayat (1) huruf o, Pasal 91 ayat (1).
+- POJK No. 27 Tahun 2024 tentang Perdagangan Aset Keuangan Digital.
+- POJK No. 23 Tahun 2025 tentang Penyelenggaraan Perdagangan Aset Keuangan Digital, Pasal 50 ayat (1) huruf o, Pasal 91 ayat (1).
 - PT Central Finansial X (CFX). Daftar Aset Kripto Terdaftar, 19 Mei 2026. Total 1.266 aset; analisis jaringan PRIMA: 821 ERC-20/Ethereum (65,2%), 93 Solana (7,4%), 28 Bitcoin (2,2%). https://www.cfx.co.id/
 
