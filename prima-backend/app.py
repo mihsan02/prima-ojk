@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_from_directory, make_response
+from flask import Flask, jsonify, request, send_from_directory, make_response, g
 from flask_cors import CORS
 import requests
 import os
@@ -19,6 +19,14 @@ import nacl.signing
 import nacl.exceptions
 
 app = Flask(__name__)
+
+# Auth module - import lazy to avoid circular at module level
+# (auth.py imports _get_db_conn from app, so we import auth after app is defined)
+from auth import (
+    require_auth, require_role, require_entity_access,
+    require_super_admin_or_token, login_user,
+    create_supabase_user, delete_supabase_user, invalidate_user_cache
+)
 
 def _error_response(message, detail=None, status_code=400):
     """Format error response yang konsisten di seluruh endpoint."""
@@ -1686,12 +1694,103 @@ def require_admin_token(f):
         return f(*args, **kwargs)
     return decorated
 
+@app.route('/api/auth/login', methods=['POST'])
+def api_login():
+    """Login endpoint. Return JWT + user profile."""
+    data = request.get_json(silent=True)
+    if not data or not data.get('email') or not data.get('password'):
+        return jsonify({'error': 'Email dan password wajib diisi'}), 400
+    result = login_user(data['email'], data['password'])
+    if 'error' in result:
+        return jsonify(result), 401
+    return jsonify(result)
+
+
+@app.route('/api/auth/me', methods=['GET'])
+@require_auth
+def api_auth_me():
+    """Return current user info dari JWT."""
+    return jsonify(g.current_user)
+
+
+@app.route('/api/users', methods=['GET'])
+@require_role('super_admin')
+def api_list_users():
+    """List semua user profiles."""
+    conn = _get_db_conn()
+    if not conn:
+        return _error_response("Database tidak tersedia", status_code=503)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, role, entity_type, entity_id, display_name, created_at "
+            "FROM user_profiles ORDER BY created_at"
+        )
+        rows = cur.fetchall()
+        cur.close()
+        users = [{
+            'id': str(r[0]),
+            'role': r[1],
+            'entity_type': r[2],
+            'entity_id': r[3],
+            'display_name': r[4],
+            'created_at': str(r[5]) if r[5] else None
+        } for r in rows]
+        return jsonify(users)
+    except Exception as e:
+        return _error_response("Gagal fetch users", detail=e, status_code=500)
+    finally:
+        _return_db_conn(conn)
+
+
+@app.route('/api/users', methods=['POST'])
+@require_role('super_admin')
+def api_create_user():
+    """Create user via Supabase Auth Admin API + insert profile."""
+    data = request.get_json(silent=True)
+    if not data:
+        return _error_response("Request body wajib diisi")
+    email = data.get('email', '').strip()
+    password = data.get('password', '').strip()
+    role = data.get('role', '').strip()
+    display_name = data.get('display_name', '').strip()
+    entity_type = data.get('entity_type') or None
+    entity_id = data.get('entity_id') or None
+
+    if not email or not password or not role or not display_name:
+        return _error_response("email, password, role, display_name wajib diisi")
+    if role not in ('pengawas', 'super_admin', 'pakd', 'kustodian'):
+        return _error_response(f"Role tidak valid: {role}")
+
+    result = create_supabase_user(email, password, display_name, role, entity_type, entity_id)
+    if 'error' in result:
+        return jsonify(result), 400
+    write_audit("CREATE_USER", f"Buat user {email} role={role}")
+    return jsonify(result), 201
+
+
+@app.route('/api/users/<user_id>', methods=['DELETE'])
+@require_role('super_admin')
+def api_delete_user(user_id):
+    """Delete user via Supabase Auth Admin API + cascade profile."""
+    result = delete_supabase_user(user_id)
+    if 'error' in result:
+        return jsonify(result), 400
+    write_audit("DELETE_USER", f"Hapus user {user_id}")
+    return jsonify(result)
+
+
 @app.route("/api/pakd", methods=["GET"])
+@require_auth
 def get_pakd():
-    return jsonify(load_pakd())
+    user = g.current_user
+    pakd_list = load_pakd()
+    if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
+        pakd_list = [p for p in pakd_list if p['id'] == user['entity_id']]
+    return jsonify(pakd_list)
 
 @app.route("/api/pakd", methods=["POST"])
-@require_admin_token
+@require_super_admin_or_token
 def create_pakd():
     body = request.get_json(force=True)
     if not body.get("id") or not body.get("nama"):
@@ -1719,7 +1818,7 @@ def create_pakd():
     return jsonify(new_pakd), 201
 
 @app.route("/api/pakd/<pakd_id>/recalc-snapshot", methods=["POST"])
-@require_admin_token
+@require_super_admin_or_token
 def recalc_snapshot(pakd_id):
     """Recalculate snapshot deviasi from existing on-chain data without blockchain re-fetch."""
     conn = _get_db_conn()
@@ -1787,7 +1886,7 @@ def recalc_snapshot(pakd_id):
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/pakd/<pakd_id>", methods=["PUT"])
-@require_admin_token
+@require_super_admin_or_token
 def update_pakd(pakd_id):
     body = request.get_json(force=True)
     data = load_pakd()
@@ -1810,7 +1909,7 @@ def update_pakd(pakd_id):
     return _error_response(f"PAKD {pakd_id} tidak ditemukan", status_code=404)
 
 @app.route("/api/pakd/<pakd_id>", methods=["DELETE"])
-@require_admin_token
+@require_super_admin_or_token
 def delete_pakd(pakd_id):
     data = load_pakd()
     new_data = [p for p in data if p["id"] != pakd_id]
@@ -1969,6 +2068,7 @@ def internal_refresh_all():
         REFRESH_LOCK["started_at"] = None
 
 @app.route("/api/reconciliation/latest")
+@require_auth
 def reconciliation_latest():
     conn = _get_db_conn()
     if not conn:
@@ -1976,14 +2076,26 @@ def reconciliation_latest():
     try:
         import psycopg2.extras
         cur = conn.cursor()
-        cur.execute("""
-            SELECT DISTINCT ON (s.pakd_id)
-                s.pakd_id, s.pakd_nama, s.aset_dilaporkan_idr, s.aset_onchain_idr,
-                s.deviasi_persen, s.status, s.harga_fallback, s.network_breakdown, s.captured_at, s.created_at
-            FROM reconciliation_snapshots s
-            INNER JOIN pakd p ON p.id = s.pakd_id
-            ORDER BY s.pakd_id, s.captured_at DESC
-        """)
+        user = g.current_user
+        if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
+            cur.execute("""
+                SELECT DISTINCT ON (s.pakd_id)
+                    s.pakd_id, s.pakd_nama, s.aset_dilaporkan_idr, s.aset_onchain_idr,
+                    s.deviasi_persen, s.status, s.harga_fallback, s.network_breakdown, s.captured_at, s.created_at
+                FROM reconciliation_snapshots s
+                INNER JOIN pakd p ON p.id = s.pakd_id
+                WHERE s.pakd_id = %s
+                ORDER BY s.pakd_id, s.captured_at DESC
+            """, (user['entity_id'],))
+        else:
+            cur.execute("""
+                SELECT DISTINCT ON (s.pakd_id)
+                    s.pakd_id, s.pakd_nama, s.aset_dilaporkan_idr, s.aset_onchain_idr,
+                    s.deviasi_persen, s.status, s.harga_fallback, s.network_breakdown, s.captured_at, s.created_at
+                FROM reconciliation_snapshots s
+                INNER JOIN pakd p ON p.id = s.pakd_id
+                ORDER BY s.pakd_id, s.captured_at DESC
+            """)
         rows = cur.fetchall()
         hasil = []
         as_of = None
@@ -2022,12 +2134,20 @@ def reconciliation_latest():
 
 
 @app.route("/api/reconciliation-history")
+@require_auth
 def reconciliation_history():
+    # Entity access check sebelum DB (agar 403 tidak tertutup 503)
+    user = g.current_user
+    pakd_id = request.args.get("pakd_id")
+    if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
+        if pakd_id and pakd_id != user['entity_id']:
+            return jsonify({'error': 'Forbidden', 'message': 'Anda hanya dapat mengakses data entity sendiri'}), 403
+        pakd_id = user['entity_id']
+
     conn = _get_db_conn()
     if not conn:
         return _error_response("Database tidak tersedia", status_code=503)
     try:
-        pakd_id = request.args.get("pakd_id")
         limit = min(int(request.args.get("limit", 30)), 100)
         cur = conn.cursor()
         if pakd_id:
@@ -2072,6 +2192,7 @@ def reconciliation_history():
 
 
 @app.route("/api/stress-test")
+@require_auth
 def stress_test():
     pakd_id = request.args.get("pakd_id")
     if not pakd_id and not app.config.get("TESTING"):
@@ -2318,7 +2439,7 @@ def stress_test():
 
 
 @app.route("/api/input-manual", methods=["POST"])
-@require_admin_token
+@require_super_admin_or_token
 def input_manual():
     try:
         body = request.get_json(silent=True)
@@ -2386,6 +2507,7 @@ def input_manual():
 
 
 @app.route("/api/audit-log")
+@require_auth
 def audit_log():
     # Primary: Supabase
     conn = _get_db_conn()
@@ -2415,6 +2537,7 @@ def audit_log():
         return _error_response("Gagal memuat audit log", detail=e, status_code=500)
 
 @app.route("/api/wallet-challenge", methods=["POST"])
+@require_auth
 def wallet_challenge():
     body = request.get_json(silent=True)
     if not body:
@@ -2486,6 +2609,7 @@ def wallet_challenge():
 
 
 @app.route("/api/wallet-verify", methods=["POST"])
+@require_auth
 def wallet_verify():
     body = request.get_json(silent=True)
     if not body:
@@ -2609,6 +2733,7 @@ def wallet_verify():
 
 
 @app.route('/api/export-csv-overview')
+@require_auth
 def export_csv_overview():
     import csv, io, psycopg2
     from datetime import datetime
@@ -2642,6 +2767,7 @@ def export_csv_overview():
     return response
 
 @app.route('/api/export-csv')
+@require_auth
 def export_csv():
     import csv, io, psycopg2
     from datetime import datetime
@@ -2734,6 +2860,7 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
         _job_update("failed", {"detail": str(e)})
 
 @app.route("/api/reconciliation/refresh", methods=["POST"])
+@require_role('super_admin')
 def reconciliation_refresh():
     _cleanup_old_jobs()
     pakd_id_filter = request.args.get("pakd_id") or None

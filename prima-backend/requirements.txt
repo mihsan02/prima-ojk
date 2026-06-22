@@ -6,3 +6,5 @@ base58
 PyNaCl
 gunicorn
 psycopg2-binary
+PyJWT>=2.8.0
+openpyxl
