@@ -206,8 +206,56 @@ tr:hover td{background:var(--bg2)}
   td, th { padding: 8px; }
 }
 </style>
+<style>
+/* ── Sprint 1: Login Page ── */
+#login-overlay{position:fixed;inset:0;background:#F4F1EA;z-index:9999;display:flex;align-items:center;justify-content:center}
+.login-card{background:#FAFAF7;border:1px solid #D6E4F0;border-radius:16px;padding:40px;width:100%;max-width:400px;box-shadow:0 4px 32px rgba(40,70,110,0.12)}
+.login-logo{display:flex;align-items:center;gap:12px;margin-bottom:28px;justify-content:center}
+.login-title{font-size:20px;font-weight:700;color:#1A2535;letter-spacing:-0.01em}
+.login-title span{color:#3B82C4}
+.login-subtitle{font-size:12px;color:#7A94AE;text-align:center;margin-bottom:28px;font-weight:500;letter-spacing:0.02em}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;font-size:12px;color:#3D5470;font-weight:600;margin-bottom:6px;letter-spacing:0.02em}
+.login-field input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid #D6E4F0;background:#fff;font-size:14px;color:#1A2535;outline:none;box-sizing:border-box;transition:border-color 0.15s}
+.login-field input:focus{border-color:#3B82C4;box-shadow:0 0 0 3px rgba(59,130,196,0.1)}
+.btn-login{width:100%;padding:11px;border-radius:8px;border:none;background:#3B82C4;color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;transition:background 0.15s}
+.btn-login:hover{background:#2d6ca8}
+.btn-login:disabled{background:#A8BDD0;cursor:not-allowed}
+.login-error{display:none;background:#FDECEA;border:1px solid #F0B8B3;color:#C0392B;border-radius:6px;padding:10px 12px;font-size:12px;margin-bottom:12px}
+/* User badge in topbar */
+#user-badge{display:flex;align-items:center;gap:8px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;background:#EBF3FC;border:1px solid #C5DCF2;color:#3B82C4}
+#btn-logout{background:none;border:1px solid #D6E4F0;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;color:#7A94AE;transition:all 0.15s}
+#btn-logout:hover{border-color:#C0392B;color:#C0392B}
+/* Sembunyikan CRUD buttons untuk non-admin */
+.crud-action{display:none}
+</style>
 </head>
 <body>
+
+<!-- Login Overlay (Sprint 1) -->
+<div id="login-overlay" style="display:none">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="54" height="32" viewBox="0 0 108 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="108" height="64" rx="8" fill="#3B82C4"/>
+        <text x="54" y="42" font-family="Inter,sans-serif" font-size="28" font-weight="700" fill="white" text-anchor="middle">PRIMA</text>
+      </svg>
+    </div>
+    <div style="text-align:center;margin-bottom:6px;font-size:18px;font-weight:700;color:#1A2535">Masuk ke <span style="color:#3B82C4">PRIMA</span></div>
+    <div class="login-subtitle">Sistem Pemantauan Transparansi Multichain<br>Aset Keuangan Digital · OJK</div>
+    <div id="login-error" class="login-error"></div>
+    <div class="login-field">
+      <label>Email</label>
+      <input id="login-email" type="email" placeholder="nama@email.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-login" id="btn-login" onclick="doLogin()">Masuk</button>
+  </div>
+</div>
+
 <div class="shell">
 
 <header class="topbar">
@@ -231,6 +279,8 @@ tr:hover td{background:var(--bg2)}
   <div class="topbar-right">
     <div class="badge-live" id="live-badge">MENGHUBUNGKAN</div>
     <span class="topbar-time" id="last-update">—</span>
+    <div id="user-badge" style="display:none">—</div>
+    <button id="btn-logout" style="display:none" onclick="doLogout()">Keluar</button>
   </div>
 </header>
 
@@ -332,7 +382,7 @@ tr:hover td{background:var(--bg2)}
     <div>
       <div class="section-header">
         <div class="section-title"><div class="section-title-bar"></div>Daftar Pedagang Aset Keuangan Digital</div>
-        <button onclick="openAddModal()" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><span style="font-size:16px;line-height:1">+</span>&nbsp;Tambah PAKD</button>
+        <button onclick="openAddModal()" class="crud-action" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><span style="font-size:16px;line-height:1">+</span>&nbsp;Tambah PAKD</button>
       </div>
       <div class="panel">
         <table>
@@ -877,7 +927,7 @@ async function loadData() {
   const tbody = document.getElementById('pakd-tbody');
   tbody.innerHTML = '<tr class="loading-row"><td colspan="8">Mengambil data dari blockchain...</td></tr>';
   try {
-    const res = await fetch('/api/reconciliation');
+    const res = await apiFetch('/api/reconciliation');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     const data = json.data;
@@ -921,11 +971,13 @@ async function loadData() {
         <td style="vertical-align:top;padding-top:16px">
           <div style="display:flex;gap:6px;align-items:center">
             <button onclick="event.stopPropagation();openEditModal('${escapeHtml(d.id)}')"
+              class="crud-action"
               style="background:none;border:none;cursor:pointer;color:#64748b;border-radius:6px;padding:6px 8px;transition:all 0.15s"
               onmouseover="this.style.background='#eff6ff';this.style.color='#2563eb'"
               onmouseout="this.style.background='none';this.style.color='#64748b'"
               title="Edit PAKD">✏️</button>
             <button onclick="event.stopPropagation();deletePakd('${escapeHtml(d.id)}')"
+              class="crud-action"
               style="background:none;border:none;cursor:pointer;color:#64748b;border-radius:6px;padding:6px 8px;transition:all 0.15s"
               onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'"
               onmouseout="this.style.background='none';this.style.color='#64748b'"
@@ -974,7 +1026,7 @@ function renderP91Cards(cid, perPakd) {
 
 async function loadStressTest() {
   try {
-    const res = await fetch('/api/stress-test?pakd_id=PAKD-OJK-001');
+    const res = await apiFetch('/api/stress-test?pakd_id=PAKD-OJK-001');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     const p50 = json.pasal50;
@@ -1176,7 +1228,7 @@ async function submitManual() {
 async function loadAudit() {
   const tbody = document.getElementById('audit-tbody');
   try {
-    const res = await fetch('/api/audit-log');
+    const res = await apiFetch('/api/audit-log');
     const json = await res.json();
     if (!json.data.length) {
       tbody.innerHTML = '<tr class="loading-row"><td colspan="3">Belum ada aktivitas tercatat.</td></tr>'; return;
@@ -1308,7 +1360,7 @@ async function openVerifyModal(address, network, pakdId) {
   modal.classList.add('show');
 
   try {
-    const res = await fetch('/api/wallet-challenge', {
+    const res = await apiFetch('/api/wallet-challenge', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ address, network })
     });
@@ -1349,7 +1401,7 @@ async function submitVerifyFromModal() {
   modalClearError();
   setModalSubmitState(true, 'Memverifikasi...');
   try {
-    const res = await fetch('/api/wallet-verify', {
+    const res = await apiFetch('/api/wallet-verify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         address:   modalState.address,
@@ -1488,7 +1540,7 @@ async function requestChallenge() {
   document.getElementById('vp-result').style.display = 'none';
   if (!address) { showVpResult(false, 'Isi wallet address terlebih dahulu.'); return; }
   try {
-    const res = await fetch('/api/wallet-challenge', {
+    const res = await apiFetch('/api/wallet-challenge', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ address, network })
     });
@@ -1508,7 +1560,7 @@ async function verifyChallenge() {
   const pakd_id   = document.getElementById('vp-pakd-id').value.trim();
   if (!signature) { showVpResult(false, 'Isi signature dari PAKD.'); return; }
   try {
-    const res = await fetch('/api/wallet-verify', {
+    const res = await apiFetch('/api/wallet-verify', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ address, signature, pakd_id })
     });
@@ -1581,7 +1633,7 @@ async function triggerManualRefresh() {
       const poll = setInterval(async () => {
         attempts++;
         try {
-          const r = await fetch('/api/reconciliation/refresh/' + job_id);
+          const r = await apiFetch('/api/reconciliation/refresh/' + job_id);
           const job = await r.json();
           if (job.status === 'done' || job.status === 'failed') {
             clearInterval(poll);
@@ -1598,7 +1650,7 @@ async function triggerManualRefresh() {
     for (let i = 0; i < pakdList.length; i++) {
       const pakd = pakdList[i];
       tbody.innerHTML = '<tr class="loading-row"><td colspan="7">(' + (i+1) + '/' + pakdList.length + ') Mengirim job untuk ' + pakd.nama + '...</td></tr>';
-      const res = await fetch('/api/reconciliation/refresh?pakd_id=' + encodeURIComponent(pakd.id), {method: 'POST'});
+      const res = await apiFetch('/api/reconciliation/refresh?pakd_id=' + encodeURIComponent(pakd.id), {method: 'POST'});
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const {job_id} = await res.json();
       const result = await pollJob(job_id, '(' + (i+1) + '/' + pakdList.length + ') ' + pakd.nama);
@@ -1621,7 +1673,7 @@ async function loadSnapshot() {
   const tbody = document.getElementById('pakd-tbody');
   tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Memuat data snapshot...</td></tr>';
   try {
-    const res = await fetch('/api/reconciliation/latest');
+    const res = await apiFetch('/api/reconciliation/latest');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     if (!json.data || json.data.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#e74c3c">Snapshot kosong. Jalankan Rekonsiliasi Manual.</td></tr>'; return; }
@@ -1710,7 +1762,7 @@ loadAll();
 
 async function populateDetailSelect() {
   try {
-    const res = await fetch('/api/reconciliation-history?limit=100');
+    const res = await apiFetch('/api/reconciliation-history?limit=100');
     const d = await res.json();
     const seen = {};
     d.data.forEach(r => { seen[r.pakd_id] = r.pakd_nama; });
@@ -1740,7 +1792,7 @@ async function loadDetailPakd() {
   const limit = document.getElementById('detail-limit-select').value;
   if (!pakdId) return;
   try {
-    const res = await fetch('/api/reconciliation-history?pakd_id=' + pakdId + '&limit=' + limit);
+    const res = await apiFetch('/api/reconciliation-history?pakd_id=' + pakdId + '&limit=' + limit);
     const d = await res.json();
     const rows = d.data || [];
     renderDetailKpi(rows);
@@ -1994,10 +2046,7 @@ function renderChips(containerId, items, showPass) {
       <div id="edit-wallets-container"></div>
       <button onclick="addEditWalletRow()" style="margin-top:8px;background:none;border:1px dashed var(--border);border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--blue);font-size:12px">+ Tambah Wallet</button>
     </div>
-    <div style="margin-top:12px">
-      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Admin Token</label>
-      <input id="edit-admin-token" type="password" placeholder="Masukkan admin token" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--txt1);box-sizing:border-box;font-family:monospace">
-    </div>
+    <input id="edit-admin-token" type="hidden" value="">
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
       <button onclick="closeEditModal()" style="padding:8px 20px;border-radius:6px;border:1px solid var(--border);background:none;cursor:pointer;color:var(--txt1)">Batal</button>
       <button onclick="saveEditModal()" style="padding:8px 20px;border-radius:6px;border:none;background:var(--blue);color:#fff;cursor:pointer">Simpan</button>
@@ -2007,15 +2056,175 @@ function renderChips(containerId, items, showPass) {
 
 <script>
 const API = 'https://prima-ojk.onrender.com';
+
+// ── Sprint 1: Auth Session Management ──
+const AUTH = {
+  TOKEN_KEY: 'prima_access_token',
+  REFRESH_KEY: 'prima_refresh_token',
+  USER_KEY: 'prima_user',
+
+  save(loginResponse) {
+    localStorage.setItem(this.TOKEN_KEY, loginResponse.access_token);
+    if (loginResponse.refresh_token) localStorage.setItem(this.REFRESH_KEY, loginResponse.refresh_token);
+    localStorage.setItem(this.USER_KEY, JSON.stringify(loginResponse.user));
+  },
+
+  getToken() { return localStorage.getItem(this.TOKEN_KEY); },
+
+  getUser() {
+    try { return JSON.parse(localStorage.getItem(this.USER_KEY) || 'null'); }
+    catch(e) { return null; }
+  },
+
+  clear() {
+    localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.REFRESH_KEY);
+    localStorage.removeItem(this.USER_KEY);
+  },
+
+  isLoggedIn() { return !!this.getToken(); },
+
+  headers() {
+    const h = {'Content-Type': 'application/json'};
+    const t = this.getToken();
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    return h;
+  },
+
+  jsonHeaders() { return this.headers(); },
+
+  // Headers tanpa Content-Type (untuk GET)
+  authOnly() {
+    const h = {};
+    const t = this.getToken();
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    return h;
+  }
+};
+
+function applyRoleUI() {
+  const user = AUTH.getUser();
+  if (!user) return;
+
+  // Update user badge
+  const badge = document.getElementById('user-badge');
+  const btnLogout = document.getElementById('btn-logout');
+  if (badge) {
+    const roleLabel = {
+      super_admin: 'Super Admin', pengawas: 'Pengawas',
+      pakd: 'PAKD', kustodian: 'Kustodian'
+    }[user.role] || user.role;
+    badge.textContent = user.display_name + ' · ' + roleLabel;
+    badge.style.display = 'flex';
+  }
+  if (btnLogout) btnLogout.style.display = 'inline-block';
+
+  // Tampilkan CRUD actions hanya untuk super_admin
+  const isSuperAdmin = user.role === 'super_admin';
+  document.querySelectorAll('.crud-action').forEach(el => {
+    el.style.display = isSuperAdmin ? (el.tagName === 'BUTTON' ? 'inline-flex' : 'block') : 'none';
+  });
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('btn-login');
+
+  if (!email || !password) {
+    errEl.textContent = 'Email dan password wajib diisi';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Memproses...';
+  errEl.style.display = 'none';
+
+  try {
+    const resp = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password})
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      errEl.textContent = data.error || 'Login gagal. Periksa email dan password.';
+      errEl.style.display = 'block';
+      return;
+    }
+    AUTH.save(data);
+    showDashboard();
+  } catch(e) {
+    errEl.textContent = 'Koneksi gagal. Periksa jaringan internet.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Masuk';
+  }
+}
+
+function doLogout() {
+  AUTH.clear();
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').style.display = 'none';
+  const badge = document.getElementById('user-badge');
+  const btnLogout = document.getElementById('btn-logout');
+  if (badge) badge.style.display = 'none';
+  if (btnLogout) btnLogout.style.display = 'none';
+}
+
+function showDashboard() {
+  document.getElementById('login-overlay').style.display = 'none';
+  applyRoleUI();
+  init();
+}
+
+async function handleAuthError(resp) {
+  if (resp.status === 401) {
+    AUTH.clear();
+    showLogin();
+    return true;
+  }
+  return false;
+}
+
+async function apiFetch(url, options = {}) {
+  const h = {...AUTH.authOnly(), ...(options.headers || {})};
+  const resp = await fetch(url, {...options, headers: h});
+  if (resp.status === 401) { AUTH.clear(); showLogin(); throw new Error('Session expired'); }
+  return resp;
+}
+
+// Enter key di login form
+document.addEventListener('DOMContentLoaded', () => {
+  const pwInput = document.getElementById('login-password');
+  if (pwInput) pwInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+  const emailInput = document.getElementById('login-email');
+  if (emailInput) emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+
+  if (AUTH.isLoggedIn()) {
+    showDashboard();
+  } else {
+    showLogin();
+  }
+});
+
 let _adminToken = '';
 function getAdminToken() {
+  const token = AUTH.getToken();
+  if (token) return token;
+  // fallback legacy
   const field = document.getElementById('edit-admin-token');
-  if (field && field.value.trim()) {
-    _adminToken = field.value.trim();
-  }
-  if (!_adminToken) {
-    _adminToken = prompt('PRIMA Admin Token diperlukan untuk operasi ini:') || '';
-  }
+  if (field && field.value.trim()) _adminToken = field.value.trim();
+  if (!_adminToken) _adminToken = prompt('PRIMA Admin Token diperlukan untuk operasi ini:') || '';
   return _adminToken;
 }
 let _editPakdId = null;
@@ -2041,7 +2250,7 @@ async function openEditModal(pakdId) {
   document.getElementById('modal-pakd').style.display = 'flex';
   let pakd = null;
   try {
-    const resp = await fetch('/api/pakd');
+    const resp = await apiFetch('/api/pakd');
     const list = await resp.json();
     pakd = list.find(p => p.id === pakdId);
   } catch(e) { pakd = _pakdCache.find(p => p.id === pakdId); }
@@ -2129,19 +2338,19 @@ async function saveEditModal() {
       const newId = document.getElementById('edit-pakd-id').value.trim();
       if (!newId) return alert('ID PAKD wajib diisi');
       if (!nama) return alert('Nama PAKD wajib diisi');
-      resp = await fetch('/api/input-manual', {
+      resp = await apiFetch('/api/input-manual', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-Admin-Token': getAdminToken()},
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id: newId, nama: nama, aset_dilaporkan: aset, wallets: wallets, equity_idr, persediaan_akd_idr, simpanan_pedagang_akd_idr, customer_akd_idr})
       });
     } else {
-      resp = await fetch('/api/pakd/' + _editPakdId, {
+      resp = await apiFetch('/api/pakd/' + _editPakdId, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json', 'X-Admin-Token': getAdminToken()},
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({nama: nama, aset_dilaporkan: aset, wallets: wallets, equity_idr, persediaan_akd_idr, simpanan_pedagang_akd_idr, customer_akd_idr})
       });
     }
-    if (resp.status === 401) { _adminToken = ''; throw new Error('Token salah atau kosong. Coba lagi.'); }
+    if (resp.status === 401) { AUTH.clear(); showLogin(); return; }
     if (!resp.ok) throw new Error(await resp.text());
     const saveBtn = document.querySelector('#edit-modal button[onclick="saveEditModal()"]');
     const _savedPakdId = _editPakdId;
@@ -2149,7 +2358,7 @@ async function saveEditModal() {
     const tbody = document.getElementById('pakd-tbody');
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--blue)">Memperbarui snapshot...</td></tr>';
     if (_savedPakdId) {
-      await fetch('/api/pakd/' + _savedPakdId + '/recalc-snapshot', {method:'POST', headers:{'X-Admin-Token': _adminToken}}).catch(() => {});
+      await apiFetch('/api/pakd/' + _savedPakdId + '/recalc-snapshot', {method:'POST'}).catch(() => {});
     }
     loadSnapshot();
   } catch(e) {
@@ -2160,7 +2369,7 @@ async function saveEditModal() {
 async function deletePakd(pakdId) {
   if (!confirm('Hapus PAKD ' + pakdId + '? Tindakan ini tidak dapat dibatalkan.')) return;
   try {
-    const resp = await fetch('/api/pakd/' + pakdId, {method: 'DELETE', headers: {'X-Admin-Token': getAdminToken()}});
+    const resp = await apiFetch('/api/pakd/' + pakdId, {method: 'DELETE'});
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
       loadSnapshot();
