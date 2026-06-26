@@ -8,3 +8,4 @@ gunicorn
 psycopg2-binary
 PyJWT>=2.8.0
 openpyxl
+cryptography>=42.0.0

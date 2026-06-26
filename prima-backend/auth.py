@@ -4,6 +4,16 @@ import functools
 import jwt
 from flask import request, jsonify, g
 
+# JWKS client untuk ES256 token validation (Supabase generasi baru)
+_jwks_client = None
+def _get_jwks_client():
+    global _jwks_client
+    if _jwks_client is None:
+        url = _supabase_url()
+        if url:
+            _jwks_client = jwt.PyJWKClient(f"{url}/auth/v1/jwks", cache_keys=True)
+    return _jwks_client
+
 def _jwt_secret():
     return os.environ.get('SUPABASE_JWT_SECRET', '')
 
@@ -36,12 +46,27 @@ def get_current_user():
         return None
 
     try:
-        payload = jwt.decode(
-            token,
-            secret,
-            algorithms=['HS256'],
-            audience='authenticated'
-        )
+        # ES256 via JWKS (Supabase generasi baru), fallback HS256
+        payload = None
+        jwks = _get_jwks_client()
+        if jwks:
+            try:
+                signing_key = jwks.get_signing_key_from_jwt(token)
+                payload = jwt.decode(
+                    token,
+                    signing_key.key,
+                    algorithms=['ES256'],
+                    audience='authenticated'
+                )
+            except (jwt.exceptions.PyJWKClientConnectionError, jwt.exceptions.PyJWKClientError):
+                pass  # fallback ke HS256 di bawah
+        if payload is None:
+            payload = jwt.decode(
+                token,
+                secret,
+                algorithms=['HS256', 'ES256'],
+                audience='authenticated'
+            )
         user_id = payload.get('sub')
         if not user_id:
             return None
