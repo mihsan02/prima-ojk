@@ -19,8 +19,10 @@ def _get_es256_public_key():
     try:
         import urllib.request, json, base64
         from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicNumbers, SECP256R1
+        jwks_url = f"{url.rstrip('/')}/auth/v1/jwks"
+        print(f"[AUTH] Fetching JWKS from: {jwks_url}", flush=True)
         req = urllib.request.Request(
-                f"{url}/auth/v1/jwks",
+                jwks_url,
                 headers={"apikey": _anon_key()}
             )
         resp = urllib.request.urlopen(req, timeout=5)
