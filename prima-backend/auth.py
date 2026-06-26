@@ -13,34 +13,46 @@ def _get_es256_public_key():
     if _es256_key_fetched:
         return _es256_public_key
     _es256_key_fetched = True
-    url = _supabase_url()
-    if not url:
-        return None
     try:
-        import urllib.request, json, base64
+        import json, base64
         from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicNumbers, SECP256R1
-        jwks_url = f"{url.rstrip('/')}/auth/v1/jwks"
-        print(f"[AUTH] Fetching JWKS from: {jwks_url}", flush=True)
-        req = urllib.request.Request(
-                jwks_url,
-                headers={"apikey": _anon_key()}
-            )
-        resp = urllib.request.urlopen(req, timeout=5)
-        jwks = json.loads(resp.read())
-        for key_data in jwks.get('keys', []):
-            if key_data.get('alg') == 'ES256' and key_data.get('kty') == 'EC':
-                x_bytes = base64.urlsafe_b64decode(key_data['x'] + '==')
-                y_bytes = base64.urlsafe_b64decode(key_data['y'] + '==')
-                numbers = EllipticCurvePublicNumbers(
-                    x=int.from_bytes(x_bytes, 'big'),
-                    y=int.from_bytes(y_bytes, 'big'),
-                    curve=SECP256R1()
+        # 1. Coba dari env var (production: JWKS fetch dari Render gagal)
+        jwk_env = os.environ.get('SUPABASE_JWT_JWK', '')
+        if jwk_env:
+            key_data = json.loads(jwk_env)
+        else:
+            # 2. Fallback: fetch dari Supabase JWKS endpoint
+            import urllib.request
+            url = _supabase_url()
+            if not url:
+                return None
+            jwks_url = f"{url.rstrip('/')}/auth/v1/jwks"
+            print(f"[AUTH] Fetching JWKS from: {jwks_url}", flush=True)
+            req = urllib.request.Request(
+                    jwks_url,
+                    headers={"apikey": _anon_key()}
                 )
-                _es256_public_key = numbers.public_key()
-                print(f"[AUTH] ES256 public key loaded from JWKS", flush=True)
-                return _es256_public_key
+            resp = urllib.request.urlopen(req, timeout=5)
+            jwks = json.loads(resp.read())
+            key_data = None
+            for k in jwks.get('keys', []):
+                if k.get('alg') == 'ES256' and k.get('kty') == 'EC':
+                    key_data = k
+                    break
+            if not key_data:
+                return None
+        x_bytes = base64.urlsafe_b64decode(key_data['x'] + '==')
+        y_bytes = base64.urlsafe_b64decode(key_data['y'] + '==')
+        numbers = EllipticCurvePublicNumbers(
+            x=int.from_bytes(x_bytes, 'big'),
+            y=int.from_bytes(y_bytes, 'big'),
+            curve=SECP256R1()
+        )
+        _es256_public_key = numbers.public_key()
+        print(f"[AUTH] ES256 public key loaded", flush=True)
+        return _es256_public_key
     except Exception as e:
-        print(f"[AUTH] JWKS fetch failed: {e}", flush=True)
+        print(f"[AUTH] ES256 key load failed: {e}", flush=True)
     return None
 
 def _jwt_secret():
