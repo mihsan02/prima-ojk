@@ -1712,6 +1712,34 @@ def api_auth_me():
     """Return current user info dari JWT."""
     return jsonify(g.current_user)
 
+@app.route('/api/auth/refresh', methods=['POST'])
+def api_auth_refresh():
+    """Refresh JWT token via Supabase."""
+    import requests as _req
+    data = request.get_json(silent=True) or {}
+    rt = data.get('refresh_token')
+    if not rt:
+        return jsonify({'error': 'refresh_token wajib diisi'}), 400
+    try:
+        from auth import _supabase_url, _anon_key
+        resp = _req.post(
+            _supabase_url() + '/auth/v1/token?grant_type=refresh_token',
+            json={'refresh_token': rt},
+            headers={'Content-Type': 'application/json', 'apikey': _anon_key()},
+            timeout=10
+        )
+        if resp.status_code != 200:
+            return jsonify({'error': 'Refresh failed'}), 401
+        result = resp.json()
+        return jsonify({
+            'access_token': result.get('access_token'),
+            'refresh_token': result.get('refresh_token'),
+            'expires_in': result.get('expires_in', 3600)
+        })
+    except Exception as e:
+        print(f'[AUTH] Refresh error: {e}', flush=True)
+        return jsonify({'error': 'Refresh failed'}), 500
+
 
 @app.route('/api/users', methods=['GET'])
 @require_role('super_admin')

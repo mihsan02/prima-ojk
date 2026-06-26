@@ -2099,8 +2099,56 @@ const AUTH = {
     const t = this.getToken();
     if (t) h['Authorization'] = 'Bearer ' + t;
     return h;
+  },
+  async refreshToken() {
+    const rt = localStorage.getItem(this.REFRESH_KEY);
+    if (!rt) return false;
+    try {
+      const resp = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({refresh_token: rt})
+      });
+      if (!resp.ok) return false;
+      const data = await resp.json();
+      if (data.access_token) {
+        localStorage.setItem(this.TOKEN_KEY, data.access_token);
+        if (data.refresh_token) localStorage.setItem(this.REFRESH_KEY, data.refresh_token);
+        return true;
+      }
+      return false;
+    } catch(e) { return false; }
   }
 };
+
+// --- Idle Timeout (60 menit) ---
+let _lastActivity = Date.now();
+let _lastRefreshCheck = Date.now();
+const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+const REFRESH_THRESHOLD_MS = 45 * 60 * 1000;
+
+function _onUserActivity() {
+  _lastActivity = Date.now();
+}
+['mousemove','keydown','click','scroll','touchstart'].forEach(evt => {
+  document.addEventListener(evt, _onUserActivity, {passive: true, capture: true});
+});
+
+setInterval(async () => {
+  if (!AUTH.isLoggedIn()) return;
+  const idle = Date.now() - _lastActivity;
+  if (idle > IDLE_TIMEOUT_MS) {
+    AUTH.clear();
+    showLogin();
+    alert('Sesi berakhir karena tidak aktif selama 60 menit.');
+    return;
+  }
+  const sinceRefresh = Date.now() - _lastRefreshCheck;
+  if (sinceRefresh > REFRESH_THRESHOLD_MS) {
+    const ok = await AUTH.refreshToken();
+    if (ok) _lastRefreshCheck = Date.now();
+  }
+}, 60000);
 
 function applyRoleUI() {
   const user = AUTH.getUser();
