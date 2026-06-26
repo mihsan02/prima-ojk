@@ -1760,6 +1760,7 @@ async function loadSnapshot() {
 function loadAll() { loadSnapshot(); loadAudit(); }
 
 async function populateDetailSelect() {
+  if (!AUTH.isLoggedIn()) return;
   try {
     const res = await apiFetch('/api/reconciliation-history?limit=100');
     const d = await res.json();
