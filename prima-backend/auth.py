@@ -4,15 +4,38 @@ import functools
 import jwt
 from flask import request, jsonify, g
 
-# JWKS client untuk ES256 token validation (Supabase generasi baru)
-_jwks_client = None
-def _get_jwks_client():
-    global _jwks_client
-    if _jwks_client is None:
-        url = _supabase_url()
-        if url:
-            _jwks_client = jwt.PyJWKClient(f"{url}/auth/v1/jwks", cache_keys=True)
-    return _jwks_client
+# ES256 public key dari Supabase JWKS (manual construction, cross-version compatible)
+_es256_public_key = None
+_es256_key_fetched = False
+
+def _get_es256_public_key():
+    global _es256_public_key, _es256_key_fetched
+    if _es256_key_fetched:
+        return _es256_public_key
+    _es256_key_fetched = True
+    url = _supabase_url()
+    if not url:
+        return None
+    try:
+        import urllib.request, json, base64
+        from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicNumbers, SECP256R1
+        resp = urllib.request.urlopen(f"{url}/auth/v1/jwks", timeout=5)
+        jwks = json.loads(resp.read())
+        for key_data in jwks.get('keys', []):
+            if key_data.get('alg') == 'ES256' and key_data.get('kty') == 'EC':
+                x_bytes = base64.urlsafe_b64decode(key_data['x'] + '==')
+                y_bytes = base64.urlsafe_b64decode(key_data['y'] + '==')
+                numbers = EllipticCurvePublicNumbers(
+                    x=int.from_bytes(x_bytes, 'big'),
+                    y=int.from_bytes(y_bytes, 'big'),
+                    curve=SECP256R1()
+                )
+                _es256_public_key = numbers.public_key()
+                print(f"[AUTH] ES256 public key loaded from JWKS", flush=True)
+                return _es256_public_key
+    except Exception as e:
+        print(f"[AUTH] JWKS fetch failed: {e}", flush=True)
+    return None
 
 def _jwt_secret():
     return os.environ.get('SUPABASE_JWT_SECRET', '')
@@ -46,25 +69,25 @@ def get_current_user():
         return None
 
     try:
-        # ES256 via JWKS (Supabase generasi baru), fallback HS256
+        # ES256 via manual JWKS key, fallback HS256
         payload = None
-        jwks = _get_jwks_client()
-        if jwks:
+        es256_key = _get_es256_public_key()
+        if es256_key:
             try:
-                signing_key = jwks.get_signing_key_from_jwt(token)
                 payload = jwt.decode(
                     token,
-                    signing_key.key,
+                    es256_key,
                     algorithms=['ES256'],
                     audience='authenticated'
                 )
-            except (jwt.exceptions.PyJWKClientConnectionError, jwt.exceptions.PyJWKClientError):
-                pass  # fallback ke HS256 di bawah
+            except (jwt.InvalidTokenError, ValueError, Exception) as e:
+                print(f"[AUTH] ES256 decode failed: {e}", flush=True)
+                pass  # fallback ke HS256
         if payload is None:
             payload = jwt.decode(
                 token,
                 secret,
-                algorithms=['HS256', 'ES256'],
+                algorithms=['HS256'],
                 audience='authenticated'
             )
         user_id = payload.get('sub')
