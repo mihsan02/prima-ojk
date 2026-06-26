@@ -32,3 +32,9 @@ prima-backend/pakd_data.json
 
 # Local backup files (timestamped pre-edit copies)
 *.bak.*
+
+# Scratch/migration scripts
+fix_stress.py
+patch_db.py
+prima-backend/migrate_to_supabase.py
+prima-backend/pakd_data.json.bak

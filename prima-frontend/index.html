@@ -1000,6 +1000,7 @@ async function loadData() {
           </div>
         </td>
       </tr>`).join('');
+    applyRoleUI();
   } catch (err) {
     tbody.innerHTML = '<tr class="error-row"><td colspan="8">Gagal mengambil data: ' + escapeHtml(err.message) + '</td></tr>';
     const badge = document.getElementById('live-badge');
@@ -1239,6 +1240,7 @@ async function loadAudit() {
         <td><span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:3px 10px;border-radius:4px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);font-weight:600">${log.aksi}</span></td>
         <td style="color:var(--txt2)">${escapeHtml(log.detail)}</td>
       </tr>`).join('');
+    applyRoleUI();
   } catch(e) {
     tbody.innerHTML = '<tr class="loading-row"><td colspan="3">Gagal memuat audit log.</td></tr>';
   }
@@ -1742,15 +1744,16 @@ async function loadSnapshot() {
               style="background:none;border:none;cursor:pointer;color:#64748b;border-radius:6px;padding:6px 8px;transition:all 0.15s"
               onmouseover="this.style.background='#eff6ff';this.style.color='#2563eb'"
               onmouseout="this.style.background='none';this.style.color='#64748b'"
-              title="Edit PAKD">✏️</button>
+              title="Edit PAKD" class="crud-action">✏️</button>
             <button onclick="deletePakd('${escapeHtml(d.id)}')"
               style="background:none;border:none;cursor:pointer;color:#64748b;border-radius:6px;padding:6px 8px;transition:all 0.15s"
               onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'"
               onmouseout="this.style.background='none';this.style.color='#64748b'"
-              title="Hapus PAKD">🗑️</button>
+              title="Hapus PAKD" class="crud-action">🗑️</button>
           </div>
         </td>
       </tr>`).join('');
+    applyRoleUI();
   } catch(e) {
     console.warn('Snapshot gagal, fallback ke live fetch:', e);
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#e74c3c">Gagal memuat snapshot. Refresh halaman.</td></tr>';
