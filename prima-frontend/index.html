@@ -1758,7 +1758,6 @@ async function loadSnapshot() {
 }
 
 function loadAll() { loadSnapshot(); loadAudit(); }
-loadAll();
 
 async function populateDetailSelect() {
   try {
@@ -2156,6 +2155,7 @@ async function doLogin() {
     }
     AUTH.save(data);
     showDashboard();
+    loadAll();
   } catch(e) {
     errEl.textContent = 'Koneksi gagal. Periksa jaringan internet.';
     errEl.style.display = 'block';
@@ -2212,6 +2212,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (AUTH.isLoggedIn()) {
     showDashboard();
+    loadAll();
   } else {
     showLogin();
   }
