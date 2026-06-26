@@ -2194,7 +2194,12 @@ def reconciliation_history():
 @app.route("/api/stress-test")
 @require_auth
 def stress_test():
+    user = g.current_user
     pakd_id = request.args.get("pakd_id")
+    if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
+        if pakd_id and pakd_id != user['entity_id']:
+            return jsonify({'error': 'Forbidden'}), 403
+        pakd_id = user['entity_id']
     if not pakd_id and not app.config.get("TESTING"):
         return jsonify({"error": "pakd_id wajib diisi"}), 400
 
