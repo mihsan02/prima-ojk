@@ -2124,6 +2124,19 @@ function applyRoleUI() {
   document.querySelectorAll('.crud-action').forEach(el => {
     el.style.display = isSuperAdmin ? (el.tagName === 'BUTTON' ? 'inline-flex' : 'block') : 'none';
   });
+  // Pengawas = read-only: hide write actions (rekon trigger, wallet verification)
+  const isPengawas = user.role === 'pengawas';
+  document.querySelectorAll('button').forEach(el => {
+    const txt = el.textContent.trim();
+    if (txt.includes('Rekonsiliasi Manual') || txt.includes('Minta Challenge')) {
+      el.style.display = isPengawas ? 'none' : '';
+    }
+  });
+  // Hide Verifikasi Wallet section for pengawas
+  const vpSection = document.querySelector('#vp-address');
+  if (vpSection && isPengawas) {
+    vpSection.closest('.card, section, div[style]').style.display = 'none';
+  }
 }
 
 async function doLogin() {
