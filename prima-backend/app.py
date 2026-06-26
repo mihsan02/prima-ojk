@@ -1931,6 +1931,7 @@ def delete_pakd(pakd_id):
     return jsonify({"deleted": pakd_id})
 
 @app.route("/api/reconciliation")
+@require_auth
 def reconciliation():
     global _last_rekon_time
     _now = time.time()
@@ -1942,6 +1943,9 @@ def reconciliation():
         _t_total = time.perf_counter()
         _timings = {}
         pakd_list = load_pakd()
+        user = g.current_user
+        if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
+            pakd_list = [p for p in pakd_list if p['id'] == user['entity_id']]
         hasil = []
         _t_fetch = time.perf_counter()
 
@@ -2194,7 +2198,12 @@ def reconciliation_history():
 @app.route("/api/stress-test")
 @require_auth
 def stress_test():
+    user = g.current_user
     pakd_id = request.args.get("pakd_id")
+    if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
+        if pakd_id and pakd_id != user['entity_id']:
+            return jsonify({'error': 'Forbidden'}), 403
+        pakd_id = user['entity_id']
     if not pakd_id and not app.config.get("TESTING"):
         return jsonify({"error": "pakd_id wajib diisi"}), 400
 
@@ -2737,17 +2746,29 @@ def wallet_verify():
 def export_csv_overview():
     import csv, io, psycopg2
     from datetime import datetime
+    user = g.current_user
     try:
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()
-        cur.execute("""
-            SELECT DISTINCT ON (pakd_id)
-                pakd_id, pakd_nama, created_at,
-                aset_dilaporkan_idr, aset_onchain_idr,
-                deviasi_persen, status, harga_fallback
-            FROM reconciliation_snapshots
-            ORDER BY pakd_id, created_at DESC
-        """)
+        if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
+            cur.execute("""
+                SELECT DISTINCT ON (pakd_id)
+                    pakd_id, pakd_nama, created_at,
+                    aset_dilaporkan_idr, aset_onchain_idr,
+                    deviasi_persen, status, harga_fallback
+                FROM reconciliation_snapshots
+                WHERE pakd_id = %s
+                ORDER BY pakd_id, created_at DESC
+            """, (user['entity_id'],))
+        else:
+            cur.execute("""
+                SELECT DISTINCT ON (pakd_id)
+                    pakd_id, pakd_nama, created_at,
+                    aset_dilaporkan_idr, aset_onchain_idr,
+                    deviasi_persen, status, harga_fallback
+                FROM reconciliation_snapshots
+                ORDER BY pakd_id, created_at DESC
+            """)
         rows = cur.fetchall()
         col_names = [desc[0] for desc in cur.description]
         cur.close()
@@ -2771,7 +2792,12 @@ def export_csv_overview():
 def export_csv():
     import csv, io, psycopg2
     from datetime import datetime
+    user = g.current_user
     pakd_id = request.args.get('pakd_id')
+    if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
+        if pakd_id and pakd_id != user['entity_id']:
+            return jsonify({'error': 'Forbidden'}), 403
+        pakd_id = user['entity_id']
     try:
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()

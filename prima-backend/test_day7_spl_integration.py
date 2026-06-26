@@ -87,7 +87,8 @@ def test_I7_reconciliation_exposes_sol_spl_fields():
     mock_pakd = [{"id": "TEST-001", "nama": "Test", "wallets": [SOL_WALLET], "aset_dilaporkan": 50_000_000}]
     with patch("app.load_pakd", return_value=mock_pakd), \
          patch("app.get_cached_balance", side_effect=_sol_router), \
-         patch("app.write_audit"):
+         patch("app.write_audit"), \
+         patch("auth.get_current_user", return_value={"id": "test", "role": "super_admin", "display_name": "Test", "entity_id": None, "entity_type": None}):
         resp = prima_app.app.test_client().get("/api/reconciliation")
     assert resp.status_code == 200
     entry = resp.get_json()["data"][0]
