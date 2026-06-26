@@ -881,6 +881,57 @@ tr:hover td{background:var(--bg2)}
 </div>
 
 <script>
+const AUTH = {
+  TOKEN_KEY: 'prima_access_token',
+  REFRESH_KEY: 'prima_refresh_token',
+  USER_KEY: 'prima_user',
+
+  save(loginResponse) {
+    localStorage.setItem(this.TOKEN_KEY, loginResponse.access_token);
+    if (loginResponse.refresh_token) localStorage.setItem(this.REFRESH_KEY, loginResponse.refresh_token);
+    localStorage.setItem(this.USER_KEY, JSON.stringify(loginResponse.user));
+  },
+
+  getToken() { return localStorage.getItem(this.TOKEN_KEY); },
+
+  getUser() {
+    try { return JSON.parse(localStorage.getItem(this.USER_KEY) || 'null'); }
+    catch(e) { return null; }
+  },
+
+  clear() {
+    localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.REFRESH_KEY);
+    localStorage.removeItem(this.USER_KEY);
+  },
+
+  isLoggedIn() { return !!this.getToken(); },
+
+  headers() {
+    const h = {'Content-Type': 'application/json'};
+    const t = this.getToken();
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    return h;
+  },
+
+  jsonHeaders() { return this.headers(); },
+
+  // Headers tanpa Content-Type (untuk GET)
+  authOnly() {
+    const h = {};
+    const t = this.getToken();
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    return h;
+  }
+};
+
+async function apiFetch(url, options = {}) {
+  const h = {...AUTH.authOnly(), ...(options.headers || {})};
+  const resp = await fetch(url, {...options, headers: h});
+  if (resp.status === 401) { AUTH.clear(); showLogin(); throw new Error('Session expired'); }
+  return resp;
+}
+
 function escapeHtml(str) {
     return String(str)
         .replace(/&/g, "&amp;")
@@ -2058,50 +2109,6 @@ function renderChips(containerId, items, showPass) {
 const API = 'https://prima-ojk.onrender.com';
 
 // ── Sprint 1: Auth Session Management ──
-const AUTH = {
-  TOKEN_KEY: 'prima_access_token',
-  REFRESH_KEY: 'prima_refresh_token',
-  USER_KEY: 'prima_user',
-
-  save(loginResponse) {
-    localStorage.setItem(this.TOKEN_KEY, loginResponse.access_token);
-    if (loginResponse.refresh_token) localStorage.setItem(this.REFRESH_KEY, loginResponse.refresh_token);
-    localStorage.setItem(this.USER_KEY, JSON.stringify(loginResponse.user));
-  },
-
-  getToken() { return localStorage.getItem(this.TOKEN_KEY); },
-
-  getUser() {
-    try { return JSON.parse(localStorage.getItem(this.USER_KEY) || 'null'); }
-    catch(e) { return null; }
-  },
-
-  clear() {
-    localStorage.removeItem(this.TOKEN_KEY);
-    localStorage.removeItem(this.REFRESH_KEY);
-    localStorage.removeItem(this.USER_KEY);
-  },
-
-  isLoggedIn() { return !!this.getToken(); },
-
-  headers() {
-    const h = {'Content-Type': 'application/json'};
-    const t = this.getToken();
-    if (t) h['Authorization'] = 'Bearer ' + t;
-    return h;
-  },
-
-  jsonHeaders() { return this.headers(); },
-
-  // Headers tanpa Content-Type (untuk GET)
-  authOnly() {
-    const h = {};
-    const t = this.getToken();
-    if (t) h['Authorization'] = 'Bearer ' + t;
-    return h;
-  }
-};
-
 function applyRoleUI() {
   const user = AUTH.getUser();
   if (!user) return;
@@ -2194,13 +2201,6 @@ async function handleAuthError(resp) {
     return true;
   }
   return false;
-}
-
-async function apiFetch(url, options = {}) {
-  const h = {...AUTH.authOnly(), ...(options.headers || {})};
-  const resp = await fetch(url, {...options, headers: h});
-  if (resp.status === 401) { AUTH.clear(); showLogin(); throw new Error('Session expired'); }
-  return resp;
 }
 
 // Enter key di login form
