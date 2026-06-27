@@ -816,10 +816,38 @@ tr:hover td{background:var(--bg2)}
     </div>
 
     <div>
+      <div class="section-header">
+        <div class="section-title"><div class="section-title-bar"></div>Risiko Siber 30/70 · Dampak Segregasi Aset POJK 23/2025</div>
+      </div>
+      <div class="panel">
+        <div class="panel-body">
+          <div class="stress-desc">Mengukur dampak insiden siber berdasarkan lokasi penyimpanan aset: di PAKD saja, di Kustodian (PTP) saja, atau keduanya. Segregasi 30/70 mengurangi risiko kehilangan total saat hanya satu pihak yang terkena breach.</div>
+          <div class="stress-threshold-pill">● Batas lulus: <strong>Ekuitas pasca-kehilangan ≥ Rp 50 miliar</strong> · POJK 23 Tahun 2025</div>
+          <div id="cyber3070-pakd" class="stress-row moderate">
+            <div class="stress-label-wrap"><div class="stress-name moderate">PAKD Only</div><div class="stress-pct-label">100% aset di PAKD hilang</div></div>
+            <div class="stress-bar-wrap"><div class="stress-bar moderate" style="width:0%"></div></div>
+            <div class="stress-count" style="color:var(--amber)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
+          </div>
+          <div class="entity-chips-row" id="cyber3070-chips-pakd"></div>
+          <div id="cyber3070-kustodian" class="stress-row moderate">
+            <div class="stress-label-wrap"><div class="stress-name moderate">Kustodian Only</div><div class="stress-pct-label">100% aset di Kustodian hilang</div></div>
+            <div class="stress-bar-wrap"><div class="stress-bar moderate" style="width:0%"></div></div>
+            <div class="stress-count" style="color:var(--amber)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
+          </div>
+          <div class="entity-chips-row" id="cyber3070-chips-kustodian"></div>
+          <div id="cyber3070-both" class="stress-row severe">
+            <div class="stress-label-wrap"><div class="stress-name severe">Both</div><div class="stress-pct-label">100% aset di PAKD + Kustodian hilang</div></div>
+            <div class="stress-bar-wrap"><div class="stress-bar severe" style="width:0%"></div></div>
+            <div class="stress-count" style="color:var(--red)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
+          </div>
+          <div class="entity-chips-row" id="cyber3070-chips-both"></div>
+          <div id="cyber3070-note" style="margin-top:14px;padding:12px 16px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--txt4);font-size:13px;color:var(--txt3)">Memuat hasil stress test 30/70...</div>
+        </div>
+      </div>
     </div>
 
     <div class="dash-footer">
-      <span class="dash-footer-txt">PRIMA v1.9 · OJK © 2026</span>
+      <span class="dash-footer-txt">PRIMA v2.0 · OJK © 2026</span>
       <span class="dash-footer-txt">Sumber data: Etherscan V2 · Helius RPC · Blockstream Esplora · CoinMarketCap V2</span>
     </div>
   </div>
@@ -1213,6 +1241,38 @@ async function loadStressTest() {
     } else {
       p91noteEl.style.borderLeftColor = 'var(--green)'; p91noteEl.style.color = 'var(--green)';
       p91noteEl.textContent = '✓ Seluruh PAKD memiliki ekuitas cukup untuk menanggung skenario kehilangan AKD severe.';
+    }
+
+    // Cyber 30/70
+    const c37 = json.cyber_3070;
+    if (c37) {
+      [['pakd_only','cyber3070-pakd','cyber3070-chips-pakd','var(--amber)'],
+       ['kustodian_only','cyber3070-kustodian','cyber3070-chips-kustodian','var(--amber)'],
+       ['both','cyber3070-both','cyber3070-chips-both','var(--red)']].forEach(function(t) {
+        var d = c37[t[0]];
+        if (!d) return;
+        var row = document.getElementById(t[1]);
+        var bar = row.querySelector('.stress-bar');
+        var count = row.querySelector('.stress-count');
+        var pct = d.total > 0 ? d.lulus / d.total * 100 : 0;
+        bar.style.width = pct + '%';
+        count.innerHTML = d.lulus + '/' + d.total + '<span style="font-size:9px;color:var(--txt3)"> lulus</span>';
+        count.style.color = t[3];
+        renderChips(t[2], d.per_pakd, true);
+      });
+      var c37note = document.getElementById('cyber3070-note');
+      var pakdOnly = c37.pakd_only;
+      var kustOnly = c37.kustodian_only;
+      if (pakdOnly && kustOnly && pakdOnly.lulus > kustOnly.lulus) {
+        c37note.style.borderLeftColor = 'var(--green)'; c37note.style.color = 'var(--green)';
+        c37note.textContent = '✓ Segregasi 30/70 efektif: breach di PAKD saja memiliki dampak lebih kecil dibanding breach di Kustodian.';
+      } else if (pakdOnly && kustOnly && pakdOnly.gagal === 0 && kustOnly.gagal === 0) {
+        c37note.style.borderLeftColor = 'var(--green)'; c37note.style.color = 'var(--green)';
+        c37note.textContent = '✓ Seluruh PAKD tahan terhadap breach tunggal (PAKD atau Kustodian).';
+      } else {
+        c37note.style.borderLeftColor = 'var(--amber)'; c37note.style.color = 'var(--amber)';
+        c37note.textContent = '⚠ Beberapa PAKD rentan terhadap breach tunggal. Evaluasi segregasi aset diperlukan.';
+      }
     }
   } catch (err) {
     document.getElementById('stress-note').textContent = 'Gagal memuat stress test: ' + err.message;

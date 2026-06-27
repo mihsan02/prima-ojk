@@ -2867,10 +2867,73 @@ def stress_test():
                 "per_pakd": per_pakd,
             }
 
-        write_audit("STRESS TEST", f"Dual stress test (Pasal 50 + Pasal 91) untuk {len(pakd_list)} PAKD")
+        # ----------------------------------------------------------------
+        # Risiko Siber 30/70: Attack vector scenarios
+        # PAKD-only breach, Kustodian-only breach, Both breached
+        # ----------------------------------------------------------------
+        hasil_cyber_3070 = {}
+        attack_vectors = {
+            "pakd_only":      {"label": "Breach di PAKD saja",      "pakd_loss": 1.0, "kust_loss": 0.0},
+            "kustodian_only": {"label": "Breach di Kustodian saja", "pakd_loss": 0.0, "kust_loss": 1.0},
+            "both":           {"label": "Breach di PAKD + Kustodian","pakd_loss": 1.0, "kust_loss": 1.0},
+        }
+        for vec_key, vec in attack_vectors.items():
+            per_pakd = []
+            lulus = gagal = 0
+            for pakd in pakd_list:
+                b = baseline_result[pakd["id"]]
+                pakd_onchain = b["total_idr"]
+
+                kust_ids_for, wallets_by_k = _get_kustodian_data_for_pakd(pakd["id"])
+                kust_onchain = 0
+                for kid in kust_ids_for:
+                    kw = wallets_by_k.get(kid, [])
+                    if kw:
+                        kust_onchain += get_total_balance_idr(kw).get("total_idr", 0)
+
+                loss_pakd = pakd_onchain * vec["pakd_loss"]
+                loss_kust = kust_onchain * vec["kust_loss"]
+                total_loss = loss_pakd + loss_kust
+
+                equity_idr = pakd.get("equity_idr")
+                if equity_idr is not None:
+                    equity_post = equity_idr - total_loss
+                else:
+                    equity_post = (pakd_onchain + kust_onchain) - total_loss
+
+                lulus_flag = equity_post >= EQUITY_MINIMUM_IDR
+                lulus += 1 if lulus_flag else 0
+                gagal += 0 if lulus_flag else 1
+
+                per_pakd.append({
+                    "id": pakd["id"],
+                    "nama": pakd["nama"],
+                    "pakd_onchain_idr": round(pakd_onchain),
+                    "kustodian_onchain_idr": round(kust_onchain),
+                    "loss_pakd_idr": round(loss_pakd),
+                    "loss_kust_idr": round(loss_kust),
+                    "total_loss_idr": round(total_loss),
+                    "equity_post": round(equity_post),
+                    "has_kustodian": len(kust_ids_for) > 0,
+                    "threshold": EQUITY_MINIMUM_IDR,
+                    "lulus": lulus_flag,
+                })
+
+            hasil_cyber_3070[vec_key] = {
+                "label": vec["label"],
+                "pakd_loss_pct": vec["pakd_loss"],
+                "kust_loss_pct": vec["kust_loss"],
+                "lulus": lulus,
+                "gagal": gagal,
+                "total": len(pakd_list),
+                "per_pakd": per_pakd,
+            }
+
+        write_audit("STRESS TEST", f"Dual stress test (Pasal 50 + Pasal 91 + Cyber 30/70) untuk {len(pakd_list)} PAKD")
         return jsonify({
             "pasal50":        hasil_pasal50,
             "pasal91":        hasil_pasal91,
+            "cyber_3070":     hasil_cyber_3070,
             "eth_price_idr":  eth_price,
             "btc_price_idr":  btc_price,
             "sol_price_idr":  sol_price,
