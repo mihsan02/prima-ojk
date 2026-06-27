@@ -294,6 +294,10 @@ tr:hover td{background:var(--bg2)}
     <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="6" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 13c0-2.21 2.686-4 6-4s6 1.79 6 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
     Detail PAKD
   </div>
+  <div class="nav-item" onclick="showPage('kustodian', this)">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 1L2 4v4c0 3.31 2.55 6.4 6 7 3.45-.6 6-3.69 6-7V4L8 1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 8l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Kustodian
+  </div>
   <div class="nav-section">Analisis</div>
   <div class="nav-item" onclick="showPage('stresstest', this)">
     <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 12 L5 8 L8 10 L11 5 L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
@@ -608,6 +612,68 @@ tr:hover td{background:var(--bg2)}
     </div>
   </div>
 
+<!-- PAGE: KUSTODIAN -->
+  <div id="page-kustodian" class="page">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Kustodian</div>
+        <div class="page-subtitle">Pengelola Tempat Penyimpanan (PTP) · POJK 23/2025</div>
+      </div>
+      <button onclick="openAddKustodianModal()" class="crud-action" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><span style="font-size:16px;line-height:1">+</span>&nbsp;Tambah Kustodian</button>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>ID</th><th>Nama Kustodian</th><th>PAKD Dilayani</th><th>Jumlah Wallet</th><th style="text-align:right">Aksi</th></tr></thead>
+        <tbody id="kustodian-tbody">
+          <tr class="loading-row"><td colspan="5">Memuat data kustodian...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Detail Kustodian -->
+    <div id="kustodian-detail" style="display:none;margin-top:20px">
+      <div class="section-header"><div class="section-title"><div class="section-title-bar"></div>Detail Kustodian: <span id="kustodian-detail-nama"></span></div></div>
+      <div class="panel" style="margin-bottom:12px">
+        <div style="font-size:12px;color:var(--txt3);margin-bottom:8px;font-weight:600">PAKD Dilayani</div>
+        <div id="kustodian-detail-pakd" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div class="panel">
+        <div style="font-size:12px;color:var(--txt3);margin-bottom:8px;font-weight:600">Wallet</div>
+        <table>
+          <thead><tr><th>Network</th><th>Address</th><th>Status</th></tr></thead>
+          <tbody id="kustodian-detail-wallets"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="dash-footer"><span class="dash-footer-txt">PRIMA v2.0 · OJK © 2026</span></div>
+  </div>
+
+  <!-- Modal: Add/Edit Kustodian -->
+  <div id="modal-kustodian" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center">
+    <div style="background:var(--bg1);border-radius:12px;padding:24px;width:480px;max-height:80vh;overflow-y:auto;border:1px solid var(--border)">
+      <div style="font-size:16px;font-weight:700;margin-bottom:16px" id="modal-kustodian-title">Tambah Kustodian</div>
+      <form id="form-kustodian" onsubmit="submitKustodian(event)">
+        <div style="margin-bottom:12px">
+          <label style="font-size:12px;font-weight:600;color:var(--txt3);display:block;margin-bottom:4px">ID Kustodian</label>
+          <input id="kust-form-id" type="text" placeholder="KUST-XXX" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg2);color:var(--txt1)" required>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:12px;font-weight:600;color:var(--txt3);display:block;margin-bottom:4px">Nama Kustodian</label>
+          <input id="kust-form-nama" type="text" placeholder="PT ..." style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg2);color:var(--txt1)" required>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:12px;font-weight:600;color:var(--txt3);display:block;margin-bottom:4px">PAKD IDs (pisahkan koma)</label>
+          <input id="kust-form-pakd-ids" type="text" placeholder="PAKD-OJK-001, PAKD-OJK-002" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg2);color:var(--txt1)">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <button type="button" onclick="closeKustodianModal()" style="padding:8px 16px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--txt2);cursor:pointer;font-size:13px">Batal</button>
+          <button type="submit" style="padding:8px 16px;border:none;border-radius:6px;background:var(--blue);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 <!-- PAGE: STRESS TEST -->
   <div id="page-stresstest" class="page">
     <div class="page-header">
@@ -898,6 +964,7 @@ function showPage(id, el) {
   if (id === 'auditlog') loadAudit();
   if (id === 'pengaturan') loadPengaturan();
   if (id === 'detail') populateDetailSelect();
+  if (id === 'kustodian') loadKustodian();
 }
 
 function formatIDR(n) {
@@ -2152,6 +2219,135 @@ setInterval(async () => {
     if (ok) _lastRefreshCheck = Date.now();
   }
 }, 60000);
+
+// ---------------------------------------------------------------------------
+// Kustodian Page
+// ---------------------------------------------------------------------------
+let _kustodianData = [];
+let _editKustodianId = null;
+
+async function loadKustodian() {
+  const tbody = document.getElementById('kustodian-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="5">Memuat data kustodian...</td></tr>';
+  try {
+    const resp = await apiFetch(API + '/api/kustodian');
+    if (!resp.ok) { tbody.innerHTML = '<tr><td colspan="5">Gagal memuat data</td></tr>'; return; }
+    _kustodianData = await resp.json();
+    if (_kustodianData.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--txt4)">Belum ada data kustodian</td></tr>';
+      return;
+    }
+    tbody.innerHTML = _kustodianData.map(k => `
+      <tr style="cursor:pointer" onclick="showKustodianDetail('${k.id}')">
+        <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px">${k.id}</span></td>
+        <td>${k.nama}</td>
+        <td>${(k.pakd_ids||[]).length} PAKD</td>
+        <td>${(k.wallets||[]).length}</td>
+        <td style="text-align:right">
+          <button onclick="event.stopPropagation();editKustodian('${k.id}')"
+              style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px"
+              title="Edit Kustodian" class="crud-action">✏️</button>
+          <button onclick="event.stopPropagation();deleteKustodian('${k.id}','${k.nama}')"
+              style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px"
+              title="Hapus Kustodian" class="crud-action">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+    applyRoleUI();
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="5">Error: ' + e.message + '</td></tr>';
+  }
+}
+
+function showKustodianDetail(id) {
+  const k = _kustodianData.find(x => x.id === id);
+  if (!k) return;
+  document.getElementById('kustodian-detail').style.display = 'block';
+  document.getElementById('kustodian-detail-nama').textContent = k.nama + ' (' + k.id + ')';
+  const pakdDiv = document.getElementById('kustodian-detail-pakd');
+  pakdDiv.innerHTML = (k.pakd_ids || []).map(p =>
+    `<span style="background:var(--bg2);border:1px solid var(--border);padding:4px 10px;border-radius:6px;font-size:12px;font-family:'JetBrains Mono',monospace">${p}</span>`
+  ).join('') || '<span style="color:var(--txt4);font-size:12px">Tidak ada PAKD terhubung</span>';
+  const wtbody = document.getElementById('kustodian-detail-wallets');
+  wtbody.innerHTML = (k.wallets || []).map(w => `
+    <tr>
+      <td><span style="font-size:11px;background:var(--bg2);padding:2px 8px;border-radius:4px;font-weight:600;text-transform:uppercase">${w.network}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;word-break:break-all">${w.address}</td>
+      <td>${w.verified ? '<span style="color:var(--green);font-weight:600">✓ Verified</span>' : '<span style="color:var(--txt4)">Unverified</span>'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="3" style="color:var(--txt4)">Tidak ada wallet</td></tr>';
+}
+
+function openAddKustodianModal() {
+  _editKustodianId = null;
+  document.getElementById('modal-kustodian-title').textContent = 'Tambah Kustodian';
+  document.getElementById('kust-form-id').value = '';
+  document.getElementById('kust-form-id').disabled = false;
+  document.getElementById('kust-form-nama').value = '';
+  document.getElementById('kust-form-pakd-ids').value = '';
+  document.getElementById('modal-kustodian').style.display = 'flex';
+}
+
+function editKustodian(id) {
+  const k = _kustodianData.find(x => x.id === id);
+  if (!k) return;
+  _editKustodianId = id;
+  document.getElementById('modal-kustodian-title').textContent = 'Edit Kustodian';
+  document.getElementById('kust-form-id').value = k.id;
+  document.getElementById('kust-form-id').disabled = true;
+  document.getElementById('kust-form-nama').value = k.nama;
+  document.getElementById('kust-form-pakd-ids').value = (k.pakd_ids || []).join(', ');
+  document.getElementById('modal-kustodian').style.display = 'flex';
+}
+
+function closeKustodianModal() {
+  document.getElementById('modal-kustodian').style.display = 'none';
+}
+
+async function submitKustodian(e) {
+  e.preventDefault();
+  const id = document.getElementById('kust-form-id').value.trim();
+  const nama = document.getElementById('kust-form-nama').value.trim();
+  const pakdRaw = document.getElementById('kust-form-pakd-ids').value.trim();
+  const pakd_ids = pakdRaw ? pakdRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const payload = {id, nama, pakd_ids};
+
+  try {
+    let resp;
+    if (_editKustodianId) {
+      resp = await apiFetch(API + '/api/kustodian/' + _editKustodianId, {method: 'PUT', body: JSON.stringify(payload)});
+    } else {
+      payload.wallets = [];
+      resp = await apiFetch(API + '/api/kustodian', {method: 'POST', body: JSON.stringify(payload)});
+    }
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('Error: ' + (err.message || JSON.stringify(err)));
+      return;
+    }
+    closeKustodianModal();
+    loadKustodian();
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function deleteKustodian(id, nama) {
+  if (!confirm('Hapus kustodian ' + nama + ' (' + id + ')? Data wallet dan link PAKD akan ikut terhapus.')) return;
+  try {
+    const resp = await apiFetch(API + '/api/kustodian/' + id, {method: 'DELETE'});
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('Error: ' + (err.message || JSON.stringify(err)));
+      return;
+    }
+    document.getElementById('kustodian-detail').style.display = 'none';
+    loadKustodian();
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
 
 function applyRoleUI() {
   const user = AUTH.getUser();
