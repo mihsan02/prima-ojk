@@ -281,6 +281,35 @@ PAKD_DEFAULT = [
     },
 ]
 
+KUSTODIAN_DEFAULT = [
+    {
+        "id": "KUST-001",
+        "nama": "PT Kustodian Aset Prima",
+        "pakd_ids": ["PAKD-DEMO-001", "PAKD-OJK-001", "PAKD-OJK-002"],
+        "wallets": [
+            {"network": "ethereum", "address": "0xDFd5293D8e347dFe59E90eFd55b2956a1343963d", "verified": False, "verified_at": None},
+            {"network": "solana",   "address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", "verified": False, "verified_at": None},
+        ]
+    },
+    {
+        "id": "KUST-002",
+        "nama": "PT Simpan Digital Nusantara",
+        "pakd_ids": ["PAKD-OJK-003", "PAKD-OJK-004"],
+        "wallets": [
+            {"network": "ethereum", "address": "0x5a52E96BAcdaBb82fd05763E25335261B270Efcb", "verified": False, "verified_at": None},
+            {"network": "bitcoin",  "address": "bc1q0cgwerdvvnxnwlpzmfet2gq80flrsdnkhqhp6e", "verified": False, "verified_at": None},
+        ]
+    }
+]
+
+REPORTED_VALUES_DEFAULT = {
+    "PAKD-DEMO-001": {"customer_at_pakd_idr": 3_000_000_000, "customer_at_ptp_idr": 7_000_000_000, "proprietary_idr": 1_000_000_000},
+    "PAKD-OJK-001":  {"customer_at_pakd_idr": 2_000_000_000, "customer_at_ptp_idr": 8_000_000_000, "proprietary_idr": 500_000_000},
+    "PAKD-OJK-002":  {"customer_at_pakd_idr": 5_000_000_000, "customer_at_ptp_idr": 3_000_000_000, "proprietary_idr": 400_000_000},
+    "PAKD-OJK-003":  {"customer_at_pakd_idr": 1_500_000_000, "customer_at_ptp_idr": 6_000_000_000, "proprietary_idr": 300_000_000},
+    "PAKD-OJK-004":  {"customer_at_pakd_idr": 1_000_000_000, "customer_at_ptp_idr": 4_000_000_000, "proprietary_idr": 200_000_000},
+}
+
 
 # ---------------------------------------------------------------------------
 # Data helpers
@@ -1666,6 +1695,54 @@ def init_data():
         print(f"[DB] init_data check failed: {e}, skipping seed", flush=True)
 
 
+def init_kustodian_data():
+    conn = _get_db_conn()
+    if not conn:
+        print("[DB] init_kustodian_data: no DB connection, skipping seed", flush=True)
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM kustodian")
+        count = cur.fetchone()[0]
+        if count > 0:
+            print(f"[DB] init_kustodian_data: {count} kustodian exist, skipping seed", flush=True)
+            cur.close()
+            _return_db_conn(conn)
+            return
+
+        print("[DB] init_kustodian_data: empty table, seeding KUSTODIAN_DEFAULT", flush=True)
+        for kust in KUSTODIAN_DEFAULT:
+            cur.execute("""
+                INSERT INTO kustodian (id, nama) VALUES (%s, %s)
+                ON CONFLICT (id) DO NOTHING
+            """, (kust["id"], kust["nama"]))
+
+            for pakd_id in kust.get("pakd_ids", []):
+                cur.execute("""
+                    INSERT INTO kustodian_pakd (kustodian_id, pakd_id) VALUES (%s, %s)
+                    ON CONFLICT DO NOTHING
+                """, (kust["id"], pakd_id))
+
+            for w in kust.get("wallets", []):
+                cur.execute("""
+                    INSERT INTO wallets (pakd_id, network, address, verified, verified_at, entity_type, entity_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (kust["id"], w["network"], w["address"], w.get("verified", False),
+                      w.get("verified_at"), "KUSTODIAN", kust["id"]))
+
+        conn.commit()
+        cur.close()
+        _return_db_conn(conn)
+        print("[DB] init_kustodian_data: seeded successfully", flush=True)
+    except Exception as e:
+        print(f"[DB] init_kustodian_data failed: {e}", flush=True)
+        try:
+            conn.rollback()
+            _return_db_conn(conn)
+        except Exception:
+            pass
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -2985,6 +3062,7 @@ def ping():
 
 if __name__ == "__main__":
     init_data()
+    init_kustodian_data()
     debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
     port  = int(os.environ.get("PORT", 5000))
     app.run(debug=debug, host="0.0.0.0", port=port)
