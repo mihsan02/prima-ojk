@@ -424,14 +424,17 @@ def _save_snapshots_batch(hasil_list, harga_fallback):
         cur = conn.cursor()
         rows = [
             (h["id"], h["nama"], int(h["aset_dilaporkan_idr"]), int(h["aset_onchain_idr"]),
-             max(-9999.9999, min(9999.9999, float(h["deviasi_pct"]))), h["status"], harga_fallback, json.dumps(h["breakdown"]))
+             max(-9999.9999, min(9999.9999, float(h["deviasi_pct"]))), h["status"], harga_fallback, json.dumps(h["breakdown"]),
+             h.get("pakd_onchain_idr"), h.get("kustodian_onchain_idr"),
+             h.get("compliance_30_70"), h.get("ratio_at_pakd"), h.get("ratio_at_ptp"))
             for h in hasil_list
         ]
         cur.executemany(
             """INSERT INTO reconciliation_snapshots
                (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
-                deviasi_persen, status, harga_fallback, network_breakdown)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                deviasi_persen, status, harga_fallback, network_breakdown,
+                pakd_onchain_idr, kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             rows
         )
         conn.commit()
@@ -596,6 +599,108 @@ def validate_wallet_address(network, address):
     if not WALLET_RE[network].match(address):
         return False, f"Alamat '{address}' tidak valid untuk network {network}"
     return True, None
+
+
+# ---------------------------------------------------------------------------
+# 30/70 Kustodian reconciliation helpers
+# ---------------------------------------------------------------------------
+
+def _get_kustodian_data_for_pakd(pakd_id):
+    """Fetch linked kustodian IDs and their wallets for a PAKD."""
+    conn = _get_db_conn()
+    if not conn:
+        return [], []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT kustodian_id FROM kustodian_pakd WHERE pakd_id = %s", (pakd_id,))
+        kust_ids = [r[0] for r in cur.fetchall()]
+        if not kust_ids:
+            cur.close()
+            _return_db_conn(conn)
+            return [], []
+        cur.execute("""
+            SELECT entity_id, network, address, verified, verified_at
+            FROM wallets WHERE entity_type = 'KUSTODIAN' AND entity_id = ANY(%s)
+        """, (kust_ids,))
+        wallet_rows = cur.fetchall()
+        cur.close()
+        _return_db_conn(conn)
+        from collections import defaultdict
+        wallets_by_kust = defaultdict(list)
+        for w in wallet_rows:
+            wallets_by_kust[w[0]].append({
+                "network": w[1], "address": w[2],
+                "verified": w[3], "verified_at": str(w[4]) if w[4] else None
+            })
+        return kust_ids, wallets_by_kust
+    except Exception as e:
+        print(f"[30/70] _get_kustodian_data_for_pakd failed: {e}", flush=True)
+        _return_db_conn(conn)
+        return [], []
+
+
+def _get_reported_values(pakd_id):
+    """Get reported values for a PAKD. Uses REPORTED_VALUES_DEFAULT for demo."""
+    return REPORTED_VALUES_DEFAULT.get(pakd_id, {})
+
+
+def compute_30_70_compliance(pakd_id, pakd_onchain_idr):
+    """Compute 30/70 compliance for a PAKD with linked kustodian(s).
+    Returns dict with kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp, kustodian_details.
+    """
+    kust_ids, wallets_by_kust = _get_kustodian_data_for_pakd(pakd_id)
+
+    if not kust_ids:
+        return {
+            "kustodian_onchain_idr": 0,
+            "compliance_30_70": False,
+            "ratio_at_pakd": 1.0,
+            "ratio_at_ptp": 0.0,
+            "kustodian_details": [],
+            "has_kustodian": False,
+        }
+
+    kustodian_onchain_total = 0
+    kustodian_details = []
+    for kust_id in kust_ids:
+        kust_wallets = wallets_by_kust.get(kust_id, [])
+        if kust_wallets:
+            kust_balance = get_total_balance_idr(kust_wallets)
+            kust_onchain = kust_balance["total_idr"]
+        else:
+            kust_onchain = 0
+        kustodian_onchain_total += kust_onchain
+        kustodian_details.append({
+            "kustodian_id": kust_id,
+            "onchain_idr": round(kust_onchain),
+            "wallet_count": len(kust_wallets),
+        })
+
+    reported = _get_reported_values(pakd_id)
+    customer_at_pakd = reported.get("customer_at_pakd_idr", 0)
+    customer_at_ptp = reported.get("customer_at_ptp_idr", 0)
+    total_customer = customer_at_pakd + customer_at_ptp
+
+    if total_customer > 0:
+        ratio_at_pakd = customer_at_pakd / total_customer
+        ratio_at_ptp = customer_at_ptp / total_customer
+    else:
+        ratio_at_pakd = 0.0
+        ratio_at_ptp = 0.0
+
+    compliance = ratio_at_pakd <= 0.30
+
+    return {
+        "kustodian_onchain_idr": round(kustodian_onchain_total),
+        "compliance_30_70": compliance,
+        "ratio_at_pakd": round(ratio_at_pakd, 4),
+        "ratio_at_ptp": round(ratio_at_ptp, 4),
+        "kustodian_details": kustodian_details,
+        "has_kustodian": True,
+        "reported_customer_at_pakd_idr": customer_at_pakd,
+        "reported_customer_at_ptp_idr": customer_at_ptp,
+        "reported_proprietary_idr": reported.get("proprietary_idr", 0),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -2293,6 +2398,8 @@ def reconciliation():
                 else:
                     status_rec = "Kritis"
 
+            compliance_data = compute_30_70_compliance(pakd["id"], aset_onchain_idr)
+
             hasil.append({
                 "id":                  pakd["id"],
                 "nama":                pakd["nama"],
@@ -2319,6 +2426,13 @@ def reconciliation():
                 "surplus":             surplus,
                 "status":              status_rec,
                 "breakdown":           balance_result["breakdown"],
+                "pakd_onchain_idr":           round(aset_onchain_idr),
+                "kustodian_onchain_idr":      compliance_data["kustodian_onchain_idr"],
+                "compliance_30_70":           compliance_data["compliance_30_70"],
+                "ratio_at_pakd":              compliance_data["ratio_at_pakd"],
+                "ratio_at_ptp":               compliance_data["ratio_at_ptp"],
+                "kustodian_details":          compliance_data["kustodian_details"],
+                "has_kustodian":              compliance_data["has_kustodian"],
             })
 
         _timings["fetch_all_pakd"] = round(time.perf_counter() - _t_fetch, 3)
@@ -2395,21 +2509,20 @@ def reconciliation_latest():
         import psycopg2.extras
         cur = conn.cursor()
         user = g.current_user
+        _snap_cols = """s.pakd_id, s.pakd_nama, s.aset_dilaporkan_idr, s.aset_onchain_idr,
+                    s.deviasi_persen, s.status, s.harga_fallback, s.network_breakdown, s.captured_at, s.created_at,
+                    s.pakd_onchain_idr, s.kustodian_onchain_idr, s.compliance_30_70, s.ratio_at_pakd, s.ratio_at_ptp"""
         if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
-            cur.execute("""
-                SELECT DISTINCT ON (s.pakd_id)
-                    s.pakd_id, s.pakd_nama, s.aset_dilaporkan_idr, s.aset_onchain_idr,
-                    s.deviasi_persen, s.status, s.harga_fallback, s.network_breakdown, s.captured_at, s.created_at
+            cur.execute(f"""
+                SELECT DISTINCT ON (s.pakd_id) {_snap_cols}
                 FROM reconciliation_snapshots s
                 INNER JOIN pakd p ON p.id = s.pakd_id
                 WHERE s.pakd_id = %s
                 ORDER BY s.pakd_id, s.captured_at DESC
             """, (user['entity_id'],))
         else:
-            cur.execute("""
-                SELECT DISTINCT ON (s.pakd_id)
-                    s.pakd_id, s.pakd_nama, s.aset_dilaporkan_idr, s.aset_onchain_idr,
-                    s.deviasi_persen, s.status, s.harga_fallback, s.network_breakdown, s.captured_at, s.created_at
+            cur.execute(f"""
+                SELECT DISTINCT ON (s.pakd_id) {_snap_cols}
                 FROM reconciliation_snapshots s
                 INNER JOIN pakd p ON p.id = s.pakd_id
                 ORDER BY s.pakd_id, s.captured_at DESC
@@ -2425,6 +2538,11 @@ def reconciliation_latest():
             eth_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "ethereum")
             btc_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "bitcoin")
             sol_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "solana")
+            has_kustodian = r[11] is not None and r[11] > 0
+            compliance_30_70 = r[12] if r[12] is not None else False
+            ratio_at_pakd = float(r[13]) if r[13] is not None else (1.0 if not has_kustodian else 0.0)
+            ratio_at_ptp = float(r[14]) if r[14] is not None else 0.0
+
             hasil.append({
                 "id":                   r[0],
                 "nama":                 r[1],
@@ -2438,6 +2556,12 @@ def reconciliation_latest():
                 "sol_balance_idr":      round(sol_idr),
                 "captured_at":          captured_at.isoformat() if captured_at else None,
                 "network_breakdown":    network_breakdown,
+                "pakd_onchain_idr":     r[10],
+                "kustodian_onchain_idr": r[11],
+                "compliance_30_70":     compliance_30_70,
+                "ratio_at_pakd":        ratio_at_pakd,
+                "ratio_at_ptp":         ratio_at_ptp,
+                "has_kustodian":        has_kustodian,
             })
         cur.close()
         _return_db_conn(conn)
@@ -3064,22 +3188,21 @@ def export_csv_overview():
     try:
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()
-        if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
-            cur.execute("""
-                SELECT DISTINCT ON (pakd_id)
-                    pakd_id, pakd_nama, created_at,
+        _csv_cols = """pakd_id, pakd_nama, created_at,
                     aset_dilaporkan_idr, aset_onchain_idr,
-                    deviasi_persen, status, harga_fallback
+                    deviasi_persen, status, harga_fallback,
+                    pakd_onchain_idr, kustodian_onchain_idr,
+                    compliance_30_70, ratio_at_pakd, ratio_at_ptp"""
+        if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
+            cur.execute(f"""
+                SELECT DISTINCT ON (pakd_id) {_csv_cols}
                 FROM reconciliation_snapshots
                 WHERE pakd_id = %s
                 ORDER BY pakd_id, created_at DESC
             """, (user['entity_id'],))
         else:
-            cur.execute("""
-                SELECT DISTINCT ON (pakd_id)
-                    pakd_id, pakd_nama, created_at,
-                    aset_dilaporkan_idr, aset_onchain_idr,
-                    deviasi_persen, status, harga_fallback
+            cur.execute(f"""
+                SELECT DISTINCT ON (pakd_id) {_csv_cols}
                 FROM reconciliation_snapshots
                 ORDER BY pakd_id, created_at DESC
             """)
