@@ -2035,6 +2035,215 @@ def delete_pakd(pakd_id):
     write_audit("DELETE_PAKD", f"Hapus {pakd_id}")
     return jsonify({"deleted": pakd_id})
 
+
+# ---------------------------------------------------------------------------
+# Kustodian CRUD
+# ---------------------------------------------------------------------------
+
+@app.route("/api/kustodian", methods=["GET"])
+@require_auth
+def api_list_kustodian():
+    conn = _get_db_conn()
+    if not conn:
+        return _error_response("DB unavailable", status_code=503)
+    try:
+        cur = conn.cursor()
+        user = g.current_user
+
+        if user['role'] == 'kustodian' and user.get('entity_id'):
+            cur.execute("SELECT id, nama, created_at, updated_at FROM kustodian WHERE id = %s", (user['entity_id'],))
+        elif user['role'] == 'pakd' and user.get('entity_id'):
+            cur.execute("""
+                SELECT k.id, k.nama, k.created_at, k.updated_at
+                FROM kustodian k
+                JOIN kustodian_pakd kp ON k.id = kp.kustodian_id
+                WHERE kp.pakd_id = %s
+            """, (user['entity_id'],))
+        else:
+            cur.execute("SELECT id, nama, created_at, updated_at FROM kustodian ORDER BY id")
+
+        rows = cur.fetchall()
+        result = []
+        for r in rows:
+            kust_id = r[0]
+            cur.execute("SELECT pakd_id FROM kustodian_pakd WHERE kustodian_id = %s", (kust_id,))
+            pakd_ids = [row[0] for row in cur.fetchall()]
+            cur.execute("SELECT network, address, verified, verified_at FROM wallets WHERE entity_type = 'KUSTODIAN' AND entity_id = %s", (kust_id,))
+            wallets = [{"network": w[0], "address": w[1], "verified": w[2], "verified_at": str(w[3]) if w[3] else None} for w in cur.fetchall()]
+            result.append({
+                "id": kust_id,
+                "nama": r[1],
+                "pakd_ids": pakd_ids,
+                "wallets": wallets,
+                "created_at": str(r[2]) if r[2] else None,
+                "updated_at": str(r[3]) if r[3] else None,
+            })
+        cur.close()
+        _return_db_conn(conn)
+        return jsonify(result)
+    except Exception as e:
+        print(f"[KUSTODIAN] list failed: {e}", flush=True)
+        _return_db_conn(conn)
+        return _error_response(str(e), status_code=500)
+
+
+@app.route("/api/kustodian", methods=["POST"])
+@require_super_admin_or_token
+def api_create_kustodian():
+    body = request.get_json(force=True)
+    if not body.get("id") or not body.get("nama"):
+        return _error_response("id dan nama wajib diisi")
+
+    conn = _get_db_conn()
+    if not conn:
+        return _error_response("DB unavailable", status_code=503)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM kustodian WHERE id = %s", (body["id"],))
+        if cur.fetchone():
+            cur.close()
+            _return_db_conn(conn)
+            return _error_response(f"Kustodian {body['id']} sudah ada", status_code=409)
+
+        incoming_wallets = body.get("wallets", [])
+        for w in incoming_wallets:
+            valid, msg = validate_wallet_address(w.get("network", ""), w.get("address", ""))
+            if not valid:
+                cur.close()
+                _return_db_conn(conn)
+                return _error_response(msg)
+            cur.execute("SELECT pakd_id, entity_type, entity_id FROM wallets WHERE network = %s AND LOWER(address) = LOWER(%s)",
+                        (w["network"], w["address"]))
+            dup = cur.fetchone()
+            if dup:
+                cur.close()
+                _return_db_conn(conn)
+                return _error_response(
+                    f"Wallet {w['address']} ({w['network']}) sudah terdaftar pada {dup[1]} {dup[2]}.",
+                    status_code=409)
+
+        cur.execute("INSERT INTO kustodian (id, nama) VALUES (%s, %s)", (body["id"], body["nama"]))
+        for pakd_id in body.get("pakd_ids", []):
+            cur.execute("INSERT INTO kustodian_pakd (kustodian_id, pakd_id) VALUES (%s, %s)", (body["id"], pakd_id))
+        for w in incoming_wallets:
+            cur.execute("""
+                INSERT INTO wallets (pakd_id, network, address, verified, verified_at, entity_type, entity_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (body["id"], w["network"], w["address"], w.get("verified", False), w.get("verified_at"), "KUSTODIAN", body["id"]))
+
+        conn.commit()
+        cur.close()
+        _return_db_conn(conn)
+        write_audit("CREATE_KUSTODIAN", f"Tambah {body['id']} - {body['nama']}")
+        return jsonify({"id": body["id"], "nama": body["nama"], "pakd_ids": body.get("pakd_ids", []), "wallets": incoming_wallets}), 201
+    except Exception as e:
+        print(f"[KUSTODIAN] create failed: {e}", flush=True)
+        try:
+            conn.rollback()
+            _return_db_conn(conn)
+        except Exception:
+            pass
+        return _error_response(str(e), status_code=500)
+
+
+@app.route("/api/kustodian/<kust_id>", methods=["PUT"])
+@require_super_admin_or_token
+def api_update_kustodian(kust_id):
+    body = request.get_json(force=True)
+    conn = _get_db_conn()
+    if not conn:
+        return _error_response("DB unavailable", status_code=503)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM kustodian WHERE id = %s", (kust_id,))
+        if not cur.fetchone():
+            cur.close()
+            _return_db_conn(conn)
+            return _error_response(f"Kustodian {kust_id} tidak ditemukan", status_code=404)
+
+        if "nama" in body:
+            cur.execute("UPDATE kustodian SET nama = %s, updated_at = NOW() WHERE id = %s", (body["nama"], kust_id))
+
+        if "pakd_ids" in body:
+            cur.execute("DELETE FROM kustodian_pakd WHERE kustodian_id = %s", (kust_id,))
+            for pakd_id in body["pakd_ids"]:
+                cur.execute("INSERT INTO kustodian_pakd (kustodian_id, pakd_id) VALUES (%s, %s)", (kust_id, pakd_id))
+
+        if "wallets" in body:
+            for w in body["wallets"]:
+                valid, msg = validate_wallet_address(w.get("network", ""), w.get("address", ""))
+                if not valid:
+                    conn.rollback()
+                    cur.close()
+                    _return_db_conn(conn)
+                    return _error_response(msg)
+                cur.execute("""
+                    SELECT pakd_id, entity_type, entity_id FROM wallets
+                    WHERE network = %s AND LOWER(address) = LOWER(%s) AND entity_id != %s
+                """, (w["network"], w["address"], kust_id))
+                dup = cur.fetchone()
+                if dup:
+                    conn.rollback()
+                    cur.close()
+                    _return_db_conn(conn)
+                    return _error_response(
+                        f"Wallet {w['address']} ({w['network']}) sudah terdaftar pada {dup[1]} {dup[2]}.",
+                        status_code=409)
+
+            cur.execute("DELETE FROM wallets WHERE entity_type = 'KUSTODIAN' AND entity_id = %s", (kust_id,))
+            for w in body["wallets"]:
+                cur.execute("""
+                    INSERT INTO wallets (pakd_id, network, address, verified, verified_at, entity_type, entity_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (kust_id, w["network"], w["address"], w.get("verified", False), w.get("verified_at"), "KUSTODIAN", kust_id))
+
+        conn.commit()
+        cur.close()
+        _return_db_conn(conn)
+        write_audit("UPDATE_KUSTODIAN", f"Edit {kust_id}")
+        return jsonify({"id": kust_id, "updated": True})
+    except Exception as e:
+        print(f"[KUSTODIAN] update failed: {e}", flush=True)
+        try:
+            conn.rollback()
+            _return_db_conn(conn)
+        except Exception:
+            pass
+        return _error_response(str(e), status_code=500)
+
+
+@app.route("/api/kustodian/<kust_id>", methods=["DELETE"])
+@require_super_admin_or_token
+def api_delete_kustodian(kust_id):
+    conn = _get_db_conn()
+    if not conn:
+        return _error_response("DB unavailable", status_code=503)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM kustodian WHERE id = %s", (kust_id,))
+        if not cur.fetchone():
+            cur.close()
+            _return_db_conn(conn)
+            return _error_response(f"Kustodian {kust_id} tidak ditemukan", status_code=404)
+
+        cur.execute("DELETE FROM wallets WHERE entity_type = 'KUSTODIAN' AND entity_id = %s", (kust_id,))
+        cur.execute("DELETE FROM kustodian_pakd WHERE kustodian_id = %s", (kust_id,))
+        cur.execute("DELETE FROM kustodian WHERE id = %s", (kust_id,))
+        conn.commit()
+        cur.close()
+        _return_db_conn(conn)
+        write_audit("DELETE_KUSTODIAN", f"Hapus {kust_id}")
+        return jsonify({"deleted": kust_id})
+    except Exception as e:
+        print(f"[KUSTODIAN] delete failed: {e}", flush=True)
+        try:
+            conn.rollback()
+            _return_db_conn(conn)
+        except Exception:
+            pass
+        return _error_response(str(e), status_code=500)
+
+
 @app.route("/api/reconciliation")
 @require_auth
 def reconciliation():
