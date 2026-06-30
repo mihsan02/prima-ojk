@@ -630,11 +630,10 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
     """Compute 30/70 compliance for a PAKD with linked kustodian(s).
     Returns dict with kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp, kustodian_details.
     """
-    print(f"[DEBUG_30_70] ENTER compute_30_70_compliance pakd_id={pakd_id} pakd_onchain_idr={pakd_onchain_idr}", flush=True)
     kust_ids, wallets_by_kust = _get_kustodian_data_for_pakd(pakd_id, conn=conn)
 
     if not kust_ids:
-        _no_kust_result = {
+        return {
             "kustodian_onchain_idr": 0,
             "compliance_30_70": False,
             "ratio_at_pakd": 1.0,
@@ -642,8 +641,6 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
             "kustodian_details": [],
             "has_kustodian": False,
         }
-        print(f"[DEBUG_30_70] RETURN (no kustodian) {_no_kust_result}", flush=True)
-        return _no_kust_result
 
     kustodian_onchain_total = 0
     kustodian_details = []
@@ -675,7 +672,7 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
 
     compliance = ratio_at_pakd <= 0.30
 
-    _result = {
+    return {
         "kustodian_onchain_idr": round(kustodian_onchain_total),
         "compliance_30_70": compliance,
         "ratio_at_pakd": round(ratio_at_pakd, 4),
@@ -686,8 +683,6 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
         "reported_customer_at_ptp_idr": customer_at_ptp,
         "reported_proprietary_idr": reported.get("proprietary_idr", 0),
     }
-    print(f"[DEBUG_30_70] RETURN {_result}", flush=True)
-    return _result
 
 
 # ---------------------------------------------------------------------------
@@ -2065,7 +2060,7 @@ def recalc_snapshot(pakd_id):
                 status = "Kritis"
         # Insert new snapshot with 30/70 compliance
         c3070 = compute_30_70_compliance(pakd_id, int(aset_onchain), conn=conn)
-        print(f"[DEBUG_30_70] pakd_id={pakd_id} result={c3070}", flush=True)
+
         cur.execute(
             """INSERT INTO reconciliation_snapshots
                (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
@@ -2391,7 +2386,7 @@ def reconciliation():
                     status_rec = "Kritis"
 
             compliance_data = compute_30_70_compliance(pakd["id"], aset_onchain_idr)
-            print(f"[DEBUG_30_70] pakd_id={pakd['id']} result={compliance_data}", flush=True)
+
 
             hasil.append({
                 "id":                  pakd["id"],
@@ -2689,8 +2684,6 @@ def stress_test():
             usdt_price = FALLBACK_STABLECOIN_IDR
             usdc_price = FALLBACK_STABLECOIN_IDR
 
-        pakd_list = load_pakd()
-
         # Baseline: Supabase snapshot (production) atau get_total_balance_idr (testing)
         baseline_result = {}
         if app.config.get("TESTING"):
@@ -2882,6 +2875,22 @@ def stress_test():
             "kustodian_only": {"label": "Breach di Kustodian saja", "pakd_loss": 0.0, "kust_loss": 1.0},
             "both":           {"label": "Breach di PAKD + Kustodian","pakd_loss": 1.0, "kust_loss": 1.0},
         }
+        kust_onchain_map = {}
+        if not app.config.get("TESTING"):
+            import psycopg2 as _pg2
+            _db2 = _pg2.connect(os.environ["DATABASE_URL"])
+            _cur2 = _db2.cursor()
+            for pakd in pakd_list:
+                _cur2.execute(
+                    "SELECT kustodian_onchain_idr FROM reconciliation_snapshots "
+                    "WHERE pakd_id = %s ORDER BY created_at DESC LIMIT 1",
+                    (pakd["id"],)
+                )
+                row = _cur2.fetchone()
+                kust_onchain_map[pakd["id"]] = (row[0] or 0) if row else 0
+            _cur2.close()
+            _db2.close()
+
         for vec_key, vec in attack_vectors.items():
             per_pakd = []
             lulus = gagal = 0
@@ -2889,12 +2898,16 @@ def stress_test():
                 b = baseline_result[pakd["id"]]
                 pakd_onchain = b["total_idr"]
 
-                kust_ids_for, wallets_by_k = _get_kustodian_data_for_pakd(pakd["id"])
-                kust_onchain = 0
-                for kid in kust_ids_for:
-                    kw = wallets_by_k.get(kid, [])
-                    if kw:
-                        kust_onchain += get_total_balance_idr(kw).get("total_idr", 0)
+                if app.config.get("TESTING"):
+                    kust_ids_for, wallets_by_k = _get_kustodian_data_for_pakd(pakd["id"])
+                    kust_onchain = 0
+                    for kid in kust_ids_for:
+                        kw = wallets_by_k.get(kid, [])
+                        if kw:
+                            kust_onchain += get_total_balance_idr(kw).get("total_idr", 0)
+                else:
+                    kust_ids_for, _ = _get_kustodian_data_for_pakd(pakd["id"])
+                    kust_onchain = kust_onchain_map.get(pakd["id"], 0)
 
                 loss_pakd = pakd_onchain * vec["pakd_loss"]
                 loss_kust = kust_onchain * vec["kust_loss"]
@@ -3377,7 +3390,7 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
             deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
             status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
             compliance_data = compute_30_70_compliance(pakd["id"], int(total))
-            print(f"[DEBUG_30_70] pakd_id={pakd['id']} result={compliance_data}", flush=True)
+
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
                 "aset_dilaporkan_idr": dilaporkan,
