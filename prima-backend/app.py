@@ -2474,13 +2474,19 @@ def internal_refresh_all():
             dilaporkan = pakd.get("aset_dilaporkan", 0)
             deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
             status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
+            compliance_data = compute_30_70_compliance(pakd["id"], int(total))
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
                 "aset_dilaporkan_idr": dilaporkan,
                 "aset_onchain_idr": total,
                 "deviasi_pct": round(deviasi, 2),
                 "status": status,
-                "breakdown": breakdown
+                "breakdown": breakdown,
+                "pakd_onchain_idr": int(total),
+                "kustodian_onchain_idr": compliance_data["kustodian_onchain_idr"],
+                "compliance_30_70": compliance_data["compliance_30_70"],
+                "ratio_at_pakd": compliance_data["ratio_at_pakd"],
+                "ratio_at_ptp": compliance_data["ratio_at_ptp"],
             })
         _, eth_fallback = get_eth_price_idr()
         _save_snapshots_batch(hasil, eth_fallback)
@@ -3370,13 +3376,20 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
             dilaporkan = pakd.get("aset_dilaporkan", 0)
             deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
             status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
+            compliance_data = compute_30_70_compliance(pakd["id"], int(total))
+            print(f"[DEBUG_30_70] pakd_id={pakd['id']} result={compliance_data}", flush=True)
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
                 "aset_dilaporkan_idr": dilaporkan,
                 "aset_onchain_idr": total,
                 "deviasi_pct": round(deviasi, 2),
                 "status": status,
-                "breakdown": breakdown
+                "breakdown": breakdown,
+                "pakd_onchain_idr": int(total),
+                "kustodian_onchain_idr": compliance_data["kustodian_onchain_idr"],
+                "compliance_30_70": compliance_data["compliance_30_70"],
+                "ratio_at_pakd": compliance_data["ratio_at_pakd"],
+                "ratio_at_ptp": compliance_data["ratio_at_ptp"],
             })
         _, eth_fallback = get_eth_price_idr()
         _save_snapshots_batch(hasil, eth_fallback)
