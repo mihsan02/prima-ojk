@@ -1832,7 +1832,7 @@ def init_kustodian_data():
                 cur.execute("""
                     INSERT INTO wallets (pakd_id, network, address, verified, verified_at, entity_type, entity_id)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (kust["id"], w["network"], w["address"], w.get("verified", False),
+                """, (None, w["network"], w["address"], w.get("verified", False),
                       w.get("verified_at"), "KUSTODIAN", kust["id"]))
 
         conn.commit()
@@ -2234,7 +2234,7 @@ def api_create_kustodian():
             cur.execute("""
                 INSERT INTO wallets (pakd_id, network, address, verified, verified_at, entity_type, entity_id)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (body["id"], w["network"], w["address"], w.get("verified", False), w.get("verified_at"), "KUSTODIAN", body["id"]))
+            """, (None, w["network"], w["address"], w.get("verified", False), w.get("verified_at"), "KUSTODIAN", body["id"]))
 
         conn.commit()
         cur.close()
@@ -2300,7 +2300,7 @@ def api_update_kustodian(kust_id):
                 cur.execute("""
                     INSERT INTO wallets (pakd_id, network, address, verified, verified_at, entity_type, entity_id)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (kust_id, w["network"], w["address"], w.get("verified", False), w.get("verified_at"), "KUSTODIAN", kust_id))
+                """, (None, w["network"], w["address"], w.get("verified", False), w.get("verified_at"), "KUSTODIAN", kust_id))
 
         conn.commit()
         cur.close()
