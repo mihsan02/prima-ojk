@@ -398,7 +398,7 @@ def _save_snapshot(pakd_id, pakd_nama, aset_dilaporkan, aset_onchain, deviasi_pc
     if not conn:
         return
     try:
-        c3070 = compute_30_70_compliance(pakd_id, int(aset_onchain))
+        c3070 = compute_30_70_compliance(pakd_id, int(aset_onchain), conn=conn)
         cur = conn.cursor()
         _deviasi_clamped = max(-9999.9999, min(9999.9999, float(deviasi_pct)))
         cur.execute(
@@ -609,9 +609,11 @@ def validate_wallet_address(network, address):
 # 30/70 Kustodian reconciliation helpers
 # ---------------------------------------------------------------------------
 
-def _get_kustodian_data_for_pakd(pakd_id):
+def _get_kustodian_data_for_pakd(pakd_id, conn=None):
     """Fetch linked kustodian IDs and their wallets for a PAKD."""
-    conn = _get_db_conn()
+    own_conn = conn is None
+    if own_conn:
+        conn = _get_db_conn()
     if not conn:
         return [], []
     try:
@@ -620,7 +622,8 @@ def _get_kustodian_data_for_pakd(pakd_id):
         kust_ids = [r[0] for r in cur.fetchall()]
         if not kust_ids:
             cur.close()
-            _return_db_conn(conn)
+            if own_conn:
+                _return_db_conn(conn)
             return [], []
         cur.execute("""
             SELECT entity_id, network, address, verified, verified_at
@@ -628,7 +631,8 @@ def _get_kustodian_data_for_pakd(pakd_id):
         """, (kust_ids,))
         wallet_rows = cur.fetchall()
         cur.close()
-        _return_db_conn(conn)
+        if own_conn:
+            _return_db_conn(conn)
         from collections import defaultdict
         wallets_by_kust = defaultdict(list)
         for w in wallet_rows:
@@ -639,7 +643,8 @@ def _get_kustodian_data_for_pakd(pakd_id):
         return kust_ids, wallets_by_kust
     except Exception as e:
         print(f"[30/70] _get_kustodian_data_for_pakd failed: {e}", flush=True)
-        _return_db_conn(conn)
+        if own_conn:
+            _return_db_conn(conn)
         return [], []
 
 
@@ -648,11 +653,11 @@ def _get_reported_values(pakd_id):
     return REPORTED_VALUES_DEFAULT.get(pakd_id, {})
 
 
-def compute_30_70_compliance(pakd_id, pakd_onchain_idr):
+def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
     """Compute 30/70 compliance for a PAKD with linked kustodian(s).
     Returns dict with kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp, kustodian_details.
     """
-    kust_ids, wallets_by_kust = _get_kustodian_data_for_pakd(pakd_id)
+    kust_ids, wallets_by_kust = _get_kustodian_data_for_pakd(pakd_id, conn=conn)
 
     if not kust_ids:
         return {
@@ -2081,7 +2086,7 @@ def recalc_snapshot(pakd_id):
             else:
                 status = "Kritis"
         # Insert new snapshot with 30/70 compliance
-        c3070 = compute_30_70_compliance(pakd_id, int(aset_onchain))
+        c3070 = compute_30_70_compliance(pakd_id, int(aset_onchain), conn=conn)
         cur.execute(
             """INSERT INTO reconciliation_snapshots
                (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
