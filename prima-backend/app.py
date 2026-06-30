@@ -393,33 +393,6 @@ def _return_db_conn(conn):
                 pass
 
 
-def _save_snapshot(pakd_id, pakd_nama, aset_dilaporkan, aset_onchain, deviasi_pct, status, harga_fallback, breakdown):
-    conn = _get_db_conn()
-    if not conn:
-        return
-    try:
-        c3070 = compute_30_70_compliance(pakd_id, int(aset_onchain), conn=conn)
-        cur = conn.cursor()
-        _deviasi_clamped = max(-9999.9999, min(9999.9999, float(deviasi_pct)))
-        cur.execute(
-            """INSERT INTO reconciliation_snapshots
-               (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
-                deviasi_persen, status, harga_fallback, network_breakdown,
-                pakd_onchain_idr, kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-            (pakd_id, pakd_nama, int(aset_dilaporkan), int(aset_onchain),
-             _deviasi_clamped, status, harga_fallback,
-             json.dumps(breakdown),
-             int(aset_onchain), c3070.get("kustodian_onchain_idr", 0),
-             c3070.get("compliance_30_70", False), c3070.get("ratio_at_pakd"), c3070.get("ratio_at_ptp"))
-        )
-        conn.commit()
-    except Exception as e:
-        print(f"[SNAPSHOT] failed: {type(e).__name__}: {e}", flush=True)
-    finally:
-        _return_db_conn(conn)
-
-
 def _save_snapshots_batch(hasil_list, harga_fallback):
     conn = _get_db_conn()
     if not conn:
@@ -442,9 +415,9 @@ def _save_snapshots_batch(hasil_list, harga_fallback):
             rows
         )
         conn.commit()
+        print(f"[BATCH_SAVE] saved {len(rows)} snapshots", flush=True)
     except Exception as _e:
-        if os.environ.get('PRIMA_DEBUG'):
-            print(f'[BATCH_SAVE] ERROR: {type(_e).__name__}: {_e}', flush=True)
+        print(f'[BATCH_SAVE] ERROR: {type(_e).__name__}: {_e}', flush=True)
     finally:
         _return_db_conn(conn)
 
