@@ -3455,9 +3455,14 @@ def ping():
         "uptime_seconds": round(time.time() - _SERVER_START_TIME),
     }, status_code
 
+def _run_seeds():
+    if os.environ.get("DATABASE_URL") and not app.config.get("TESTING"):
+        init_data()
+        init_kustodian_data()
+
+_run_seeds()
+
 if __name__ == "__main__":
-    init_data()
-    init_kustodian_data()
     debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
     port  = int(os.environ.get("PORT", 5000))
     app.run(debug=debug, host="0.0.0.0", port=port)
