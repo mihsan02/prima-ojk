@@ -630,10 +630,11 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
     """Compute 30/70 compliance for a PAKD with linked kustodian(s).
     Returns dict with kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp, kustodian_details.
     """
+    print(f"[DEBUG_30_70] ENTER compute_30_70_compliance pakd_id={pakd_id} pakd_onchain_idr={pakd_onchain_idr}", flush=True)
     kust_ids, wallets_by_kust = _get_kustodian_data_for_pakd(pakd_id, conn=conn)
 
     if not kust_ids:
-        return {
+        _no_kust_result = {
             "kustodian_onchain_idr": 0,
             "compliance_30_70": False,
             "ratio_at_pakd": 1.0,
@@ -641,6 +642,8 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
             "kustodian_details": [],
             "has_kustodian": False,
         }
+        print(f"[DEBUG_30_70] RETURN (no kustodian) {_no_kust_result}", flush=True)
+        return _no_kust_result
 
     kustodian_onchain_total = 0
     kustodian_details = []
@@ -672,7 +675,7 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
 
     compliance = ratio_at_pakd <= 0.30
 
-    return {
+    _result = {
         "kustodian_onchain_idr": round(kustodian_onchain_total),
         "compliance_30_70": compliance,
         "ratio_at_pakd": round(ratio_at_pakd, 4),
@@ -683,6 +686,8 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
         "reported_customer_at_ptp_idr": customer_at_ptp,
         "reported_proprietary_idr": reported.get("proprietary_idr", 0),
     }
+    print(f"[DEBUG_30_70] RETURN {_result}", flush=True)
+    return _result
 
 
 # ---------------------------------------------------------------------------
@@ -2060,6 +2065,7 @@ def recalc_snapshot(pakd_id):
                 status = "Kritis"
         # Insert new snapshot with 30/70 compliance
         c3070 = compute_30_70_compliance(pakd_id, int(aset_onchain), conn=conn)
+        print(f"[DEBUG_30_70] pakd_id={pakd_id} result={c3070}", flush=True)
         cur.execute(
             """INSERT INTO reconciliation_snapshots
                (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
@@ -2385,6 +2391,7 @@ def reconciliation():
                     status_rec = "Kritis"
 
             compliance_data = compute_30_70_compliance(pakd["id"], aset_onchain_idr)
+            print(f"[DEBUG_30_70] pakd_id={pakd['id']} result={compliance_data}", flush=True)
 
             hasil.append({
                 "id":                  pakd["id"],
