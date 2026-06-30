@@ -2536,6 +2536,12 @@ def reconciliation_latest():
                 ORDER BY s.pakd_id, s.captured_at DESC
             """)
         rows = cur.fetchall()
+        # Build set of pakd_ids that have linked kustodian
+        pakd_ids = [r[0] for r in rows]
+        pakd_with_kustodian = set()
+        if pakd_ids:
+            cur.execute("SELECT DISTINCT pakd_id FROM kustodian_pakd WHERE pakd_id = ANY(%s)", (pakd_ids,))
+            pakd_with_kustodian = {r2[0] for r2 in cur.fetchall()}
         hasil = []
         as_of = None
         for r in rows:
@@ -2546,7 +2552,7 @@ def reconciliation_latest():
             eth_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "ethereum")
             btc_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "bitcoin")
             sol_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "solana")
-            has_kustodian = r[11] is not None and r[11] > 0
+            has_kustodian = r[0] in pakd_with_kustodian
             compliance_30_70 = r[12] if r[12] is not None else False
             ratio_at_pakd = float(r[13]) if r[13] is not None else (1.0 if not has_kustodian else 0.0)
             ratio_at_ptp = float(r[14]) if r[14] is not None else 0.0
