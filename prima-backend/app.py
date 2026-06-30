@@ -398,16 +398,20 @@ def _save_snapshot(pakd_id, pakd_nama, aset_dilaporkan, aset_onchain, deviasi_pc
     if not conn:
         return
     try:
+        c3070 = compute_30_70_compliance(pakd_id, int(aset_onchain))
         cur = conn.cursor()
         _deviasi_clamped = max(-9999.9999, min(9999.9999, float(deviasi_pct)))
         cur.execute(
             """INSERT INTO reconciliation_snapshots
                (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
-                deviasi_persen, status, harga_fallback, network_breakdown)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                deviasi_persen, status, harga_fallback, network_breakdown,
+                pakd_onchain_idr, kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (pakd_id, pakd_nama, int(aset_dilaporkan), int(aset_onchain),
              _deviasi_clamped, status, harga_fallback,
-             json.dumps(breakdown))
+             json.dumps(breakdown),
+             int(aset_onchain), c3070.get("kustodian_onchain_idr", 0),
+             c3070.get("compliance_30_70", False), c3070.get("ratio_at_pakd"), c3070.get("ratio_at_ptp"))
         )
         conn.commit()
     except Exception as e:
@@ -2076,14 +2080,18 @@ def recalc_snapshot(pakd_id):
                 status = "Deviasi"
             else:
                 status = "Kritis"
-        # Insert new snapshot
+        # Insert new snapshot with 30/70 compliance
+        c3070 = compute_30_70_compliance(pakd_id, int(aset_onchain))
         cur.execute(
             """INSERT INTO reconciliation_snapshots
                (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
-                deviasi_persen, status, harga_fallback, network_breakdown)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                deviasi_persen, status, harga_fallback, network_breakdown,
+                pakd_onchain_idr, kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (pakd_id, pakd_nama, int(aset_dilaporkan), int(aset_onchain),
-             deviasi_clamped, status, harga_fallback, json.dumps(breakdown) if isinstance(breakdown, (list, dict)) else breakdown)
+             deviasi_clamped, status, harga_fallback, json.dumps(breakdown) if isinstance(breakdown, (list, dict)) else breakdown,
+             int(aset_onchain), c3070.get("kustodian_onchain_idr", 0),
+             c3070.get("compliance_30_70", False), c3070.get("ratio_at_pakd"), c3070.get("ratio_at_ptp"))
         )
         conn.commit()
         cur.close()
