@@ -2642,8 +2642,6 @@ def stress_test():
         if pakd_id and pakd_id != user['entity_id']:
             return jsonify({'error': 'Forbidden'}), 403
         pakd_id = user['entity_id']
-    if not pakd_id and not app.config.get("TESTING"):
-        return jsonify({"error": "pakd_id wajib diisi"}), 400
 
     pakd_list = [p for p in load_pakd() if p["id"] == pakd_id] if pakd_id else load_pakd()
     if not pakd_list:

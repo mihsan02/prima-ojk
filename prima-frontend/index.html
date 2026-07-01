@@ -1155,8 +1155,8 @@ function renderP91Cards(cid, perPakd) {
 async function loadStressTest() {
   try {
     const user = AUTH.getUser();
-    const scopedId = (user && (user.role === 'pakd' || user.role === 'kustodian') && user.entity_id) ? user.entity_id : 'PAKD-OJK-001';
-    const res = await apiFetch('/api/stress-test?pakd_id=' + scopedId);
+    const scopedId = (user && (user.role === 'pakd' || user.role === 'kustodian') && user.entity_id) ? user.entity_id : '';
+    const res = await apiFetch('/api/stress-test' + (scopedId ? ('?pakd_id=' + scopedId) : ''));
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     const p50 = json.pasal50;
