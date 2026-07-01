@@ -301,6 +301,10 @@ tr:hover td{background:var(--bg2)}
     <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 1L2 4v4c0 3.31 2.55 6.4 6 7 3.45-.6 6-3.69 6-7V4L8 1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 8l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     Kustodian
   </div>
+  <div class="nav-item superadmin-only" style="display:none" onclick="showPage('ereporting', this)">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M4 1.5h6l3 3v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M5.5 8h5M5.5 10.5h5M5.5 5.5h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    E-Reporting
+  </div>
   <div class="nav-section">Analisis</div>
   <div class="nav-item" onclick="showPage('stresstest', this)">
     <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 12 L5 8 L8 10 L11 5 L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
@@ -706,6 +710,71 @@ tr:hover td{background:var(--bg2)}
     </div>
   </div>
 
+  <!-- PAGE: E-REPORTING -->
+  <div id="page-ereporting" class="page">
+    <div class="page-header">
+      <div>
+        <div class="page-title">E-Reporting</div>
+        <div class="page-subtitle">Upload laporan bulanan POJK 27/2024 · Sumber data rekonsiliasi Penempatan AKD pada Kustodian</div>
+      </div>
+    </div>
+
+    <div class="panel" style="padding:20px;margin-bottom:20px">
+      <div class="section-header"><div class="section-title"><div class="section-title-bar"></div>Upload Laporan</div></div>
+      <form id="form-ereporting-upload" onsubmit="submitEreportingUpload(event)">
+        <div style="display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="radio" name="ereporting-type" value="pakd" checked onchange="onEreportingTypeChange()"> Laporan PAKD
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="radio" name="ereporting-type" value="kustodian" onchange="onEreportingTypeChange()"> Laporan Kustodian
+          </label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--txt3);display:block;margin-bottom:4px">Entitas</label>
+            <select id="ereporting-entity" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg2);color:var(--txt1)" required>
+              <option value="">Memuat...</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--txt3);display:block;margin-bottom:4px">Periode</label>
+            <input id="ereporting-periode" type="month" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg2);color:var(--txt1)" required>
+          </div>
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="font-size:12px;font-weight:600;color:var(--txt3);display:block;margin-bottom:4px">File XLSX</label>
+          <input id="ereporting-file" type="file" accept=".xlsx" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg2);color:var(--txt1)" required>
+        </div>
+        <button type="submit" id="btn-ereporting-upload" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">Upload &amp; Preview</button>
+      </form>
+      <div id="ereporting-upload-error" style="display:none;color:var(--red);font-size:13px;margin-top:10px"></div>
+    </div>
+
+    <div id="ereporting-preview" style="display:none">
+      <div class="section-header"><div class="section-title"><div class="section-title-bar"></div>Preview Data</div></div>
+
+      <div id="ereporting-errors" style="display:none;background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--amber)"></div>
+
+      <div id="ereporting-summary" class="panel" style="padding:16px;margin-bottom:14px;font-size:13px"></div>
+
+      <div class="panel" style="margin-bottom:14px;overflow-x:auto">
+        <table id="ereporting-preview-table">
+          <thead id="ereporting-preview-thead"></thead>
+          <tbody id="ereporting-preview-tbody"></tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button onclick="submitEreportingConfirm()" id="btn-ereporting-confirm" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">Konfirmasi dan Simpan</button>
+        <button onclick="cancelEreportingPreview()" style="background:var(--bg2);color:var(--txt2);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">Batal</button>
+      </div>
+      <div id="ereporting-confirm-feedback" style="display:none;margin-top:10px;font-size:13px"></div>
+    </div>
+
+    <div class="dash-footer"><span class="dash-footer-txt">PRIMA v2.0 · OJK © 2026</span></div>
+  </div>
+
 <!-- PAGE: STRESS TEST -->
   <div id="page-stresstest" class="page">
     <div class="page-header">
@@ -1025,6 +1094,7 @@ function showPage(id, el) {
   if (id === 'pengaturan') loadPengaturan();
   if (id === 'detail') populateDetailSelect();
   if (id === 'kustodian') loadKustodian();
+  if (id === 'ereporting') loadEreportingEntities();
 }
 
 function formatIDR(n) {
@@ -2529,6 +2599,166 @@ async function deleteKustodian(id, nama) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// E-Reporting Page
+// ---------------------------------------------------------------------------
+let _ereportingPreviewData = null;
+
+async function loadEreportingEntities() {
+  const type = document.querySelector('input[name="ereporting-type"]:checked').value;
+  const select = document.getElementById('ereporting-entity');
+  select.innerHTML = '<option value="">Memuat...</option>';
+  try {
+    const url = type === 'pakd' ? API + '/api/pakd' : API + '/api/kustodian';
+    const resp = await apiFetch(url);
+    if (!resp.ok) { select.innerHTML = '<option value="">Gagal memuat entitas</option>'; return; }
+    const list = await resp.json();
+    if (!list.length) { select.innerHTML = '<option value="">Belum ada data</option>'; return; }
+    select.innerHTML = '<option value="">Pilih entitas...</option>' +
+      list.map(e => `<option value="${e.id}">${e.id} — ${e.nama}</option>`).join('');
+  } catch (e) {
+    select.innerHTML = '<option value="">Error: ' + e.message + '</option>';
+  }
+}
+
+function onEreportingTypeChange() {
+  cancelEreportingPreview();
+  loadEreportingEntities();
+}
+
+async function submitEreportingUpload(event) {
+  event.preventDefault();
+  const type = document.querySelector('input[name="ereporting-type"]:checked').value;
+  const entityId = document.getElementById('ereporting-entity').value;
+  const periode = document.getElementById('ereporting-periode').value;
+  const fileInput = document.getElementById('ereporting-file');
+  const errEl = document.getElementById('ereporting-upload-error');
+  errEl.style.display = 'none';
+
+  if (!entityId) { errEl.textContent = 'Pilih entitas terlebih dahulu'; errEl.style.display = 'block'; return; }
+  if (!periode) { errEl.textContent = 'Pilih periode terlebih dahulu'; errEl.style.display = 'block'; return; }
+  if (!fileInput.files.length) { errEl.textContent = 'Pilih file XLSX terlebih dahulu'; errEl.style.display = 'block'; return; }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('type', type);
+  formData.append('entity_id', entityId);
+  formData.append('periode', periode);
+
+  const btn = document.getElementById('btn-ereporting-upload');
+  btn.disabled = true;
+  btn.textContent = 'Mengunggah...';
+  try {
+    const resp = await apiFetch(API + '/api/upload-ereporting', {method: 'POST', body: formData});
+    const body = await resp.json();
+    if (!resp.ok) {
+      errEl.textContent = body.message || 'Gagal mengunggah file';
+      errEl.style.display = 'block';
+      return;
+    }
+    renderEreportingPreview(body.data, type);
+  } catch (e) {
+    errEl.textContent = 'Error: ' + e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Upload & Preview';
+  }
+}
+
+function renderEreportingPreview(data, type) {
+  _ereportingPreviewData = data;
+  document.getElementById('ereporting-preview').style.display = 'block';
+
+  const errBox = document.getElementById('ereporting-errors');
+  if (data.errors && data.errors.length) {
+    errBox.innerHTML = '<b>Peringatan:</b><ul style="margin:6px 0 0 18px">' +
+      data.errors.map(e => `<li>${escapeHtml(e)}</li>`).join('') + '</ul>';
+    errBox.style.display = 'block';
+  } else {
+    errBox.style.display = 'none';
+  }
+
+  const thead = document.getElementById('ereporting-preview-thead');
+  const tbody = document.getElementById('ereporting-preview-tbody');
+  const summary = document.getElementById('ereporting-summary');
+
+  if (type === 'pakd') {
+    const breakdown = data.aset_breakdown || [];
+    thead.innerHTML = '<tr><th>Kode AKD</th><th>Nama AKD</th><th>Unit Konsumen di Pedagang</th><th>Unit Konsumen di PTP</th><th>Unit Pedagang</th><th>Harga/Unit (Rp)</th></tr>';
+    tbody.innerHTML = breakdown.map(r => `
+      <tr>
+        <td>${escapeHtml(r.kode_akd || '')}</td>
+        <td>${escapeHtml(r.nama_akd || '')}</td>
+        <td>${(r.konsumen_di_pedagang_unit || 0).toLocaleString('id-ID')}</td>
+        <td>${(r.konsumen_di_ptp_unit || 0).toLocaleString('id-ID')}</td>
+        <td>${(r.pedagang_unit || 0).toLocaleString('id-ID')}</td>
+        <td>${formatIDR(r.harga_per_unit_idr || 0)}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--txt4)">Tidak ada baris aset</td></tr>';
+
+    const totalPakd = breakdown.reduce((s, r) => s + (r.konsumen_di_pedagang_unit || 0) * (r.harga_per_unit_idr || 0), 0);
+    const totalPtp = breakdown.reduce((s, r) => s + (r.konsumen_di_ptp_unit || 0) * (r.harga_per_unit_idr || 0), 0);
+    const totalPedagang = breakdown.reduce((s, r) => s + (r.pedagang_unit || 0) * (r.harga_per_unit_idr || 0), 0);
+    summary.innerHTML = `Total AKD Konsumen di PAKD: <b>${formatIDR(totalPakd)}</b> &nbsp;|&nbsp; di PTP: <b>${formatIDR(totalPtp)}</b> &nbsp;|&nbsp; Milik Pedagang: <b>${formatIDR(totalPedagang)}</b>`;
+  } else {
+    const wallets = data.wallets || [];
+    thead.innerHTML = '<tr><th>Alamat Wallet</th><th>Provider</th><th>Network</th><th>Nama Pedagang</th><th>Nilai AKD (Rp)</th></tr>';
+    tbody.innerHTML = wallets.map(w => `
+      <tr>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;word-break:break-all">${escapeHtml(w.alamat || '')}</td>
+        <td>${escapeHtml(w.provider || '')}</td>
+        <td>${escapeHtml(w.network || '')}</td>
+        <td>${escapeHtml(w.nama_pedagang || '')}</td>
+        <td>${formatIDR(w.nilai_akd_idr || 0)}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--txt4)">Tidak ada wallet</td></tr>';
+
+    const totalNilai = wallets.reduce((s, w) => s + (w.nilai_akd_idr || 0), 0);
+    summary.innerHTML = `Total Nilai AKD pada ${wallets.length} wallet: <b>${formatIDR(totalNilai)}</b>`;
+  }
+
+  document.getElementById('ereporting-confirm-feedback').style.display = 'none';
+}
+
+function cancelEreportingPreview() {
+  _ereportingPreviewData = null;
+  document.getElementById('ereporting-preview').style.display = 'none';
+}
+
+async function submitEreportingConfirm() {
+  if (!_ereportingPreviewData) return;
+  const btn = document.getElementById('btn-ereporting-confirm');
+  const feedback = document.getElementById('ereporting-confirm-feedback');
+  btn.disabled = true;
+  btn.textContent = 'Menyimpan...';
+  try {
+    const resp = await apiFetch(API + '/api/confirm-ereporting', {
+      method: 'POST',
+      body: JSON.stringify(_ereportingPreviewData)
+    });
+    const body = await resp.json();
+    feedback.style.display = 'block';
+    if (!resp.ok) {
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = body.message || 'Gagal menyimpan data';
+      return;
+    }
+    feedback.style.color = 'var(--green)';
+    feedback.textContent = `Tersimpan: ${body.entity_id} periode ${body.periode}`;
+    document.getElementById('form-ereporting-upload').reset();
+    _ereportingPreviewData = null;
+    setTimeout(() => { document.getElementById('ereporting-preview').style.display = 'none'; }, 2000);
+  } catch (e) {
+    feedback.style.display = 'block';
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Konfirmasi dan Simpan';
+  }
+}
+
 function applyRoleUI() {
   const user = AUTH.getUser();
   if (!user) return;
@@ -2550,6 +2780,10 @@ function applyRoleUI() {
   const isSuperAdmin = user.role === 'super_admin';
   document.querySelectorAll('.crud-action').forEach(el => {
     el.style.display = isSuperAdmin ? (el.tagName === 'BUTTON' ? 'inline-flex' : 'block') : 'none';
+  });
+  // Nav items visible hanya untuk super_admin (mis. E-Reporting)
+  document.querySelectorAll('.superadmin-only').forEach(el => {
+    el.style.display = isSuperAdmin ? 'flex' : 'none';
   });
   // Pengawas = read-only: hide write actions (rekon trigger, wallet verification)
   const isPengawas = user.role === 'pengawas';
