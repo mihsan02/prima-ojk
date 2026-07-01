@@ -476,11 +476,12 @@ tr:hover td{background:var(--bg2)}
               <select id="vp-network" class="form-input" style="font-size:13px;padding:9px 12px">
                 <option value="ethereum">Ethereum</option>
                 <option value="solana">Solana</option>
+                <option value="bitcoin">Bitcoin</option>
               </select>
             </div>
             <div>
               <label class="form-label">Wallet Address</label>
-              <input id="vp-address" class="form-input mono" type="text" placeholder="0x... atau alamat Solana">
+              <input id="vp-address" class="form-input mono" type="text" placeholder="0x..., alamat Solana, atau Bitcoin (legacy P2PKH, diawali '1')">
             </div>
             <button class="btn-primary" onclick="requestChallenge()">Minta Challenge</button>
           </div>
@@ -493,7 +494,7 @@ tr:hover td{background:var(--bg2)}
             <div style="display:grid;grid-template-columns:1fr 160px auto;gap:10px;align-items:end">
               <div>
                 <label class="form-label">Signature dari PAKD</label>
-                <input id="vp-signature" class="form-input mono" type="text" placeholder="0x... (Ethereum) atau hex 128 karakter (Solana)">
+                <input id="vp-signature" class="form-input mono" type="text" placeholder="0x... (Ethereum), hex 128 karakter (Solana), atau base64 (Bitcoin)">
               </div>
               <div>
                 <label class="form-label">PAKD ID (opsional)</label>
@@ -1505,7 +1506,7 @@ function renderBreakdown(d) {
 
 const CHAIN_LABEL = { ethereum: 'ETH', bitcoin: 'BTC', solana: 'SOL' };
 const CHAIN_CSS   = { ethereum: 'eth', bitcoin: 'btc', solana: 'sol' };
-const PROOF_SUPPORTED = new Set(['ethereum', 'solana']);
+const PROOF_SUPPORTED = new Set(['ethereum', 'solana', 'bitcoin']);
 
 function shortAddr(a) {
   if (!a) return '';
@@ -1591,6 +1592,8 @@ async function openVerifyModal(address, network, pakdId) {
   const sigHint = document.getElementById('verify-modal-sig-hint');
   if (network === 'ethereum') {
     sigHint.textContent = 'Ethereum (EIP-191): hex 0x... panjang 132 karakter, hasil personal_sign / MetaMask eth_sign.';
+  } else if (network === 'bitcoin') {
+    sigHint.textContent = 'Bitcoin (legacy P2PKH, alamat diawali "1"): base64, hasil Bitcoin Signed Message (Electrum Sign/Verify Message atau bitcoin-cli signmessage). Alamat P2WPKH/P2SH/P2TR belum didukung.';
   } else {
     sigHint.textContent = 'Solana (Ed25519): hex 128 karakter atau base64, hasil signMessage Phantom / wallet adapter.';
   }

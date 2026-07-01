@@ -3268,7 +3268,7 @@ def wallet_challenge():
     if not address:
         return _error_response("Field address wajib diisi")
 
-    SUPPORTED_PROOF_NETWORKS = {"ethereum", "solana"}
+    SUPPORTED_PROOF_NETWORKS = {"ethereum", "solana", "bitcoin"}
     if network not in SUPPORTED_PROOF_NETWORKS:
         return jsonify({
             "status":  "error",
@@ -3298,7 +3298,7 @@ def wallet_challenge():
             "(EIP-191 personal_sign / MetaMask eth_sign), "
             "lalu kirim ke POST /api/wallet-verify."
         )
-    else:  # solana
+    elif network == "solana":
         challenge = (
             "PRIMA OJK — Bukti Kepemilikan Wallet Solana\n"
             f"Address  : {address}\n"
@@ -3312,6 +3312,27 @@ def wallet_challenge():
             "Tandatangani field challenge sebagai UTF-8 bytes menggunakan Ed25519 private key "
             "(Phantom signMessage / Solana wallet adapter signMessage). "
             "Kirim signature sebagai hex (128 karakter) ke POST /api/wallet-verify."
+        )
+    else:  # bitcoin
+        if not address.startswith("1"):
+            return jsonify({
+                "status":  "error",
+                "message": "Wallet challenge Bitcoin saat ini hanya didukung untuk alamat "
+                           "legacy P2PKH (diawali '1'). P2WPKH/P2SH/P2TR belum didukung (roadmap Phase 2).",
+            }), 400
+        challenge = (
+            "PRIMA OJK — Bukti Kepemilikan Wallet Bitcoin\n"
+            f"Address  : {address}\n"
+            f"Network  : {network}\n"
+            f"Nonce    : {nonce}\n"
+            f"Timestamp: {timestamp}\n"
+            "Pesan ini digunakan untuk membuktikan kepemilikan wallet kepada OJK PRIMA.\n"
+            "Tanda tangan ini tidak mengotorisasi transaksi apapun."
+        )
+        instruction = (
+            "Tandatangani field challenge menggunakan format Bitcoin Signed Message "
+            "(mis. Electrum: Tools > Sign/Verify Message, atau bitcoin-cli signmessage). "
+            "Kirim signature base64 yang dihasilkan ke POST /api/wallet-verify."
         )
 
     CHALLENGE_STORE[address.lower()] = {
@@ -3415,6 +3436,18 @@ def wallet_verify():
         except Exception as exc:
             return jsonify({"status": "error", "message": f"Verifikasi Ed25519 gagal: {exc}"}), 400
 
+        signer_display = address
+
+    elif network == "bitcoin":
+        from btc_verify import verify_bitcoin_signature
+        verified_btc, err = verify_bitcoin_signature(address, challenge, signature)
+        if not verified_btc:
+            write_audit("WALLET VERIFY GAGAL", f"Claimed Bitcoin: {address} — {err}")
+            return jsonify({
+                "verified": False,
+                "address":  address,
+                "message":  err,
+            }), 400
         signer_display = address
 
     else:
