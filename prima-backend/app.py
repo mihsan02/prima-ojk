@@ -2945,7 +2945,7 @@ def stress_test():
                 "per_pakd": per_pakd,
             }
 
-        write_audit("STRESS TEST", f"Dual stress test (Pasal 50 + Pasal 91 + Cyber 30/70) untuk {len(pakd_list)} PAKD")
+        write_audit("STRESS TEST", f"Dual stress test (Pasal 50 + Pasal 91 + Cyber Penempatan AKD pada Kustodian) untuk {len(pakd_list)} PAKD")
         return jsonify({
             "pasal50":        hasil_pasal50,
             "pasal91":        hasil_pasal91,

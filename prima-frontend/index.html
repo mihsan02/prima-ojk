@@ -395,7 +395,7 @@ tr:hover td{background:var(--bg2)}
         <table>
           <thead>
             <tr>
-              <th>#</th><th>Nama PAKD</th><th>Status</th><th>30/70</th>
+              <th>#</th><th>Nama PAKD</th><th>Status</th><th>Status Penempatan AKD</th>
               <th>Aset On-Chain (IDR)</th><th>On-Chain Kustodian</th><th>Aset Dilaporkan (IDR)</th>
               <th>Deviasi</th><th>Wallet</th><th>Aksi</th>
             </tr>
@@ -590,7 +590,7 @@ tr:hover td{background:var(--bg2)}
         <div class="section-header">
           <div class="section-title">
             <div class="section-title-bar"></div>
-            Kepatuhan 30/70 · POJK 23/2025
+            Kepatuhan Penempatan AKD pada Kustodian · POJK 23/2025
           </div>
         </div>
         <div style="display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:start">
@@ -817,11 +817,11 @@ tr:hover td{background:var(--bg2)}
 
     <div>
       <div class="section-header">
-        <div class="section-title"><div class="section-title-bar"></div>Risiko Siber 30/70 · Dampak Segregasi Aset POJK 23/2025</div>
+        <div class="section-title"><div class="section-title-bar"></div>Risiko Siber Penempatan AKD pada Kustodian · Dampak Segregasi Aset POJK 23/2025</div>
       </div>
       <div class="panel">
         <div class="panel-body">
-          <div class="stress-desc">Mengukur dampak insiden siber berdasarkan lokasi penyimpanan aset: di PAKD saja, di Kustodian (PTP) saja, atau keduanya. Segregasi 30/70 mengurangi risiko kehilangan total saat hanya satu pihak yang terkena breach.</div>
+          <div class="stress-desc">Mengukur dampak insiden siber berdasarkan lokasi penyimpanan aset: di PAKD saja, di Kustodian (PTP) saja, atau keduanya. Segregasi penempatan AKD pada kustodian mengurangi risiko kehilangan total saat hanya satu pihak yang terkena breach.</div>
           <div class="stress-threshold-pill">● Batas lulus: <strong>Ekuitas pasca-kehilangan ≥ Rp 50 miliar</strong> · POJK 23 Tahun 2025</div>
           <div id="cyber3070-pakd" class="stress-row moderate">
             <div class="stress-label-wrap"><div class="stress-name moderate">PAKD Only</div><div class="stress-pct-label">100% aset di PAKD hilang</div></div>
@@ -841,7 +841,7 @@ tr:hover td{background:var(--bg2)}
             <div class="stress-count" style="color:var(--red)">—<span style="font-size:9px;color:var(--txt3)"> lulus</span></div>
           </div>
           <div class="entity-chips-row" id="cyber3070-chips-both"></div>
-          <div id="cyber3070-note" style="margin-top:14px;padding:12px 16px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--txt4);font-size:13px;color:var(--txt3)">Memuat hasil stress test 30/70...</div>
+          <div id="cyber3070-note" style="margin-top:14px;padding:12px 16px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--txt4);font-size:13px;color:var(--txt3)">Memuat hasil stress test penempatan AKD pada kustodian...</div>
         </div>
       </div>
     </div>
@@ -1267,7 +1267,7 @@ async function loadStressTest() {
       var kustOnly = c37.kustodian_only;
       if (pakdOnly && kustOnly && pakdOnly.lulus > kustOnly.lulus) {
         c37note.style.borderLeftColor = 'var(--green)'; c37note.style.color = 'var(--green)';
-        c37note.textContent = '✓ Segregasi 30/70 efektif: breach di PAKD saja memiliki dampak lebih kecil dibanding breach di Kustodian.';
+        c37note.textContent = '✓ Segregasi penempatan AKD pada kustodian efektif: breach di PAKD saja memiliki dampak lebih kecil dibanding breach di Kustodian.';
       } else if (pakdOnly && kustOnly && pakdOnly.gagal === 0 && kustOnly.gagal === 0) {
         c37note.style.borderLeftColor = 'var(--green)'; c37note.style.color = 'var(--green)';
         c37note.textContent = '✓ Seluruh PAKD tahan terhadap breach tunggal (PAKD atau Kustodian).';
