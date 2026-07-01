@@ -2709,7 +2709,7 @@ def stress_test():
                 )
                 row = _cur.fetchone()
                 if row:
-                    total_idr = row[0] or 0
+                    total_idr = float(row[0] or 0)
                     nb = row[1] if isinstance(row[1], list) else []
                     eth_native   = sum(w.get("eth_native_idr", 0) or 0 for w in nb if w.get("network") == "ethereum")
                     eth_usdt     = sum(w.get("usdt_idr", 0) or 0 for w in nb if w.get("network") == "ethereum")
@@ -2887,7 +2887,7 @@ def stress_test():
                     (pakd["id"],)
                 )
                 row = _cur2.fetchone()
-                kust_onchain_map[pakd["id"]] = (row[0] or 0) if row else 0
+                kust_onchain_map[pakd["id"]] = float(row[0] or 0) if row else 0.0
             _cur2.close()
             _db2.close()
 
