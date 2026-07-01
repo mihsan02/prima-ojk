@@ -631,8 +631,39 @@ def _get_kustodian_data_for_pakd(pakd_id, conn=None):
         return [], []
 
 
-def _get_reported_values(pakd_id):
-    """Get reported values for a PAKD. Uses REPORTED_VALUES_DEFAULT for demo."""
+def _get_reported_values(pakd_id, conn=None):
+    """Get reported values for a PAKD from confirmed e-reporting data.
+    Falls back to REPORTED_VALUES_DEFAULT when no confirmed report exists.
+    """
+    own_conn = conn is None
+    if own_conn:
+        conn = _get_db_conn()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT customer_at_pakd_idr, customer_at_ptp_idr, proprietary_idr
+                FROM laporan_ereporting
+                WHERE entity_id = %s AND report_type = 'pakd' AND status = 'confirmed'
+                ORDER BY periode DESC
+                LIMIT 1
+            """, (pakd_id,))
+            row = cur.fetchone()
+            cur.close()
+            if row:
+                return {
+                    'customer_at_pakd_idr': float(row[0] or 0),
+                    'customer_at_ptp_idr': float(row[1] or 0),
+                    'proprietary_idr': float(row[2] or 0),
+                }
+        except Exception as e:
+            print(f"[EREPORTING] _get_reported_values query failed: {e}", flush=True)
+        finally:
+            if own_conn:
+                _return_db_conn(conn)
+    # FALLBACK: used when no confirmed e-reporting exists for a PAKD.
+    # Sprint 3 goal: all entities should have e-reporting data.
+    # This dict will be removed in Sprint 4 after demo data is calibrated.
     return REPORTED_VALUES_DEFAULT.get(pakd_id, {})
 
 
@@ -668,7 +699,7 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
             "wallet_count": len(kust_wallets),
         })
 
-    reported = _get_reported_values(pakd_id)
+    reported = _get_reported_values(pakd_id, conn=conn)
     customer_at_pakd = reported.get("customer_at_pakd_idr", 0)
     customer_at_ptp = reported.get("customer_at_ptp_idr", 0)
     total_customer = customer_at_pakd + customer_at_ptp
