@@ -1154,7 +1154,9 @@ function renderP91Cards(cid, perPakd) {
 
 async function loadStressTest() {
   try {
-    const res = await apiFetch('/api/stress-test?pakd_id=PAKD-OJK-001');
+    const user = AUTH.getUser();
+    const scopedId = (user && (user.role === 'pakd' || user.role === 'kustodian') && user.entity_id) ? user.entity_id : 'PAKD-OJK-001';
+    const res = await apiFetch('/api/stress-test?pakd_id=' + scopedId);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     const p50 = json.pasal50;
@@ -1945,17 +1947,43 @@ async function populateDetailSelect() {
       o.value = id; o.textContent = nama + ' (' + id + ')';
       sel.appendChild(o);
     });
+    const user = AUTH.getUser();
+    if (user && user.role === 'pakd' && user.entity_id && seen[user.entity_id]) {
+      sel.value = user.entity_id;
+      loadDetailPakd();
+    }
   } catch(e) {}
 }
 
+async function _downloadCsv(url, fallbackFilename) {
+  try {
+    const response = await apiFetch(url);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename=([^;]+)/);
+    const filename = match ? match[1].trim() : fallbackFilename;
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (e) {
+    alert('Export gagal: ' + e.message);
+  }
+}
+
 function exportCsvOverview() {
-  window.location.href = '/api/export-csv-overview';
+  _downloadCsv('/api/export-csv-overview', 'prima-overview.csv');
 }
 
 function exportCsv() {
   const pakdId = document.getElementById('detail-pakd-select').value;
   const url = pakdId ? `/api/export-csv?pakd_id=${pakdId}` : '/api/export-csv';
-  window.location.href = url;
+  _downloadCsv(url, 'prima-export.csv');
 }
 
 async function loadDetailPakd() {
