@@ -1,10 +1,10 @@
 """Parser untuk file e-reporting XLSX (POJK 27/2024).
 
-Column layout berikut ini didasarkan pada spesifikasi sprint, BUKAN dari
-contoh file yang sudah diverifikasi (belum ada sample e-reporting XLSX di
-repo). Karena itu parser ini defensif: baris/kolom yang kosong atau tidak
-sesuai format akan dilewati dan dicatat di `errors`, bukan menyebabkan
-exception.
+Column layout diverifikasi cell-by-cell terhadap template resmi:
+`Struktur_Data_Laporan_Harian_dan_Bulanan_PAKD.xlsx` dan
+`..._Kustodian.xlsx`. Parser tetap defensif (baris/kolom yang kosong atau
+tidak sesuai format dilewati dan dicatat di `errors`, bukan menyebabkan
+exception) karena upload sebenarnya masih bisa berbeda dari template.
 """
 
 import hashlib
@@ -14,36 +14,42 @@ import openpyxl
 
 logger = logging.getLogger(__name__)
 
-# --- Sheet "2": Rekapitulasi AKD Konsumen dan Pedagang Bulanan ---
-PAKD_SHEET2_NAME = "2"
-PAKD_SHEET2_HEADER_ROW = 8
-PAKD_SHEET2_DATA_START_ROW = 10
-COL_KODE_AKD = 2       # B
-COL_NAMA_AKD = 3       # C
-COL_JUMLAH_AKD_UNIT = 17    # Q
-COL_KONSUMEN_UNIT = 18      # R
-COL_PEDAGANG_UNIT = 19      # S
-COL_KONSUMEN_DI_PEDAGANG = 20  # T
-COL_KONSUMEN_DI_PTP = 21      # U
-COL_HARGA_PER_UNIT = 22       # V
+# --- Sheet "LSTAKDKP": Rekapitulasi Aset Keuangan Digital Konsumen dan
+# Pedagang Bulanan. (Bukan sheet "2" - itu tidak ada di template resmi;
+# workbook PAKD berisi banyak sheet lain seperti LBNP, LBLD, LRA, dst.)
+# Header group ada di row 14, subheader di row 15, data mulai row 16.
+# Kolom E-AA didahului 4 grup 5-kolom berulang (Posisi Awal Bulan, Nilai
+# Penambahan, Nilai Pengurangan, Posisi Akhir Bulan) sebelum kolom target.
+PAKD_SHEET2_NAME = "LSTAKDKP"
+PAKD_SHEET2_HEADER_ROW = 14
+PAKD_SHEET2_DATA_START_ROW = 16
+COL_KODE_AKD = 5        # E
+COL_NAMA_AKD = 6        # F
+COL_JUMLAH_AKD_UNIT = 22     # V  (Posisi Akhir Bulan: Jumlah Unit)
+COL_KONSUMEN_UNIT = 23       # W  (Posisi Akhir Bulan: milik Konsumen)
+COL_PEDAGANG_UNIT = 24       # X  (Posisi Akhir Bulan: milik Pedagang)
+COL_KONSUMEN_DI_PEDAGANG = 25  # Y  (Posisi Akhir Bulan: Konsumen di Pedagang)
+COL_KONSUMEN_DI_PTP = 26       # Z  (Posisi Akhir Bulan: Konsumen di PTP)
+COL_HARGA_PER_UNIT = 27        # AA (Harga Penutupan Per Unit)
 
 LBNP_SHEET_NAME = "LBNP"
 LRA_SHEET_NAME = "LRA"
-LABEL_COL = 2   # B
-VALUE_COL = 3   # C
+LABEL_COL = 3   # C
+VALUE_COL = 5   # E
+LABEL_VALUE_START_ROW = 11
 
 KUSTODIAN_SHEET_NAME = "LPWAKD"
-KUSTODIAN_DATA_START_ROW = 10
-KUSTODIAN_HEADER_SCAN_ROWS = 9  # scan rows 1..9 looking for header labels
-# Fallback columns (0-indexed offsets from spec, "B or C" style ambiguity
-# resolved by preferring the first-listed option when header detection fails)
+KUSTODIAN_DATA_START_ROW = 13
+KUSTODIAN_HEADER_SCAN_ROWS = 14  # scan rows 1..14 looking for header labels (real header is row 11)
+# Fallback columns, verified against the real template (row 11 header,
+# cols E-J). Used only if dynamic header detection can't confirm a match.
 KUSTODIAN_FALLBACK_COLS = {
-    "alamat": 2,          # B
-    "provider": 3,        # C
-    "network": 4,         # D
-    "nama_pedagang": 5,   # E
-    "nilai_akd_idr": 6,   # F
-    "keterangan": 7,      # G
+    "alamat": 5,          # E
+    "provider": 6,        # F
+    "network": 7,         # G
+    "nama_pedagang": 8,   # H
+    "nilai_akd_idr": 9,   # I
+    "keterangan": 10,     # J
 }
 KUSTODIAN_HEADER_KEYWORDS = {
     "alamat": ["alamat wallet", "alamat"],
@@ -103,7 +109,7 @@ def _parse_sheet2(ws, errors):
         breakdown.append({
             "kode_akd": str(kode_akd).strip(),
             "nama_akd": str(_cell(ws, row, COL_NAMA_AKD) or "").strip(),
-            "jumlah_akd_unit": _safe_float(_cell(ws, row, COL_JUMLAH_AKD_UNIT)),
+            "posisi_akhir_unit": _safe_float(_cell(ws, row, COL_JUMLAH_AKD_UNIT)),
             "konsumen_unit": _safe_float(_cell(ws, row, COL_KONSUMEN_UNIT)),
             "pedagang_unit": _safe_float(_cell(ws, row, COL_PEDAGANG_UNIT)),
             "konsumen_di_pedagang_unit": _safe_float(_cell(ws, row, COL_KONSUMEN_DI_PEDAGANG)),
@@ -117,14 +123,14 @@ def _parse_sheet2(ws, errors):
 
 
 def _scan_label_value(ws, label_map):
-    """Scan column B for label substrings (case-insensitive), read value from column C.
+    """Scan the label column for substrings (case-insensitive), read value from the value column.
 
     label_map: dict of {result_key: (must_contain[], must_not_contain[])}
     Returns dict of {result_key: float value}, defaulting to 0.0 when not found.
     """
     result = {key: 0.0 for key in label_map}
     max_row = ws.max_row or 0
-    for row in range(1, max_row + 1):
+    for row in range(LABEL_VALUE_START_ROW, max_row + 1):
         label = _cell(ws, row, LABEL_COL)
         if label is None:
             continue
@@ -159,7 +165,7 @@ def _parse_lra(ws):
 
 
 def parse_pakd_ereporting(filepath: str) -> dict:
-    """Parse PAKD e-reporting XLSX (Sheet 2 + LBNP + LRA).
+    """Parse PAKD e-reporting XLSX (Sheet LSTAKDKP + LBNP + LRA).
 
     Returns {file_hash, aset_breakdown: [...], balance_sheet: {...},
              rekening_administratif: {...}, errors: [...]}
@@ -272,7 +278,7 @@ def parse_kustodian_wallet_report(filepath: str) -> dict:
         cols = KUSTODIAN_FALLBACK_COLS
         errors.append(
             f"Sheet '{KUSTODIAN_SHEET_NAME}': header kolom tidak terdeteksi, "
-            "menggunakan posisi kolom default (B-G)"
+            "menggunakan posisi kolom default (E-J)"
         )
 
     row = KUSTODIAN_DATA_START_ROW
