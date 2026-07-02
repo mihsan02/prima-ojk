@@ -700,7 +700,6 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
         })
 
     reported = _get_reported_values(pakd_id, conn=conn)
-    print(f"[EREPORTING_DEBUG] pakd={pakd_id} reported={reported}", flush=True)
     customer_at_pakd = reported.get("customer_at_pakd_idr", 0)
     customer_at_ptp = reported.get("customer_at_ptp_idr", 0)
     total_customer = customer_at_pakd + customer_at_ptp
