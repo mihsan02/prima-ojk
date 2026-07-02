@@ -1499,8 +1499,8 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     sol_wallets = [w for w in wallets if w.get("network") == "solana"]
     other_wallets = [w for w in wallets if w.get("network") not in ("ethereum", "bitcoin", "solana")]
 
-    def _proc_eth(eth_w):
-        _entries = []
+    def _proc_eth(eth_w, shared_entries):
+        _entries = shared_entries  # append-per-wallet so caller can harvest partial results on timeout
         _eth_total = _eth_native = _eth_usdt = _eth_usdc = _eth_other = 0.0
         _eth_unvalued_count = 0
         _eth_unvalued_contracts = []
@@ -1582,8 +1582,8 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 "eth_unvalued_count": _eth_unvalued_count, "eth_unvalued_contracts": _eth_unvalued_contracts,
                 "t": _t}
 
-    def _proc_btc(btc_w):
-        _entries = []
+    def _proc_btc(btc_w, shared_entries):
+        _entries = shared_entries  # append-per-wallet so caller can harvest partial results on timeout
         _btc_total = 0.0
         _t = 0.0
         for wallet in btc_w:
@@ -1612,8 +1612,8 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             _entries.append(entry)
         return {"entries": _entries, "btc_total": _btc_total, "t": _t}
 
-    def _proc_sol(sol_w):
-        _entries = []
+    def _proc_sol(sol_w, shared_entries):
+        _entries = shared_entries  # append-per-wallet so caller can harvest partial results on timeout
         _sol_total = _sol_native = _sol_usdt = _sol_usdc = _sol_other = 0.0
         _sol_unvalued_count = 0
         _sol_unvalued_mints = []
@@ -1705,31 +1705,73 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 "sol_unvalued_count": _sol_unvalued_count, "sol_unvalued_mints": _sol_unvalued_mints,
                 "t": _t}
 
+    def _harvest_partial(shared_entries, chain_wallets, network, native_unit, label, timeout):
+        """On chain timeout/error, keep entries already appended by the worker thread
+        and add explicit error entries for wallets not yet processed."""
+        harvested = list(shared_entries)  # snapshot: worker thread may still append
+        processed_addrs = {e["address"] for e in harvested}
+        for wallet in chain_wallets:
+            addr = wallet.get("address", "")
+            if addr in processed_addrs:
+                continue
+            harvested.append({
+                "network": network, "address": addr,
+                "balance_native": 0.0, "native_unit": native_unit, "balance_idr": None,
+                "eth_native_idr": None, "usdt_balance": None, "usdt_idr": None,
+                "usdc_balance": None, "usdc_idr": None,
+                "sol_native_idr": None, "sol_usdt_balance": None, "sol_usdt_idr": None,
+                "sol_usdc_balance": None, "sol_usdc_idr": None,
+                "sol_other_token_idr": None, "sol_unvalued_count": None, "sol_unvalued_mints": None,
+                "eth_other_token_idr": None, "eth_unvalued_count": None, "eth_unvalued_contracts": None,
+                "verified": wallet.get("verified", False),
+                "error": f"Chain fetch timeout after {timeout}s",
+            })
+        print(f"[CHAIN_FETCH] {label} timeout: {len(processed_addrs)}/{len(chain_wallets)} wallets preserved", flush=True)
+        return harvested
+
     from concurrent.futures import ThreadPoolExecutor as _ChainTPE
     _ex = _ChainTPE(max_workers=3)
-    _f_eth = _ex.submit(_proc_eth, eth_wallets)
-    _f_btc = _ex.submit(_proc_btc, btc_wallets)
-    _f_sol = _ex.submit(_proc_sol, sol_wallets)
+    _eth_entries, _btc_entries, _sol_entries = [], [], []
+    _f_eth = _ex.submit(_proc_eth, eth_wallets, _eth_entries)
+    _f_btc = _ex.submit(_proc_btc, btc_wallets, _btc_entries)
+    _f_sol = _ex.submit(_proc_sol, sol_wallets, _sol_entries)
     from concurrent.futures import TimeoutError as FuturesTimeout
     try:
             _r_eth = _f_eth.result(timeout=25)
     except (FuturesTimeout, Exception) as e:
             print(f"[CHAIN_FETCH] ETH timeout/error: {e}", flush=True)
-            _r_eth = {"entries": [], "eth_total": 0, "eth_native": 0,
-                      "eth_usdt": 0, "eth_usdc": 0, "eth_other": 0,
-                      "eth_unvalued_count": 0, "eth_unvalued_contracts": [], "t": 0}
+            _partial = _harvest_partial(_eth_entries, eth_wallets, "ethereum", "ETH", "ETH", 25)
+            _r_eth = {"entries": _partial,
+                      "eth_total": sum(en["balance_idr"] or 0 for en in _partial),
+                      "eth_native": sum(en["eth_native_idr"] or 0 for en in _partial),
+                      "eth_usdt": sum(en["usdt_idr"] or 0 for en in _partial),
+                      "eth_usdc": sum(en["usdc_idr"] or 0 for en in _partial),
+                      "eth_other": sum(en["eth_other_token_idr"] or 0 for en in _partial),
+                      "eth_unvalued_count": sum(en["eth_unvalued_count"] or 0 for en in _partial),
+                      "eth_unvalued_contracts": [c for en in _partial for c in (en["eth_unvalued_contracts"] or [])],
+                      "t": 0}
     try:
             _r_btc = _f_btc.result(timeout=15)
     except (FuturesTimeout, Exception) as e:
             print(f"[CHAIN_FETCH] BTC timeout/error: {e}", flush=True)
-            _r_btc = {"entries": [], "btc_total": 0, "t": 0}
+            _partial = _harvest_partial(_btc_entries, btc_wallets, "bitcoin", "BTC", "BTC", 15)
+            _r_btc = {"entries": _partial,
+                      "btc_total": sum(en["balance_idr"] or 0 for en in _partial),
+                      "t": 0}
     try:
             _r_sol = _f_sol.result(timeout=25)
     except (FuturesTimeout, Exception) as e:
             print(f"[CHAIN_FETCH] SOL timeout/error: {e}", flush=True)
-            _r_sol = {"entries": [], "sol_total": 0, "sol_native": 0,
-                      "sol_usdt": 0, "sol_usdc": 0, "sol_other": 0,
-                      "sol_unvalued_count": 0, "sol_unvalued_mints": [], "t": 0}
+            _partial = _harvest_partial(_sol_entries, sol_wallets, "solana", "SOL", "SOL", 25)
+            _r_sol = {"entries": _partial,
+                      "sol_total": sum(en["balance_idr"] or 0 for en in _partial),
+                      "sol_native": sum(en["sol_native_idr"] or 0 for en in _partial),
+                      "sol_usdt": sum(en["sol_usdt_idr"] or 0 for en in _partial),
+                      "sol_usdc": sum(en["sol_usdc_idr"] or 0 for en in _partial),
+                      "sol_other": sum(en["sol_other_token_idr"] or 0 for en in _partial),
+                      "sol_unvalued_count": sum(en["sol_unvalued_count"] or 0 for en in _partial),
+                      "sol_unvalued_mints": [m for en in _partial for m in (en["sol_unvalued_mints"] or [])],
+                      "t": 0}
 
     # --- Merge results ---
     other_entries = []
@@ -1763,7 +1805,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     sol_other_token_sum          = _r_sol["sol_other"]
     sol_unvalued_count_total     = _r_sol["sol_unvalued_count"]
     sol_unvalued_mints_global    = _r_sol["sol_unvalued_mints"]
-    total_idr          = sum(e["balance_idr"] for e in breakdown)
+    total_idr          = sum(e["balance_idr"] or 0 for e in breakdown)
     _t_eth = _r_eth["t"]
     _t_btc = _r_btc["t"]
     _t_sol = _r_sol["t"]
