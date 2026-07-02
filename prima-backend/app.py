@@ -4,6 +4,7 @@ import requests
 import os
 import json
 import tempfile
+import uuid
 from datetime import datetime
 import re
 import time
@@ -17,6 +18,8 @@ from eth_account.messages import encode_defunct
 import base58
 import nacl.signing
 import nacl.exceptions
+
+from ereporting_parser import parse_pakd_ereporting, parse_kustodian_wallet_report
 
 app = Flask(__name__)
 
@@ -34,6 +37,13 @@ def _error_response(message, detail=None, status_code=400):
     if detail is not None:
         body["detail"] = str(detail)
     return jsonify(body), status_code
+
+def _safe_uuid(val):
+    """Return val if it's a valid UUID string, else None (for UUID columns)."""
+    try:
+        return str(uuid.UUID(str(val)))
+    except (ValueError, AttributeError, TypeError):
+        return None
 ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'https://prima-ojk.onrender.com').split(',')
 CORS(app, origins=ALLOWED_ORIGINS)
 
@@ -621,8 +631,39 @@ def _get_kustodian_data_for_pakd(pakd_id, conn=None):
         return [], []
 
 
-def _get_reported_values(pakd_id):
-    """Get reported values for a PAKD. Uses REPORTED_VALUES_DEFAULT for demo."""
+def _get_reported_values(pakd_id, conn=None):
+    """Get reported values for a PAKD from confirmed e-reporting data.
+    Falls back to REPORTED_VALUES_DEFAULT when no confirmed report exists.
+    """
+    own_conn = conn is None
+    if own_conn:
+        conn = _get_db_conn()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT customer_at_pakd_idr, customer_at_ptp_idr, proprietary_idr
+                FROM laporan_ereporting
+                WHERE entity_id = %s AND report_type = 'pakd' AND status = 'confirmed'
+                ORDER BY periode DESC
+                LIMIT 1
+            """, (pakd_id,))
+            row = cur.fetchone()
+            cur.close()
+            if row:
+                return {
+                    'customer_at_pakd_idr': float(row[0] or 0),
+                    'customer_at_ptp_idr': float(row[1] or 0),
+                    'proprietary_idr': float(row[2] or 0),
+                }
+        except Exception as e:
+            print(f"[EREPORTING] _get_reported_values query failed: {e}", flush=True)
+        finally:
+            if own_conn:
+                _return_db_conn(conn)
+    # FALLBACK: used when no confirmed e-reporting exists for a PAKD.
+    # Sprint 3 goal: all entities should have e-reporting data.
+    # This dict will be removed in Sprint 4 after demo data is calibrated.
     return REPORTED_VALUES_DEFAULT.get(pakd_id, {})
 
 
@@ -658,7 +699,7 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
             "wallet_count": len(kust_wallets),
         })
 
-    reported = _get_reported_values(pakd_id)
+    reported = _get_reported_values(pakd_id, conn=conn)
     customer_at_pakd = reported.get("customer_at_pakd_idr", 0)
     customer_at_ptp = reported.get("customer_at_ptp_idr", 0)
     total_customer = customer_at_pakd + customer_at_ptp
@@ -2336,6 +2377,160 @@ def api_delete_kustodian(kust_id):
         return _error_response(str(e), status_code=500)
 
 
+@app.route("/api/upload-ereporting", methods=["POST"])
+@require_super_admin_or_token
+def api_upload_ereporting():
+    if 'file' not in request.files:
+        return _error_response("File wajib disertakan")
+    f = request.files['file']
+    if not f.filename or not f.filename.lower().endswith('.xlsx'):
+        return _error_response("Hanya file .xlsx yang diterima")
+
+    report_type = request.form.get('type', '')
+    entity_id = request.form.get('entity_id', '')
+    periode = request.form.get('periode', '')
+
+    if report_type not in ('pakd', 'kustodian'):
+        return _error_response(f"Tipe laporan tidak valid: {report_type}")
+    if not entity_id or not periode:
+        return _error_response("entity_id dan periode wajib diisi")
+
+    conn = _get_db_conn()
+    if not conn:
+        return _error_response("DB unavailable", status_code=503)
+    try:
+        cur = conn.cursor()
+        table = "pakd" if report_type == "pakd" else "kustodian"
+        cur.execute(f"SELECT id FROM {table} WHERE id = %s", (entity_id,))
+        if not cur.fetchone():
+            return _error_response(f"Entity {entity_id} tidak ditemukan", status_code=404)
+    finally:
+        cur.close()
+        _return_db_conn(conn)
+
+    tmp = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False)
+    tmp_path = tmp.name
+    try:
+        f.save(tmp_path)
+        tmp.close()
+        if report_type == 'pakd':
+            parsed = parse_pakd_ereporting(tmp_path)
+        else:
+            parsed = parse_kustodian_wallet_report(tmp_path)
+        parsed['entity_id'] = entity_id
+        parsed['periode'] = periode
+        parsed['report_type'] = report_type
+        return jsonify({'status': 'preview', 'data': parsed})
+    except Exception as e:
+        return _error_response("Gagal parse file", detail=e, status_code=500)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+
+@app.route("/api/confirm-ereporting", methods=["POST"])
+@require_super_admin_or_token
+def api_confirm_ereporting():
+    data = request.get_json(force=True, silent=True)
+    if not data:
+        return _error_response("Request body kosong")
+
+    entity_id = data.get('entity_id', '')
+    periode = data.get('periode', '')
+    report_type = data.get('report_type', '')
+    if not all([entity_id, periode, report_type]):
+        return _error_response("entity_id, periode, dan report_type wajib diisi")
+    if report_type not in ('pakd', 'kustodian'):
+        return _error_response(f"Tipe laporan tidak valid: {report_type}")
+
+    uploaded_by = _safe_uuid(g.current_user.get('id'))
+
+    conn = _get_db_conn()
+    if not conn:
+        return _error_response("DB unavailable", status_code=503)
+    try:
+        cur = conn.cursor()
+        if report_type == 'pakd':
+            breakdown = data.get('aset_breakdown', [])
+            customer_at_pakd = sum(
+                float(r.get('konsumen_di_pedagang_unit', 0) or 0) * float(r.get('harga_per_unit_idr', 0) or 0)
+                for r in breakdown
+            )
+            customer_at_ptp = sum(
+                float(r.get('konsumen_di_ptp_unit', 0) or 0) * float(r.get('harga_per_unit_idr', 0) or 0)
+                for r in breakdown
+            )
+            proprietary = sum(
+                float(r.get('pedagang_unit', 0) or 0) * float(r.get('harga_per_unit_idr', 0) or 0)
+                for r in breakdown
+            )
+            ekuitas = float(data.get('balance_sheet', {}).get('ekuitas_idr', 0) or 0)
+            cur.execute("""
+                INSERT INTO laporan_ereporting
+                    (entity_type, entity_id, periode, report_type, file_hash,
+                     aset_breakdown, balance_sheet, rekening_administratif,
+                     customer_at_pakd_idr, customer_at_ptp_idr, proprietary_idr, ekuitas_idr,
+                     uploaded_by, status, confirmed_at)
+                VALUES ('PAKD', %s, %s, %s, %s,
+                        %s::jsonb, %s::jsonb, %s::jsonb,
+                        %s, %s, %s, %s,
+                        %s, 'confirmed', NOW())
+                ON CONFLICT (entity_id, periode, report_type)
+                DO UPDATE SET
+                    file_hash = EXCLUDED.file_hash,
+                    aset_breakdown = EXCLUDED.aset_breakdown,
+                    balance_sheet = EXCLUDED.balance_sheet,
+                    rekening_administratif = EXCLUDED.rekening_administratif,
+                    customer_at_pakd_idr = EXCLUDED.customer_at_pakd_idr,
+                    customer_at_ptp_idr = EXCLUDED.customer_at_ptp_idr,
+                    proprietary_idr = EXCLUDED.proprietary_idr,
+                    ekuitas_idr = EXCLUDED.ekuitas_idr,
+                    uploaded_by = EXCLUDED.uploaded_by,
+                    status = 'confirmed',
+                    confirmed_at = NOW()
+            """, (
+                entity_id, periode, report_type, data.get('file_hash'),
+                json.dumps(breakdown),
+                json.dumps(data.get('balance_sheet', {})),
+                json.dumps(data.get('rekening_administratif', {})),
+                customer_at_pakd, customer_at_ptp, proprietary, ekuitas,
+                uploaded_by,
+            ))
+        else:
+            cur.execute("""
+                INSERT INTO laporan_ereporting
+                    (entity_type, entity_id, periode, report_type, file_hash,
+                     wallet_report, uploaded_by, status, confirmed_at)
+                VALUES ('KUSTODIAN', %s, %s, %s, %s,
+                        %s::jsonb, %s, 'confirmed', NOW())
+                ON CONFLICT (entity_id, periode, report_type)
+                DO UPDATE SET
+                    file_hash = EXCLUDED.file_hash,
+                    wallet_report = EXCLUDED.wallet_report,
+                    uploaded_by = EXCLUDED.uploaded_by,
+                    status = 'confirmed',
+                    confirmed_at = NOW()
+            """, (
+                entity_id, periode, report_type, data.get('file_hash'),
+                json.dumps(data.get('wallets', [])),
+                uploaded_by,
+            ))
+        conn.commit()
+        cur.close()
+        _return_db_conn(conn)
+        write_audit("CONFIRM_EREPORTING", f"{report_type} entity={entity_id} periode={periode}")
+        return jsonify({'status': 'confirmed', 'entity_id': entity_id, 'periode': periode})
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        _return_db_conn(conn)
+        return _error_response("Gagal menyimpan", detail=e, status_code=500)
+
+
 @app.route("/api/reconciliation")
 @require_auth
 def reconciliation():
@@ -3073,7 +3268,7 @@ def wallet_challenge():
     if not address:
         return _error_response("Field address wajib diisi")
 
-    SUPPORTED_PROOF_NETWORKS = {"ethereum", "solana"}
+    SUPPORTED_PROOF_NETWORKS = {"ethereum", "solana", "bitcoin"}
     if network not in SUPPORTED_PROOF_NETWORKS:
         return jsonify({
             "status":  "error",
@@ -3103,7 +3298,7 @@ def wallet_challenge():
             "(EIP-191 personal_sign / MetaMask eth_sign), "
             "lalu kirim ke POST /api/wallet-verify."
         )
-    else:  # solana
+    elif network == "solana":
         challenge = (
             "PRIMA OJK — Bukti Kepemilikan Wallet Solana\n"
             f"Address  : {address}\n"
@@ -3117,6 +3312,27 @@ def wallet_challenge():
             "Tandatangani field challenge sebagai UTF-8 bytes menggunakan Ed25519 private key "
             "(Phantom signMessage / Solana wallet adapter signMessage). "
             "Kirim signature sebagai hex (128 karakter) ke POST /api/wallet-verify."
+        )
+    else:  # bitcoin
+        if not address.startswith("1"):
+            return jsonify({
+                "status":  "error",
+                "message": "Wallet challenge Bitcoin saat ini hanya didukung untuk alamat "
+                           "legacy P2PKH (diawali '1'). P2WPKH/P2SH/P2TR belum didukung (roadmap Phase 2).",
+            }), 400
+        challenge = (
+            "PRIMA OJK — Bukti Kepemilikan Wallet Bitcoin\n"
+            f"Address  : {address}\n"
+            f"Network  : {network}\n"
+            f"Nonce    : {nonce}\n"
+            f"Timestamp: {timestamp}\n"
+            "Pesan ini digunakan untuk membuktikan kepemilikan wallet kepada OJK PRIMA.\n"
+            "Tanda tangan ini tidak mengotorisasi transaksi apapun."
+        )
+        instruction = (
+            "Tandatangani field challenge menggunakan format Bitcoin Signed Message "
+            "(mis. Electrum: Tools > Sign/Verify Message, atau bitcoin-cli signmessage). "
+            "Kirim signature base64 yang dihasilkan ke POST /api/wallet-verify."
         )
 
     CHALLENGE_STORE[address.lower()] = {
@@ -3220,6 +3436,18 @@ def wallet_verify():
         except Exception as exc:
             return jsonify({"status": "error", "message": f"Verifikasi Ed25519 gagal: {exc}"}), 400
 
+        signer_display = address
+
+    elif network == "bitcoin":
+        from btc_verify import verify_bitcoin_signature
+        verified_btc, err = verify_bitcoin_signature(address, challenge, signature)
+        if not verified_btc:
+            write_audit("WALLET VERIFY GAGAL", f"Claimed Bitcoin: {address} — {err}")
+            return jsonify({
+                "verified": False,
+                "address":  address,
+                "message":  err,
+            }), 400
         signer_display = address
 
     else:
