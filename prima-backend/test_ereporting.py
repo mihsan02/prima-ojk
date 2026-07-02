@@ -62,27 +62,56 @@ def _make_mock_conn(query_results=None):
     return mock_conn
 
 
-def _create_pakd_xlsx(aset_data=None, balance_sheet=None, lra_data=None, include_sheets=('2', 'LBNP', 'LRA')):
+def _create_pakd_xlsx(aset_data=None, balance_sheet=None, lra_data=None,
+                       include_sheets=('LSTAKDKP', 'LBNP', 'LRA')):
+    """Build a PAKD XLSX fixture at coordinates verified cell-by-cell against
+    the real POJK 27/2024 template (LSTAKDKP row 14/15 header, row 16 data,
+    cols E/F/V/W/X/Y/Z/AA; LBNP/LRA label col C, value col E, from row 11).
+
+    aset_data: list of (kode, nama, unit, konsumen, pedagang, di_pedagang, di_ptp, harga)
+               tuples; any field may be None to leave that cell blank.
+    """
     wb = openpyxl.Workbook()
-    if '2' in include_sheets:
-        ws2 = wb.create_sheet('2')
+    if 'LSTAKDKP' in include_sheets:
+        ws = wb.create_sheet('LSTAKDKP')
+        ws['D14'] = 'Nomor Baris'
+        ws['E14'] = 'Kode Aset Keuangan Digital'
+        ws['F14'] = 'Nama Aset Keuangan Digital'
+        ws['V14'] = 'Posisi Akhir Bulan'
         if aset_data:
-            for i, row_data in enumerate(aset_data):
-                for j, val in enumerate(row_data):
-                    if val is not None:
-                        ws2.cell(row=10 + i, column=j + 1, value=val)
+            for i, (kode, nama, unit, konsumen, pedagang, di_pedagang, di_ptp, harga) in enumerate(aset_data):
+                r = 16 + i
+                ws[f'D{r}'] = i + 1
+                if kode is not None:
+                    ws[f'E{r}'] = kode
+                if nama is not None:
+                    ws[f'F{r}'] = nama
+                if unit is not None:
+                    ws[f'V{r}'] = unit
+                if konsumen is not None:
+                    ws[f'W{r}'] = konsumen
+                if pedagang is not None:
+                    ws[f'X{r}'] = pedagang
+                if di_pedagang is not None:
+                    ws[f'Y{r}'] = di_pedagang
+                if di_ptp is not None:
+                    ws[f'Z{r}'] = di_ptp
+                if harga is not None:
+                    ws[f'AA{r}'] = harga
     if 'LBNP' in include_sheets:
         ws_lbnp = wb.create_sheet('LBNP')
         if balance_sheet:
             for i, (label, value) in enumerate(balance_sheet):
-                ws_lbnp.cell(row=i + 1, column=2, value=label)
-                ws_lbnp.cell(row=i + 1, column=3, value=value)
+                r = 11 + i
+                ws_lbnp[f'C{r}'] = label
+                ws_lbnp[f'E{r}'] = value
     if 'LRA' in include_sheets:
         ws_lra = wb.create_sheet('LRA')
         if lra_data:
             for i, (label, value) in enumerate(lra_data):
-                ws_lra.cell(row=i + 1, column=2, value=label)
-                ws_lra.cell(row=i + 1, column=3, value=value)
+                r = 11 + i
+                ws_lra[f'C{r}'] = label
+                ws_lra[f'E{r}'] = value
     if 'Sheet' in wb.sheetnames and len(wb.sheetnames) > 1:
         del wb['Sheet']
     tmp = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False)
@@ -92,17 +121,32 @@ def _create_pakd_xlsx(aset_data=None, balance_sheet=None, lra_data=None, include
 
 
 def _create_kustodian_xlsx(wallet_rows=None, with_header=True, include_sheet=True):
+    """Build a Kustodian LPWAKD XLSX fixture at coordinates verified
+    cell-by-cell against the real template (header row 11, data row 13,
+    cols E-J).
+
+    wallet_rows: list of (addr, provider, net, pedagang, nilai, ket) tuples.
+    """
     wb = openpyxl.Workbook()
     if include_sheet:
         ws = wb.create_sheet('LPWAKD')
         if with_header:
-            headers = ['No', 'Alamat Wallet', 'Nama Provider', 'Network', 'Nama Pedagang', 'Nilai AKD (Rp)', 'Keterangan']
-            for j, h in enumerate(headers):
-                ws.cell(row=8, column=j + 1, value=h)
+            ws['E11'] = 'Alamat Wallet yang Digunakan'
+            ws['F11'] = 'Nama Provider'
+            ws['G11'] = 'Network'
+            ws['H11'] = 'Nama Pedagang'
+            ws['I11'] = 'Nilai Aset Keuangan Digital (Rp)'
+            ws['J11'] = 'Keterangan'
         if wallet_rows:
-            for i, row in enumerate(wallet_rows):
-                for j, val in enumerate(row):
-                    ws.cell(row=10 + i, column=2 + j, value=val)
+            for i, (addr, provider, net, pedagang, nilai, ket) in enumerate(wallet_rows):
+                r = 13 + i
+                ws[f'C{r}'] = i + 1
+                ws[f'E{r}'] = addr
+                ws[f'F{r}'] = provider
+                ws[f'G{r}'] = net
+                ws[f'H{r}'] = pedagang
+                ws[f'I{r}'] = nilai
+                ws[f'J{r}'] = ket
     if 'Sheet' in wb.sheetnames and len(wb.sheetnames) > 1:
         del wb['Sheet']
     tmp = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False)
@@ -113,9 +157,9 @@ def _create_kustodian_xlsx(wallet_rows=None, with_header=True, include_sheet=Tru
 
 # --- One canonical PAKD fixture reused across several assertions ---
 _ASET_DATA = [
-    [None, 'AKD001', 'Token Alpha'] + [None] * 13 + [1000, 700, 300, 200, 100, 50000],
-    [None, 'AKD002', 'Token Beta'] + [None] * 13 + [500, 400, 100, 50, 50, 20000],
-    [None, None, None],
+    ('AKD001', 'Token Alpha', 1000, 700, 300, 200, 100, 50000),
+    ('AKD002', 'Token Beta', 500, 400, 100, 50, 50, 20000),
+    (None, None, None, None, None, None, None, None),
 ]
 _LBNP_DATA = [
     ('Persediaan Aset Keuangan Digital', 1_000_000),
@@ -170,7 +214,7 @@ class TestPakdParser:
         assert result['balance_sheet'] == {}
         assert result['rekening_administratif'] == {}
         assert len(result['errors']) == 3
-        assert any("'2'" in e for e in result['errors'])
+        assert any('LSTAKDKP' in e for e in result['errors'])
         assert any('LBNP' in e for e in result['errors'])
         assert any('LRA' in e for e in result['errors'])
 
@@ -180,6 +224,19 @@ class TestPakdParser:
         result = parse_pakd_ereporting(path)
         assert len(result['aset_breakdown']) == 2
         assert all(row['kode_akd'] for row in result['aset_breakdown'])
+
+    def test_parse_pakd_matches_real_template_layout(self):
+        """Regression guard: verified against real POJK 27/2024 PAKD template
+        coordinates (LSTAKDKP, header row 14/15, data row 16, cols E-AA).
+        Fails loudly if the column offsets are ever silently reintroduced wrong."""
+        path = _create_pakd_xlsx(aset_data=[
+            ('BTC', 'Bitcoin', 10, 7, 3, 2, 1, 950_000_000),
+        ])
+        result = parse_pakd_ereporting(path)
+        assert result['errors'] == []
+        assert len(result['aset_breakdown']) == 1
+        assert result['aset_breakdown'][0]['kode_akd'] == 'BTC'
+        assert result['aset_breakdown'][0]['harga_per_unit_idr'] == 950_000_000
 
     def test_parse_pakd_corrupt_file_returns_error(self):
         tmp = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False)
