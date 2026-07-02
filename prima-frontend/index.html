@@ -1096,6 +1096,7 @@ function showPage(id, el) {
   if (id === 'detail') populateDetailSelect();
   if (id === 'kustodian') loadKustodian();
   if (id === 'ereporting') loadEreportingEntities();
+  if (typeof clearVpChallenge === 'function' && document.getElementById('vp-challenge-box')) clearVpChallenge();
 }
 
 function formatIDR(n) {
@@ -1562,6 +1563,7 @@ function renderWalletsCell(d) {
 }
 
 let modalState = { address: null, network: null, pakdId: null, challenge: null };
+let modalOpenSeq = 0; // guards against stale in-flight challenge responses after close/reopen
 
 function onModalBackdrop(ev) {
   if (ev.target && ev.target.id === 'verify-modal') closeVerifyModal();
@@ -1584,6 +1586,7 @@ function setModalSubmitState(disabled, label) {
 }
 
 async function openVerifyModal(address, network, pakdId) {
+  const mySeq = ++modalOpenSeq;
   modalState = { address, network, pakdId, challenge: null };
   const modal = document.getElementById('verify-modal');
   document.getElementById('verify-modal-sub').textContent = `${(CHAIN_LABEL[network] || network)} · ${address}`;
@@ -1608,6 +1611,7 @@ async function openVerifyModal(address, network, pakdId) {
       body: JSON.stringify({ address, network })
     });
     const json = await res.json();
+    if (mySeq !== modalOpenSeq) return; // modal was closed/reopened; discard stale challenge
     if (!res.ok) {
       document.getElementById('verify-modal-challenge').value = '';
       modalShowError(json.message || 'Gagal mengambil challenge.');
@@ -1621,14 +1625,21 @@ async function openVerifyModal(address, network, pakdId) {
     setModalSubmitState(false, 'Verifikasi');
     setTimeout(() => document.getElementById('verify-modal-signature').focus(), 50);
   } catch (err) {
+    if (mySeq !== modalOpenSeq) return;
     document.getElementById('verify-modal-challenge').value = '';
     modalShowError('Gagal menghubungi server: ' + err.message);
   }
 }
 
 function closeVerifyModal() {
+  modalOpenSeq++; // invalidate any in-flight challenge fetch
   document.getElementById('verify-modal').classList.remove('show');
   modalState = { address: null, network: null, pakdId: null, challenge: null };
+  // Clear stale nonce/signature so a reopen never shows an expired challenge
+  document.getElementById('verify-modal-challenge').value = '';
+  document.getElementById('verify-modal-signature').value = '';
+  modalClearError();
+  setModalSubmitState(true, 'Verifikasi');
 }
 
 async function submitVerifyFromModal() {
@@ -1777,22 +1788,39 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+function clearVpChallenge() {
+  // Stale nonces expire server-side after 5 minutes; never leave one displayed
+  document.getElementById('vp-challenge-text').value = '';
+  document.getElementById('vp-challenge-box').style.display = 'none';
+  document.getElementById('vp-verify-box').style.display = 'none';
+}
+// A displayed challenge no longer matches server state once address/network changes
+(function() {
+  const vpAddr = document.getElementById('vp-address');
+  const vpNet  = document.getElementById('vp-network');
+  if (vpAddr) vpAddr.addEventListener('input', clearVpChallenge);
+  if (vpNet)  vpNet.addEventListener('change', clearVpChallenge);
+})();
+
 async function requestChallenge() {
   const network = document.getElementById('vp-network').value;
   const address = document.getElementById('vp-address').value.trim();
   document.getElementById('vp-result').style.display = 'none';
+  clearVpChallenge();
   if (!address) { showVpResult(false, 'Isi wallet address terlebih dahulu.'); return; }
+  document.getElementById('vp-challenge-text').value = 'Mengambil challenge dari server...';
   try {
     const res = await apiFetch('/api/wallet-challenge', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ address, network })
     });
     const json = await res.json();
-    if (!res.ok) { showVpResult(false, json.message); return; }
+    if (!res.ok) { clearVpChallenge(); showVpResult(false, json.message); return; }
     document.getElementById('vp-challenge-text').value = json.challenge;
     document.getElementById('vp-challenge-box').style.display = 'block';
     document.getElementById('vp-verify-box').style.display = 'block';
   } catch (err) {
+    clearVpChallenge();
     showVpResult(false, 'Gagal menghubungi server: ' + err.message);
   }
 }
@@ -2381,6 +2409,10 @@ function renderChips(containerId, items, showPass) {
 const API = 'https://prima-ojk.onrender.com';
 
 // ── Sprint 1: Auth Session Management ──
+// In-memory backup: survives cross-tab localStorage wipes (another tab's idle
+// timer calling AUTH.clear()), so a 401-retry can still refresh mid-request.
+let _memRefreshToken = null;
+
 const AUTH = {
   TOKEN_KEY: 'prima_access_token',
   REFRESH_KEY: 'prima_refresh_token',
@@ -2388,7 +2420,10 @@ const AUTH = {
 
   save(loginResponse) {
     localStorage.setItem(this.TOKEN_KEY, loginResponse.access_token);
-    if (loginResponse.refresh_token) localStorage.setItem(this.REFRESH_KEY, loginResponse.refresh_token);
+    if (loginResponse.refresh_token) {
+      localStorage.setItem(this.REFRESH_KEY, loginResponse.refresh_token);
+      _memRefreshToken = loginResponse.refresh_token;
+    }
     localStorage.setItem(this.USER_KEY, JSON.stringify(loginResponse.user));
   },
 
@@ -2400,6 +2435,7 @@ const AUTH = {
   },
 
   clear() {
+    _memRefreshToken = null;
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.REFRESH_KEY);
     localStorage.removeItem(this.USER_KEY);
@@ -2424,7 +2460,8 @@ const AUTH = {
     return h;
   },
   async refreshToken() {
-    const rt = localStorage.getItem(this.REFRESH_KEY);
+    // Fall back to the in-memory copy when localStorage was wiped externally
+    const rt = localStorage.getItem(this.REFRESH_KEY) || _memRefreshToken;
     if (!rt) return false;
     try {
       const resp = await fetch('/api/auth/refresh', {
@@ -2436,13 +2473,29 @@ const AUTH = {
       const data = await resp.json();
       if (data.access_token) {
         localStorage.setItem(this.TOKEN_KEY, data.access_token);
-        if (data.refresh_token) localStorage.setItem(this.REFRESH_KEY, data.refresh_token);
+        if (data.refresh_token) {
+          localStorage.setItem(this.REFRESH_KEY, data.refresh_token);
+          _memRefreshToken = data.refresh_token;
+        }
         return true;
       }
       return false;
     } catch(e) { return false; }
   }
 };
+
+// Cross-tab awareness: another tab clearing auth fires a StorageEvent here.
+// Try to recover with the in-memory refresh token instead of failing silently.
+window.addEventListener('storage', (e) => {
+  if (e.key === AUTH.TOKEN_KEY && e.newValue === null && _memRefreshToken) {
+    console.log('[AUTH] Cross-tab auth clear detected, attempting recovery');
+    AUTH.refreshToken().then((ok) => {
+      if (!ok) console.log('[AUTH] Cross-tab recovery failed');
+    }).catch(() => {
+      console.log('[AUTH] Cross-tab recovery failed');
+    });
+  }
+});
 
 // --- Idle Timeout (60 menit) ---
 let _lastActivity = Date.now();
@@ -2461,6 +2514,13 @@ setInterval(async () => {
   if (!AUTH.isLoggedIn()) return;
   const idle = Date.now() - _lastActivity;
   if (idle > IDLE_TIMEOUT_MS) {
+    // Try a refresh first: user may be active in another tab with a valid session
+    const stillValid = await AUTH.refreshToken();
+    if (stillValid) {
+      _lastActivity = Date.now();
+      _lastRefreshCheck = Date.now();
+      return;
+    }
     AUTH.clear();
     showLogin();
     alert('Sesi berakhir karena tidak aktif selama 60 menit.');
