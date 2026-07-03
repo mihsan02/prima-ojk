@@ -2115,7 +2115,7 @@ def recalc_snapshot(pakd_id):
         aset_onchain = snap[0]
         breakdown = snap[1]
         harga_fallback = snap[2]
-        # Get updated aset_dilaporkan from pakd table
+        # Get aset_dilaporkan: prefer e-reporting, fallback to pakd table
         cur.execute("SELECT nama, aset_dilaporkan FROM pakd WHERE id = %s", (pakd_id,))
         pakd = cur.fetchone()
         if not pakd:
@@ -2123,7 +2123,18 @@ def recalc_snapshot(pakd_id):
             _return_db_conn(conn)
             return jsonify({"error": "PAKD tidak ditemukan"}), 404
         pakd_nama = pakd[0]
-        aset_dilaporkan = pakd[1] or 0
+        # Try e-reporting first
+        cur.execute("""
+            SELECT customer_at_pakd_idr, customer_at_ptp_idr, proprietary_idr
+            FROM laporan_ereporting
+            WHERE entity_id = %s AND report_type = 'pakd' AND status = 'confirmed'
+            ORDER BY periode DESC LIMIT 1
+        """, (pakd_id,))
+        ereport = cur.fetchone()
+        if ereport:
+            aset_dilaporkan = float(ereport[0] or 0) + float(ereport[1] or 0) + float(ereport[2] or 0)
+        else:
+            aset_dilaporkan = pakd[1] or 0
         # Recalculate deviasi
         if aset_dilaporkan == 0:
             deviasi = 0.0 if aset_onchain == 0 else 9999.9999
