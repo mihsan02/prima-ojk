@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
 <title>PRIMA — Dashboard Monitoring OJK</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -20,6 +20,20 @@
   --r:8px;
   --shadow:0 1px 4px rgba(40,70,110,0.07),0 4px 16px rgba(40,70,110,0.05);
   --shadow-sm:0 1px 3px rgba(40,70,110,0.08);
+  /* Login page palette */
+  --login-bg: #F3EDE3;
+  --login-panel-dark: #1C2B3A;
+  --login-primary: #4A8DB8;
+  --login-primary-deep: #2E6E96;
+  --login-primary-light: #89C4E4;
+  --login-gold: #C4A35A;
+  --login-gold-muted: #D4C49A;
+  --login-text: #1C2B3A;
+  --login-text-muted: #5C6B7A;
+  --login-text-faint: #8A95A2;
+  --login-card-border: #E2DDD4;
+  --login-input-border: #DDD8CE;
+  --login-error: #C0544F;
 }
 body{font-family:'Inter',sans-serif;background:var(--bg0);color:var(--txt1);min-height:100vh;font-size:14px;line-height:1.5}
 .mono{font-family:'JetBrains Mono',monospace}
@@ -210,21 +224,70 @@ tr:hover td{background:var(--bg2)}
 }
 </style>
 <style>
-/* ── Sprint 1: Login Page ── */
-#login-overlay{position:fixed;inset:0;background:#F4F1EA;z-index:9999;display:flex;align-items:center;justify-content:center}
-.login-card{background:#FAFAF7;border:1px solid #D6E4F0;border-radius:16px;padding:40px;width:100%;max-width:400px;box-shadow:0 4px 32px rgba(40,70,110,0.12)}
-.login-logo{display:flex;align-items:center;gap:12px;margin-bottom:28px;justify-content:center}
-.login-title{font-size:20px;font-weight:700;color:#1A2535;letter-spacing:-0.01em}
-.login-title span{color:#3B82C4}
-.login-subtitle{font-size:12px;color:#7A94AE;text-align:center;margin-bottom:28px;font-weight:500;letter-spacing:0.02em}
-.login-field{margin-bottom:16px}
-.login-field label{display:block;font-size:12px;color:#3D5470;font-weight:600;margin-bottom:6px;letter-spacing:0.02em}
-.login-field input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid #D6E4F0;background:#fff;font-size:14px;color:#1A2535;outline:none;box-sizing:border-box;transition:border-color 0.15s}
-.login-field input:focus{border-color:#3B82C4;box-shadow:0 0 0 3px rgba(59,130,196,0.1)}
-.btn-login{width:100%;padding:11px;border-radius:8px;border:none;background:#3B82C4;color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;transition:background 0.15s}
-.btn-login:hover{background:#2d6ca8}
-.btn-login:disabled{background:#A8BDD0;cursor:not-allowed}
-.login-error{display:none;background:#FDECEA;border:1px solid #F0B8B3;color:#C0392B;border-radius:6px;padding:10px 12px;font-size:12px;margin-bottom:12px}
+/* ── Login Page v3: split-screen, dot network, vision quotes ── */
+#login-overlay{position:fixed;inset:0;background:var(--login-bg);z-index:9999;display:none;overflow:hidden}
+.login-left-panel{flex:1;position:relative;background:var(--login-panel-dark);overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:48px}
+.login-left-panel canvas{position:absolute;inset:0;width:100%;height:100%}
+.login-panel-content{position:relative;z-index:2}
+.login-panel-brand{position:absolute;top:36px;left:40px;z-index:2;display:flex;align-items:center;gap:12px}
+.login-panel-brand svg{width:36px;height:28px}
+.login-panel-brand-text{font-size:15px;font-weight:700;letter-spacing:3px;color:var(--login-primary-light)}
+.login-quote-container{position:relative;min-height:220px;margin-bottom:40px}
+.login-quote-block{position:absolute;inset:0;opacity:0;transition:opacity 0.8s ease,transform 0.8s ease;transform:translateY(12px);display:flex;flex-direction:column;justify-content:flex-end}
+.login-quote-block.active{opacity:1;transform:translateY(0)}
+.login-quote-eyebrow{font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--login-gold-muted);margin-bottom:14px}
+.login-quote-text{font-size:24px;font-weight:500;line-height:1.45;color:#FFFFFF;letter-spacing:-0.3px;max-width:520px}
+.login-quote-sub{margin-top:16px;font-size:13px;font-weight:400;color:var(--login-primary-light);line-height:1.5;max-width:460px;opacity:0.85}
+.login-quote-indicators{display:flex;gap:8px;margin-top:28px}
+.login-q-dot{width:32px;height:3px;border-radius:2px;background:rgba(137,196,228,0.2);transition:background 0.4s,width 0.4s;cursor:pointer}
+.login-q-dot.active{background:var(--login-primary-light);width:48px}
+.login-panel-footer{position:relative;z-index:2;font-size:11px;color:rgba(203,213,225,0.6);letter-spacing:0.2px;padding-top:20px;border-top:1px solid rgba(137,196,228,0.1)}
+.login-right-panel{width:440px;min-width:380px;background:var(--login-bg);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:48px 40px;position:relative}
+.login-card{width:100%;max-width:360px}
+.login-logo-area{text-align:center;margin-bottom:36px}
+.login-logo-svg{width:64px;height:50px;margin-bottom:14px}
+.login-brand-name{font-size:24px;font-weight:800;letter-spacing:5px;color:var(--login-primary-deep)}
+.login-brand-subtitle{font-size:11px;color:var(--login-text-muted);line-height:1.6;margin-top:8px}
+.login-authority-badge{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:4px 14px;background:#FFFFFF;border:1px solid var(--login-card-border);border-radius:20px;font-size:10px;font-weight:600;color:var(--login-text-muted);letter-spacing:0.6px;text-transform:uppercase}
+.login-badge-dot{width:6px;height:6px;background:var(--login-gold);border-radius:50%}
+.login-form-group{margin-bottom:18px}
+.login-form-label{display:block;font-size:13px;font-weight:500;color:var(--login-text);margin-bottom:6px}
+.login-form-input{width:100%;padding:11px 14px;font-family:'Inter',sans-serif;font-size:14px;color:var(--login-text);background:#FFFFFF;border:1.5px solid var(--login-input-border);border-radius:8px;outline:none;transition:border-color 0.2s,box-shadow 0.2s}
+.login-form-input::placeholder{color:var(--login-text-faint)}
+.login-form-input:focus{border-color:var(--login-primary);box-shadow:0 0 0 3px rgba(74,141,184,0.1)}
+.login-form-input.error{border-color:var(--login-error)}
+.login-error{display:none;font-size:12px;color:var(--login-error);background:#FDECEA;border:1px solid #F0B8B3;border-radius:6px;padding:10px 12px;margin-bottom:14px}
+.login-password-wrap{position:relative}
+.login-toggle-pw{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--login-text-faint);padding:4px;display:flex;transition:color 0.2s}
+.login-toggle-pw:hover{color:var(--login-text-muted)}
+.login-form-options{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.login-remember-label{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--login-text-muted);cursor:pointer}
+.login-remember-label input{width:15px;height:15px;accent-color:var(--login-primary)}
+.btn-login{width:100%;padding:12px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:#fff;background:var(--login-primary);border:none;border-radius:8px;cursor:pointer;position:relative;transition:background 0.2s,box-shadow 0.2s;box-shadow:0 2px 8px rgba(74,141,184,0.2)}
+.btn-login:hover{background:#3A7BA6;box-shadow:0 4px 14px rgba(74,141,184,0.3)}
+.btn-login:active{transform:translateY(1px)}
+.btn-login:focus-visible{outline:2px solid var(--login-primary-light);outline-offset:2px}
+.btn-login:disabled{opacity:0.7;cursor:not-allowed}
+.login-card-footer{margin-top:24px;padding-top:18px;border-top:1px solid var(--login-card-border);text-align:center}
+.login-security-note{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--login-text-faint)}
+.login-right-footer{position:absolute;bottom:20px;left:0;right:0;text-align:center;font-size:10px;color:var(--login-text-faint)}
+@media (max-width:900px){
+  #login-overlay{overflow-y:auto;flex-direction:column}
+  .login-left-panel{flex:none;min-height:300px;padding:72px 28px 28px}
+  .login-right-panel{width:100%;min-width:unset;flex:1;padding:32px 24px}
+  .login-panel-brand{top:20px;left:24px}
+  .login-quote-text{font-size:18px;max-width:100%}
+  .login-quote-container{min-height:160px;margin-bottom:20px}
+}
+@media (max-width:480px){
+  .login-right-panel{padding:24px 20px}
+  .login-logo-svg{width:52px;height:40px}
+  .login-brand-name{font-size:20px;letter-spacing:3px}
+}
+@media (prefers-reduced-motion:reduce){
+  .login-left-panel canvas{display:none}
+  .login-quote-block{transition:opacity 0.3s;transform:none !important}
+}
 /* User badge in topbar */
 #user-badge{display:flex;align-items:center;gap:8px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;background:#EBF3FC;border:1px solid #C5DCF2;color:#3B82C4}
 #btn-logout{background:none;border:1px solid #D6E4F0;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;color:#7A94AE;transition:all 0.15s}
@@ -235,28 +298,122 @@ tr:hover td{background:var(--bg2)}
 </head>
 <body>
 
-<!-- Login Overlay (Sprint 1) -->
+<!-- Login Overlay (v3: split-screen) -->
 <div id="login-overlay" style="display:none">
-  <div class="login-card">
-    <div class="login-logo">
-      <svg width="54" height="32" viewBox="0 0 108 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="108" height="64" rx="8" fill="#3B82C4"/>
-        <text x="54" y="42" font-family="Inter,sans-serif" font-size="28" font-weight="700" fill="white" text-anchor="middle">PRIMA</text>
+
+  <!-- LEFT: VISION PANEL -->
+  <div class="login-left-panel">
+    <canvas id="loginNetCanvas"></canvas>
+
+    <div class="login-panel-brand">
+      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M30 45C30 28,50 20,60 35C70 20,90 28,90 45C90 62,70 70,60 55C50 70,30 62,30 45Z"
+              stroke="url(#loginLg)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <path d="M48 33C55 45,65 45,72 57" stroke="url(#loginLg)" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.6"/>
+        <path d="M72 33C65 45,55 45,48 57" stroke="url(#loginLg)" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.6"/>
+        <circle cx="30" cy="45" r="4.5" fill="#243444" stroke="#89C4E4" stroke-width="2"/>
+        <circle cx="90" cy="45" r="4.5" fill="#243444" stroke="#89C4E4" stroke-width="2"/>
+        <circle cx="60" cy="25" r="3.5" fill="#243444" stroke="#89C4E4" stroke-width="1.5"/>
+        <circle cx="60" cy="65" r="3.5" fill="#243444" stroke="#89C4E4" stroke-width="1.5"/>
+        <circle cx="44" cy="30" r="3" fill="#243444" stroke="#4A8DB8" stroke-width="1.5"/>
+        <circle cx="76" cy="30" r="3" fill="#243444" stroke="#4A8DB8" stroke-width="1.5"/>
+        <circle cx="44" cy="60" r="3" fill="#243444" stroke="#4A8DB8" stroke-width="1.5"/>
+        <circle cx="76" cy="60" r="3" fill="#243444" stroke="#4A8DB8" stroke-width="1.5"/>
+        <defs>
+          <linearGradient id="loginLg" x1="30" y1="30" x2="90" y2="60" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#89C4E4"/><stop offset="100%" stop-color="#4A8DB8"/>
+          </linearGradient>
+        </defs>
       </svg>
+      <span class="login-panel-brand-text">PRIMA</span>
     </div>
-    <div style="text-align:center;margin-bottom:6px;font-size:18px;font-weight:700;color:#1A2535">Masuk ke <span style="color:#3B82C4">PRIMA</span></div>
-    <div class="login-subtitle">Sistem Pemantauan Transparansi Multichain<br>Aset Keuangan Digital · OJK</div>
-    <div id="login-error" class="login-error"></div>
-    <div class="login-field">
-      <label>Email</label>
-      <input id="login-email" type="email" placeholder="nama@email.com" autocomplete="email">
+
+    <div class="login-panel-content">
+      <div class="login-quote-container" id="loginQuoteContainer"></div>
+      <div class="login-quote-indicators" id="loginQuoteIndicators"></div>
     </div>
-    <div class="login-field">
-      <label>Password</label>
-      <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password">
+
+    <div class="login-panel-footer">
+      Multichain Transparency Monitoring for Indonesia's Digital Asset Ecosystem
     </div>
-    <button class="btn-login" id="btn-login" onclick="doLogin()">Masuk</button>
   </div>
+
+  <!-- RIGHT: LOGIN FORM -->
+  <div class="login-right-panel">
+    <div class="login-card">
+
+      <div class="login-logo-area">
+        <svg class="login-logo-svg" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M30 45C30 28,50 20,60 35C70 20,90 28,90 45C90 62,70 70,60 55C50 70,30 62,30 45Z"
+                stroke="url(#loginLg2)" stroke-width="7" stroke-linecap="round" fill="none"/>
+          <path d="M48 33C55 45,65 45,72 57" stroke="url(#loginLg2)" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.65"/>
+          <path d="M72 33C65 45,55 45,48 57" stroke="url(#loginLg2)" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.65"/>
+          <circle cx="30" cy="45" r="5" fill="#fff" stroke="#4A8DB8" stroke-width="2.5"/>
+          <circle cx="90" cy="45" r="5" fill="#fff" stroke="#4A8DB8" stroke-width="2.5"/>
+          <circle cx="60" cy="25" r="4" fill="#fff" stroke="#89C4E4" stroke-width="2"/>
+          <circle cx="60" cy="65" r="4" fill="#fff" stroke="#89C4E4" stroke-width="2"/>
+          <circle cx="44" cy="30" r="3.5" fill="#fff" stroke="#89C4E4" stroke-width="1.8"/>
+          <circle cx="76" cy="30" r="3.5" fill="#fff" stroke="#89C4E4" stroke-width="1.8"/>
+          <circle cx="44" cy="60" r="3.5" fill="#fff" stroke="#89C4E4" stroke-width="1.8"/>
+          <circle cx="76" cy="60" r="3.5" fill="#fff" stroke="#89C4E4" stroke-width="1.8"/>
+          <defs>
+            <linearGradient id="loginLg2" x1="30" y1="30" x2="90" y2="60" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#89C4E4"/><stop offset="50%" stop-color="#4A8DB8"/><stop offset="100%" stop-color="#89C4E4"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="login-brand-name">PRIMA</div>
+        <div class="login-brand-subtitle">
+          Sistem Pemantauan Transparansi Multichain<br>
+          Aset Keuangan Digital
+        </div>
+        <div class="login-authority-badge">
+          <span class="login-badge-dot"></span>
+          Otoritas Jasa Keuangan
+        </div>
+      </div>
+
+      <div id="login-error" class="login-error"></div>
+
+      <div class="login-form-group">
+        <label class="login-form-label" for="login-email">Email</label>
+        <input class="login-form-input" id="login-email" type="email" placeholder="nama@email.com" autocomplete="email">
+      </div>
+
+      <div class="login-form-group">
+        <label class="login-form-label" for="login-password">Password</label>
+        <div class="login-password-wrap">
+          <input class="login-form-input" id="login-password" type="password" placeholder="Enter password" autocomplete="current-password">
+          <button type="button" class="login-toggle-pw" id="loginTogglePw" aria-label="Show password">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="login-form-options">
+        <label class="login-remember-label">
+          <input type="checkbox" id="login-remember"> Remember me
+        </label>
+      </div>
+
+      <button class="btn-login" id="btn-login" onclick="doLogin()">Masuk</button>
+
+      <div class="login-card-footer">
+        <div class="login-security-note">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          Encrypted connection. Data protected.
+        </div>
+      </div>
+
+    </div>
+
+    <div class="login-right-footer">PRIMA v2.0 &middot; Direktorat Pengawasan PAKD &middot; OJK 2026</div>
+  </div>
+
 </div>
 
 <div class="shell">
@@ -2863,6 +3020,212 @@ function applyRoleUI() {
   }
 }
 
+// ── Login v3: vision quotes rotation ──
+const LOGIN_QUOTES = [
+  {
+    eyebrow: "Our Vision",
+    text: "A robust and transparent digital asset ecosystem for Indonesia.",
+    sub: "Building supervisory infrastructure that protects consumers, strengthens market integrity, and positions Indonesia as a trusted digital economy."
+  },
+  {
+    eyebrow: "Consumer Protection",
+    text: "Every Indonesian investor deserves full visibility into where their assets are held.",
+    sub: "Real-time multichain monitoring ensures that licensed exchanges maintain verifiable reserves, protecting millions of retail participants."
+  },
+  {
+    eyebrow: "National Sovereignty",
+    text: "Indonesia's digital asset market, supervised by Indonesian regulators, on Indonesian terms.",
+    sub: "PRIMA gives OJK direct on-chain oversight capability, reducing reliance on foreign compliance tools and third-party attestations."
+  },
+  {
+    eyebrow: "Responsible Growth",
+    text: "Regulation is not the enemy of innovation. It is the foundation of trust.",
+    sub: "Clear rules and transparent supervision attract legitimate capital, deter bad actors, and accelerate Indonesia's participation in the global crypto economy."
+  },
+  {
+    eyebrow: "Accountability",
+    text: "If it can be verified on-chain, it should be verified on-chain.",
+    sub: "Cryptographic proof of reserves, wallet ownership, and asset placement compliance, all reconciled against licensed entity reports in a single system."
+  }
+];
+
+let loginQuoteIntervalId = null;
+let loginCurrentQ = 0;
+
+function loginGoToQuote(idx) {
+  const container = document.getElementById('loginQuoteContainer');
+  const indicators = document.getElementById('loginQuoteIndicators');
+  const blocks = container.querySelectorAll('.login-quote-block');
+  const dots = indicators.querySelectorAll('.login-q-dot');
+  if (!blocks.length) return;
+  blocks[loginCurrentQ].classList.remove('active');
+  dots[loginCurrentQ].classList.remove('active');
+  loginCurrentQ = idx;
+  blocks[loginCurrentQ].classList.add('active');
+  dots[loginCurrentQ].classList.add('active');
+}
+
+function startQuoteRotation() {
+  const container = document.getElementById('loginQuoteContainer');
+  const indicators = document.getElementById('loginQuoteIndicators');
+  if (!container || !indicators) return;
+  stopQuoteRotation();
+  container.innerHTML = '';
+  indicators.innerHTML = '';
+  loginCurrentQ = 0;
+  LOGIN_QUOTES.forEach((q, i) => {
+    const block = document.createElement('div');
+    block.className = 'login-quote-block' + (i === 0 ? ' active' : '');
+    const eyebrow = document.createElement('div');
+    eyebrow.className = 'login-quote-eyebrow';
+    eyebrow.textContent = q.eyebrow;
+    const text = document.createElement('div');
+    text.className = 'login-quote-text';
+    text.textContent = q.text;
+    const sub = document.createElement('div');
+    sub.className = 'login-quote-sub';
+    sub.textContent = q.sub;
+    block.append(eyebrow, text, sub);
+    container.appendChild(block);
+
+    const dot = document.createElement('div');
+    dot.className = 'login-q-dot' + (i === 0 ? ' active' : '');
+    dot.addEventListener('click', () => loginGoToQuote(i));
+    indicators.appendChild(dot);
+  });
+  loginQuoteIntervalId = setInterval(() => loginGoToQuote((loginCurrentQ + 1) % LOGIN_QUOTES.length), 6000);
+}
+
+function stopQuoteRotation() {
+  if (loginQuoteIntervalId) {
+    clearInterval(loginQuoteIntervalId);
+    loginQuoteIntervalId = null;
+  }
+}
+
+// ── Login v3: dot network canvas animation ──
+let loginAnimationId = null;
+let loginCanvasInited = false;
+
+function startLoginAnimation() {
+  const canvas = document.getElementById('loginNetCanvas');
+  if (!canvas) return;
+  stopLoginAnimation();
+
+  const ctx = canvas.getContext('2d');
+  let W, H, dots = [];
+  const DENSITY = 0.000035;
+  const LINK_DIST = 130;
+  const C = {
+    blue:   'rgba(137,196,228,0.3)',
+    accent: 'rgba(74,141,184,0.55)',
+    muted:  'rgba(100,120,140,0.2)',
+    gold:   'rgba(196,163,90,0.35)',
+  };
+
+  function resize() {
+    W = canvas.width = canvas.offsetWidth;
+    H = canvas.height = canvas.offsetHeight;
+    makeDots();
+  }
+
+  function makeDots() {
+    const n = Math.floor(W * H * DENSITY);
+    dots = [];
+    for (let i = 0; i < n; i++) {
+      const r = Math.random();
+      let color, size;
+      if (r < 0.06)      { color = C.accent; size = 2.5 + Math.random() * 1.5; }
+      else if (r < 0.12) { color = C.gold;   size = 2 + Math.random(); }
+      else if (r < 0.4)  { color = C.blue;   size = 1.5 + Math.random(); }
+      else               { color = C.muted;  size = 1 + Math.random() * 0.8; }
+      dots.push({
+        x: Math.random() * W, y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 0.12,
+        vy: (Math.random() - 0.5) * 0.12,
+        r: size, br: size, color
+      });
+    }
+  }
+
+  const mouse = { x: -999, y: -999 };
+  if (!loginCanvasInited) {
+    canvas.parentElement.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+    });
+    canvas.parentElement.addEventListener('mouseleave', () => { mouse.x = -999; mouse.y = -999; });
+    window.addEventListener('resize', () => {
+      if (document.getElementById('login-overlay').style.display !== 'none') resize();
+    });
+    loginCanvasInited = true;
+  }
+
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+
+    for (let i = 0; i < dots.length; i++) {
+      for (let j = i + 1; j < dots.length; j++) {
+        const dx = dots[i].x - dots[j].x;
+        const dy = dots[i].y - dots[j].y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < LINK_DIST) {
+          const a = 1 - d / LINK_DIST;
+          ctx.beginPath();
+          ctx.moveTo(dots[i].x, dots[i].y);
+          ctx.lineTo(dots[j].x, dots[j].y);
+          ctx.strokeStyle = `rgba(74,141,184,${0.035 * a})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+
+    for (const d of dots) {
+      const dx = d.x - mouse.x, dy = d.y - mouse.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 160) {
+        const a = 1 - dist / 160;
+        ctx.beginPath();
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.strokeStyle = `rgba(137,196,228,${0.15 * a})`;
+        ctx.lineWidth = 0.7;
+        ctx.stroke();
+        d.r = d.br + 1.8 * a;
+      } else {
+        d.r += (d.br - d.r) * 0.04;
+      }
+    }
+
+    for (const d of dots) {
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      ctx.fillStyle = d.color;
+      ctx.fill();
+      d.x += d.vx;
+      d.y += d.vy;
+      if (d.x < -10) d.x = W + 10;
+      if (d.x > W + 10) d.x = -10;
+      if (d.y < -10) d.y = H + 10;
+      if (d.y > H + 10) d.y = -10;
+    }
+
+    loginAnimationId = requestAnimationFrame(frame);
+  }
+
+  resize();
+  loginAnimationId = requestAnimationFrame(frame);
+}
+
+function stopLoginAnimation() {
+  if (loginAnimationId) {
+    cancelAnimationFrame(loginAnimationId);
+    loginAnimationId = null;
+  }
+}
+
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
@@ -2913,6 +3276,8 @@ function showLogin() {
   document.getElementById('login-email').value = '';
   document.getElementById('login-password').value = '';
   document.getElementById('login-error').style.display = 'none';
+  startLoginAnimation();
+  startQuoteRotation();
   const badge = document.getElementById('user-badge');
   const btnLogout = document.getElementById('btn-logout');
   if (badge) badge.style.display = 'none';
@@ -2921,6 +3286,8 @@ function showLogin() {
 
 function showDashboard() {
   document.getElementById('login-overlay').style.display = 'none';
+  stopLoginAnimation();
+  stopQuoteRotation();
   applyRoleUI();
 }
 
@@ -2953,6 +3320,19 @@ document.addEventListener('DOMContentLoaded', () => {
   if (pwInput) pwInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
   const emailInput = document.getElementById('login-email');
   if (emailInput) emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+
+  // Password visibility toggle
+  const togglePw = document.getElementById('loginTogglePw');
+  if (togglePw && pwInput) {
+    togglePw.addEventListener('click', () => {
+      const show = pwInput.type === 'password';
+      pwInput.type = show ? 'text' : 'password';
+      togglePw.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      togglePw.innerHTML = show
+        ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+        : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    });
+  }
 
   if (AUTH.isLoggedIn()) {
     showDashboard();
