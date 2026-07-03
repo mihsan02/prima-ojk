@@ -667,6 +667,44 @@ def _get_reported_values(pakd_id, conn=None):
     return REPORTED_VALUES_DEFAULT.get(pakd_id, {})
 
 
+def _get_aset_dilaporkan(pakd_id, fallback=0, conn=None):
+    """Resolve aset_dilaporkan for a PAKD.
+
+    Priority: latest confirmed e-reporting (customer_at_pakd_idr +
+    customer_at_ptp_idr + proprietary_idr) -> pakd.aset_dilaporkan -> fallback.
+    Accepts conn= pass-through (pool size 1: never grab a second connection
+    while the caller holds one).
+    """
+    own_conn = conn is None
+    if own_conn:
+        conn = _get_db_conn()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT customer_at_pakd_idr, customer_at_ptp_idr, proprietary_idr
+                FROM laporan_ereporting
+                WHERE entity_id = %s AND report_type = 'pakd' AND status = 'confirmed'
+                ORDER BY periode DESC
+                LIMIT 1
+            """, (pakd_id,))
+            row = cur.fetchone()
+            if row:
+                cur.close()
+                return float(row[0] or 0) + float(row[1] or 0) + float(row[2] or 0)
+            cur.execute("SELECT aset_dilaporkan FROM pakd WHERE id = %s", (pakd_id,))
+            pakd_row = cur.fetchone()
+            cur.close()
+            if pakd_row and pakd_row[0]:
+                return pakd_row[0]
+        except Exception as e:
+            print(f"[EREPORTING] _get_aset_dilaporkan({pakd_id}) query failed: {e}", flush=True)
+        finally:
+            if own_conn:
+                _return_db_conn(conn)
+    return fallback
+
+
 def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
     """Compute 30/70 compliance for a PAKD with linked kustodian(s).
     Returns dict with kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp, kustodian_details.
@@ -2123,18 +2161,7 @@ def recalc_snapshot(pakd_id):
             _return_db_conn(conn)
             return jsonify({"error": "PAKD tidak ditemukan"}), 404
         pakd_nama = pakd[0]
-        # Try e-reporting first
-        cur.execute("""
-            SELECT customer_at_pakd_idr, customer_at_ptp_idr, proprietary_idr
-            FROM laporan_ereporting
-            WHERE entity_id = %s AND report_type = 'pakd' AND status = 'confirmed'
-            ORDER BY periode DESC LIMIT 1
-        """, (pakd_id,))
-        ereport = cur.fetchone()
-        if ereport:
-            aset_dilaporkan = float(ereport[0] or 0) + float(ereport[1] or 0) + float(ereport[2] or 0)
-        else:
-            aset_dilaporkan = pakd[1] or 0
+        aset_dilaporkan = _get_aset_dilaporkan(pakd_id, fallback=pakd[1] or 0, conn=conn)
         # Recalculate deviasi
         if aset_dilaporkan == 0:
             deviasi = 0.0 if aset_onchain == 0 else 9999.9999
@@ -2612,7 +2639,7 @@ def reconciliation():
             _timings["fetch_eth_total"] = round(_timings.get("fetch_eth_total", 0) + _ct.get("fetch_eth_total", 0), 3)
             _timings["fetch_btc_total"] = round(_timings.get("fetch_btc_total", 0) + _ct.get("fetch_btc_total", 0), 3)
             _timings["fetch_sol_total"] = round(_timings.get("fetch_sol_total", 0) + _ct.get("fetch_sol_total", 0), 3)
-            aset_dilaporkan  = pakd["aset_dilaporkan"]
+            aset_dilaporkan  = _get_aset_dilaporkan(pakd["id"], fallback=pakd.get("aset_dilaporkan", 0))
 
             if aset_dilaporkan > 0:
                 selisih     = aset_onchain_idr - aset_dilaporkan
@@ -2714,7 +2741,7 @@ def internal_refresh_all():
             result_bal = get_total_balance_idr(pakd.get("wallets", []))
             total = result_bal["total_idr"]
             breakdown = result_bal["breakdown"]
-            dilaporkan = pakd.get("aset_dilaporkan", 0)
+            dilaporkan = _get_aset_dilaporkan(pakd["id"], fallback=pakd.get("aset_dilaporkan", 0))
             deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
             status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
             compliance_data = compute_30_70_compliance(pakd["id"], int(total))
@@ -3665,7 +3692,7 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
             result_bal = get_total_balance_idr(pakd.get("wallets", []))
             total = result_bal["total_idr"]
             breakdown = result_bal["breakdown"]
-            dilaporkan = pakd.get("aset_dilaporkan", 0)
+            dilaporkan = _get_aset_dilaporkan(pakd["id"], fallback=pakd.get("aset_dilaporkan", 0))
             deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
             status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
             compliance_data = compute_30_70_compliance(pakd["id"], int(total))
