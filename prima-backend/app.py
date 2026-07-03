@@ -2772,9 +2772,9 @@ def reconciliation_latest():
             if as_of is None or captured_at > as_of:
                 as_of = captured_at
             network_breakdown = r[7] if isinstance(r[7], list) else []
-            eth_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "ethereum")
-            btc_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "bitcoin")
-            sol_idr = sum(w.get("balance_idr", 0) for w in network_breakdown if w.get("network") == "solana")
+            eth_idr = sum((w.get("balance_idr") or 0) for w in network_breakdown if w.get("network") == "ethereum")
+            btc_idr = sum((w.get("balance_idr") or 0) for w in network_breakdown if w.get("network") == "bitcoin")
+            sol_idr = sum((w.get("balance_idr") or 0) for w in network_breakdown if w.get("network") == "solana")
             has_kustodian = r[0] in pakd_with_kustodian
             compliance_30_70 = r[12] if r[12] is not None else False
             ratio_at_pakd = float(r[13]) if r[13] is not None else (1.0 if not has_kustodian else 0.0)
