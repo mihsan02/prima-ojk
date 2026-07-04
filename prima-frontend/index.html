@@ -22,10 +22,10 @@
   --shadow-sm:0 1px 3px rgba(40,70,110,0.08);
   /* Login page palette */
   --login-bg: #F3EDE3;
-  --login-panel-dark: #1C2B3A;
-  --login-primary: #4A8DB8;
-  --login-primary-deep: #2E6E96;
-  --login-primary-light: #89C4E4;
+  --login-panel-dark: #243A4F;
+  --login-primary: #6BAEDC;
+  --login-primary-deep: #4A8DB8;
+  --login-primary-light: #A9D6EF;
   --login-gold: #C4A35A;
   --login-gold-muted: #D4C49A;
   --login-text: #1C2B3A;
@@ -245,7 +245,7 @@ tr:hover td{background:var(--bg2)}
 .login-right-panel{width:440px;min-width:380px;background:var(--login-bg);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:48px 40px;position:relative}
 .login-card{width:100%;max-width:360px}
 .login-logo-area{text-align:center;margin-bottom:36px}
-.login-logo-svg{width:64px;height:50px;margin-bottom:14px}
+.login-logo-svg{width:76px;height:58px;margin-bottom:14px}
 .login-brand-name{font-size:24px;font-weight:800;letter-spacing:5px;color:var(--login-primary-deep)}
 .login-brand-subtitle{font-size:11px;color:var(--login-text-muted);line-height:1.6;margin-top:8px}
 .login-authority-badge{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:4px 14px;background:#FFFFFF;border:1px solid var(--login-card-border);border-radius:20px;font-size:10px;font-weight:600;color:var(--login-text-muted);letter-spacing:0.6px;text-transform:uppercase}
@@ -254,7 +254,7 @@ tr:hover td{background:var(--bg2)}
 .login-form-label{display:block;font-size:13px;font-weight:500;color:var(--login-text);margin-bottom:6px}
 .login-form-input{width:100%;padding:11px 14px;font-family:'Inter',sans-serif;font-size:14px;color:var(--login-text);background:#FFFFFF;border:1.5px solid var(--login-input-border);border-radius:8px;outline:none;transition:border-color 0.2s,box-shadow 0.2s}
 .login-form-input::placeholder{color:var(--login-text-faint)}
-.login-form-input:focus{border-color:var(--login-primary);box-shadow:0 0 0 3px rgba(74,141,184,0.1)}
+.login-form-input:focus{border-color:var(--login-primary);box-shadow:0 0 0 3px rgba(107,174,220,0.15)}
 .login-form-input.error{border-color:var(--login-error)}
 .login-error{display:none;font-size:12px;color:var(--login-error);background:#FDECEA;border:1px solid #F0B8B3;border-radius:6px;padding:10px 12px;margin-bottom:14px}
 .login-password-wrap{position:relative}
@@ -264,7 +264,7 @@ tr:hover td{background:var(--bg2)}
 .login-remember-label{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--login-text-muted);cursor:pointer}
 .login-remember-label input{width:15px;height:15px;accent-color:var(--login-primary)}
 .btn-login{width:100%;padding:12px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:#fff;background:var(--login-primary);border:none;border-radius:8px;cursor:pointer;position:relative;transition:background 0.2s,box-shadow 0.2s;box-shadow:0 2px 8px rgba(74,141,184,0.2)}
-.btn-login:hover{background:#3A7BA6;box-shadow:0 4px 14px rgba(74,141,184,0.3)}
+.btn-login:hover{background:#5A9ECB;box-shadow:0 4px 14px rgba(107,174,220,0.35)}
 .btn-login:active{transform:translateY(1px)}
 .btn-login:focus-visible{outline:2px solid var(--login-primary-light);outline-offset:2px}
 .btn-login:disabled{opacity:0.7;cursor:not-allowed}
@@ -308,22 +308,17 @@ tr:hover td{background:var(--bg2)}
     <div class="login-panel-brand">
       <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M30 45C30 28,50 20,60 35C70 20,90 28,90 45C90 62,70 70,60 55C50 70,30 62,30 45Z"
-              stroke="url(#loginLg)" stroke-width="6" stroke-linecap="round" fill="none"/>
-        <path d="M48 33C55 45,65 45,72 57" stroke="url(#loginLg)" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.6"/>
-        <path d="M72 33C65 45,55 45,48 57" stroke="url(#loginLg)" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.6"/>
-        <circle cx="30" cy="45" r="4.5" fill="#243444" stroke="#89C4E4" stroke-width="2"/>
-        <circle cx="90" cy="45" r="4.5" fill="#243444" stroke="#89C4E4" stroke-width="2"/>
-        <circle cx="60" cy="25" r="3.5" fill="#243444" stroke="#89C4E4" stroke-width="1.5"/>
-        <circle cx="60" cy="65" r="3.5" fill="#243444" stroke="#89C4E4" stroke-width="1.5"/>
-        <circle cx="44" cy="30" r="3" fill="#243444" stroke="#4A8DB8" stroke-width="1.5"/>
-        <circle cx="76" cy="30" r="3" fill="#243444" stroke="#4A8DB8" stroke-width="1.5"/>
-        <circle cx="44" cy="60" r="3" fill="#243444" stroke="#4A8DB8" stroke-width="1.5"/>
-        <circle cx="76" cy="60" r="3" fill="#243444" stroke="#4A8DB8" stroke-width="1.5"/>
-        <defs>
-          <linearGradient id="loginLg" x1="30" y1="30" x2="90" y2="60" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#89C4E4"/><stop offset="100%" stop-color="#4A8DB8"/>
-          </linearGradient>
-        </defs>
+              stroke="#4A90C9" stroke-width="13" stroke-linecap="round" fill="none"/>
+        <path d="M30 45C30 28,50 20,60 35C70 20,90 28,90 45C90 62,70 70,60 55C50 70,30 62,30 45Z"
+              stroke="#7DBBE6" stroke-width="9" stroke-linecap="round" fill="none"/>
+        <circle cx="45" cy="26" r="6" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
+        <circle cx="30" cy="45" r="6.5" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
+        <circle cx="45" cy="64" r="6" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
+        <circle cx="55" cy="48" r="4.5" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2"/>
+        <circle cx="66" cy="30" r="5" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2"/>
+        <circle cx="76" cy="25" r="6" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
+        <circle cx="90" cy="45" r="6.5" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
+        <circle cx="75" cy="64" r="6" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
       </svg>
       <span class="login-panel-brand-text">PRIMA</span>
     </div>
@@ -345,22 +340,17 @@ tr:hover td{background:var(--bg2)}
       <div class="login-logo-area">
         <svg class="login-logo-svg" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M30 45C30 28,50 20,60 35C70 20,90 28,90 45C90 62,70 70,60 55C50 70,30 62,30 45Z"
-                stroke="url(#loginLg2)" stroke-width="7" stroke-linecap="round" fill="none"/>
-          <path d="M48 33C55 45,65 45,72 57" stroke="url(#loginLg2)" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.65"/>
-          <path d="M72 33C65 45,55 45,48 57" stroke="url(#loginLg2)" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.65"/>
-          <circle cx="30" cy="45" r="5" fill="#fff" stroke="#4A8DB8" stroke-width="2.5"/>
-          <circle cx="90" cy="45" r="5" fill="#fff" stroke="#4A8DB8" stroke-width="2.5"/>
-          <circle cx="60" cy="25" r="4" fill="#fff" stroke="#89C4E4" stroke-width="2"/>
-          <circle cx="60" cy="65" r="4" fill="#fff" stroke="#89C4E4" stroke-width="2"/>
-          <circle cx="44" cy="30" r="3.5" fill="#fff" stroke="#89C4E4" stroke-width="1.8"/>
-          <circle cx="76" cy="30" r="3.5" fill="#fff" stroke="#89C4E4" stroke-width="1.8"/>
-          <circle cx="44" cy="60" r="3.5" fill="#fff" stroke="#89C4E4" stroke-width="1.8"/>
-          <circle cx="76" cy="60" r="3.5" fill="#fff" stroke="#89C4E4" stroke-width="1.8"/>
-          <defs>
-            <linearGradient id="loginLg2" x1="30" y1="30" x2="90" y2="60" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#89C4E4"/><stop offset="50%" stop-color="#4A8DB8"/><stop offset="100%" stop-color="#89C4E4"/>
-            </linearGradient>
-          </defs>
+                stroke="#4A90C9" stroke-width="13" stroke-linecap="round" fill="none"/>
+          <path d="M30 45C30 28,50 20,60 35C70 20,90 28,90 45C90 62,70 70,60 55C50 70,30 62,30 45Z"
+                stroke="#7DBBE6" stroke-width="9" stroke-linecap="round" fill="none"/>
+          <circle cx="45" cy="26" r="6" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
+          <circle cx="30" cy="45" r="6.5" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
+          <circle cx="45" cy="64" r="6" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
+          <circle cx="55" cy="48" r="4.5" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2"/>
+          <circle cx="66" cy="30" r="5" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2"/>
+          <circle cx="76" cy="25" r="6" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
+          <circle cx="90" cy="45" r="6.5" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
+          <circle cx="75" cy="64" r="6" fill="#F7F1DA" stroke="#4A90C9" stroke-width="2.5"/>
         </svg>
         <div class="login-brand-name">PRIMA</div>
         <div class="login-brand-subtitle">
@@ -3103,9 +3093,10 @@ function stopQuoteRotation() {
   }
 }
 
-// ── Login v3: dot network canvas animation ──
+// ── Login v3: Chainalysis-style grid animation ──
 let loginAnimationId = null;
-let loginCanvasInited = false;
+let loginResizeInited = false;
+let loginResizeFn = null;
 
 function startLoginAnimation() {
   const canvas = document.getElementById('loginNetCanvas');
@@ -3113,106 +3104,149 @@ function startLoginAnimation() {
   stopLoginAnimation();
 
   const ctx = canvas.getContext('2d');
-  let W, H, dots = [];
-  const DENSITY = 0.000035;
-  const LINK_DIST = 130;
-  const C = {
-    blue:   'rgba(137,196,228,0.3)',
-    accent: 'rgba(74,141,184,0.55)',
-    muted:  'rgba(100,120,140,0.2)',
-    gold:   'rgba(196,163,90,0.35)',
-  };
+  let W, H, cols, rows;
+  const CELL = 90;          // grid spacing
+  const DOT = 'rgba(169,214,239,0.4)';
+  const BLUE = [169, 214, 239];
+  const DEEP = [125, 187, 230];
+  const GOLD = [212, 196, 154];
+  let shapes = [];
+  let lastSpawn = 0;
 
   function resize() {
     W = canvas.width = canvas.offsetWidth;
     H = canvas.height = canvas.offsetHeight;
-    makeDots();
+    cols = Math.floor(W / CELL);
+    rows = Math.floor(H / CELL);
+    shapes = [];
+  }
+  loginResizeFn = resize;
+
+  function gx(c) { return (W - (cols - 1) * CELL) / 2 + c * CELL; }
+  function gy(r) { return (H - (rows - 1) * CELL) / 2 + r * CELL; }
+  function rndCell() {
+    return { c: Math.floor(Math.random() * cols), r: Math.floor(Math.random() * rows) };
+  }
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  // Each shape lives through: draw-in (grow), hold, fade-out
+  function spawnShape() {
+    const kind = pick(['pulse', 'pulse', 'rect', 'arc', 'arc', 'square']);
+    const col = Math.random() < 0.18 ? GOLD : (Math.random() < 0.5 ? BLUE : DEEP);
+    const cell = rndCell();
+    const s = { kind, col, t: 0, drawT: 90, holdT: 140, fadeT: 90, cell };
+    if (kind === 'rect') {
+      s.w = 1 + Math.floor(Math.random() * 2);
+      s.h = 1 + Math.floor(Math.random() * 2);
+      s.cell.c = Math.min(s.cell.c, Math.max(0, cols - 1 - s.w));
+      s.cell.r = Math.min(s.cell.r, Math.max(0, rows - 1 - s.h));
+      s.drawT = 130;
+    } else if (kind === 'arc') {
+      s.rad = CELL * (1 + Math.floor(Math.random() * 2));
+      s.q = Math.floor(Math.random() * 4); // quadrant
+      s.drawT = 110;
+    } else if (kind === 'square') {
+      s.cell.c = Math.min(s.cell.c, Math.max(0, cols - 2));
+      s.cell.r = Math.min(s.cell.r, Math.max(0, rows - 2));
+      s.holdT = 100;
+    }
+    shapes.push(s);
   }
 
-  function makeDots() {
-    const n = Math.floor(W * H * DENSITY);
-    dots = [];
-    for (let i = 0; i < n; i++) {
-      const r = Math.random();
-      let color, size;
-      if (r < 0.06)      { color = C.accent; size = 2.5 + Math.random() * 1.5; }
-      else if (r < 0.12) { color = C.gold;   size = 2 + Math.random(); }
-      else if (r < 0.4)  { color = C.blue;   size = 1.5 + Math.random(); }
-      else               { color = C.muted;  size = 1 + Math.random() * 0.8; }
-      dots.push({
-        x: Math.random() * W, y: Math.random() * H,
-        vx: (Math.random() - 0.5) * 0.12,
-        vy: (Math.random() - 0.5) * 0.12,
-        r: size, br: size, color
-      });
+  function alphaOf(s, base) {
+    if (s.t < s.drawT) return base;
+    const tf = s.t - s.drawT - s.holdT;
+    if (tf <= 0) return base;
+    return base * Math.max(0, 1 - tf / s.fadeT);
+  }
+  function progressOf(s) { return Math.min(1, s.t / s.drawT); }
+
+  function drawShape(s) {
+    const [r, g, b] = s.col;
+    const p = progressOf(s);
+    const x = gx(s.cell.c), y = gy(s.cell.r);
+
+    if (s.kind === 'pulse') {
+      const a = alphaOf(s, 0.9);
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x, y, 7 + 3 * p, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${r},${g},${b},${alphaOf(s, 0.55)})`;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    } else if (s.kind === 'rect') {
+      const w = s.w * CELL, h = s.h * CELL;
+      const perim = 2 * (w + h);
+      const len = perim * p;
+      ctx.strokeStyle = `rgba(${r},${g},${b},${alphaOf(s, 0.55)})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      let remaining = len, cx = x, cy = y;
+      const legs = [[w, 0], [0, h], [-w, 0], [0, -h]];
+      ctx.moveTo(cx, cy);
+      for (const [dx, dy] of legs) {
+        const legLen = Math.abs(dx) + Math.abs(dy);
+        const f = Math.min(1, remaining / legLen);
+        cx += dx * f; cy += dy * f;
+        ctx.lineTo(cx, cy);
+        remaining -= legLen;
+        if (remaining <= 0) break;
+      }
+      ctx.stroke();
+      // corner dots
+      ctx.fillStyle = `rgba(${r},${g},${b},${alphaOf(s, 0.8)})`;
+      for (const [px, py] of [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]) {
+        ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (s.kind === 'arc') {
+      const start = s.q * Math.PI / 2;
+      ctx.beginPath();
+      ctx.arc(x, y, s.rad, start, start + (Math.PI / 2) * p);
+      ctx.strokeStyle = `rgba(${r},${g},${b},${alphaOf(s, 0.5)})`;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    } else if (s.kind === 'square') {
+      ctx.fillStyle = `rgba(${r},${g},${b},${alphaOf(s, 0.12 * p)})`;
+      ctx.fillRect(x, y, CELL, CELL);
+      ctx.strokeStyle = `rgba(${r},${g},${b},${alphaOf(s, 0.35)})`;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, CELL, CELL);
     }
   }
 
-  const mouse = { x: -999, y: -999 };
-  if (!loginCanvasInited) {
-    canvas.parentElement.addEventListener('mousemove', e => {
-      const rect = canvas.getBoundingClientRect();
-      mouse.x = e.clientX - rect.left;
-      mouse.y = e.clientY - rect.top;
-    });
-    canvas.parentElement.addEventListener('mouseleave', () => { mouse.x = -999; mouse.y = -999; });
-    window.addEventListener('resize', () => {
-      if (document.getElementById('login-overlay').style.display !== 'none') resize();
-    });
-    loginCanvasInited = true;
-  }
-
-  function frame() {
+  function frame(ts) {
     ctx.clearRect(0, 0, W, H);
 
-    for (let i = 0; i < dots.length; i++) {
-      for (let j = i + 1; j < dots.length; j++) {
-        const dx = dots[i].x - dots[j].x;
-        const dy = dots[i].y - dots[j].y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < LINK_DIST) {
-          const a = 1 - d / LINK_DIST;
-          ctx.beginPath();
-          ctx.moveTo(dots[i].x, dots[i].y);
-          ctx.lineTo(dots[j].x, dots[j].y);
-          ctx.strokeStyle = `rgba(74,141,184,${0.035 * a})`;
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-        }
-      }
-    }
-
-    for (const d of dots) {
-      const dx = d.x - mouse.x, dy = d.y - mouse.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 160) {
-        const a = 1 - dist / 160;
+    // static dot grid
+    ctx.fillStyle = DOT;
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
         ctx.beginPath();
-        ctx.moveTo(d.x, d.y);
-        ctx.lineTo(mouse.x, mouse.y);
-        ctx.strokeStyle = `rgba(137,196,228,${0.15 * a})`;
-        ctx.lineWidth = 0.7;
-        ctx.stroke();
-        d.r = d.br + 1.8 * a;
-      } else {
-        d.r += (d.br - d.r) * 0.04;
+        ctx.arc(gx(c), gy(r), 1.6, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
 
-    for (const d of dots) {
-      ctx.beginPath();
-      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-      ctx.fillStyle = d.color;
-      ctx.fill();
-      d.x += d.vx;
-      d.y += d.vy;
-      if (d.x < -10) d.x = W + 10;
-      if (d.x > W + 10) d.x = -10;
-      if (d.y < -10) d.y = H + 10;
-      if (d.y > H + 10) d.y = -10;
+    // spawn a new shape roughly every 1.1s, cap concurrency
+    if (!lastSpawn || ts - lastSpawn > 1100) {
+      if (shapes.length < 7) spawnShape();
+      lastSpawn = ts;
     }
+
+    for (const s of shapes) { s.t++; drawShape(s); }
+    shapes = shapes.filter(s => s.t < s.drawT + s.holdT + s.fadeT);
 
     loginAnimationId = requestAnimationFrame(frame);
+  }
+
+  if (!loginResizeInited) {
+    window.addEventListener('resize', () => {
+      if (loginResizeFn && document.getElementById('login-overlay').style.display !== 'none') loginResizeFn();
+    });
+    loginResizeInited = true;
   }
 
   resize();
