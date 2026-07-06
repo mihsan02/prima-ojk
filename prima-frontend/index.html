@@ -852,7 +852,7 @@ tr:hover td{background:var(--bg2)}
                 <div class="section-title"><div class="section-title-bar"></div>Status Penempatan AKD pada Kustodian · POJK 23/2025 Pasal 91</div>
               </div>
               <table>
-                <thead><tr><th>PAKD</th><th>AKD Konsumen di PAKD (Rp)</th><th>AKD Konsumen di PTP (Rp)</th><th>Rasio di PAKD</th><th>Status</th></tr></thead>
+                <thead><tr><th>PAKD</th><th>AKD Konsumen di PAKD (Rp)<div style="font-weight:500;font-size:9px;color:var(--txt4);text-transform:none">dilaporkan vs on-chain PAKD</div></th><th>AKD Konsumen di PTP (Rp)<div style="font-weight:500;font-size:9px;color:var(--txt4);text-transform:none">dilaporkan vs on-chain kustodian</div></th><th>Rasio di PAKD</th><th>Status</th></tr></thead>
                 <tbody id="kust-compliance-tbody"></tbody>
               </table>
             </div>
@@ -2826,11 +2826,18 @@ async function renderKustodianMonitoring(kustId) {
       s.wallet_verified_count + ' / ' + s.wallet_total_count + ' (' + s.verification_rate_pct + '%)';
 
     // Tabel Status Penempatan AKD per PAKD (POJK 23/2025 Pasal 91)
+    const cmpCell = (reported, onchain, onchainLabel) => {
+      const rep = reported || 0, oc = onchain || 0;
+      const gapColor = rep > 0 && Math.abs(oc - rep) / rep > 0.10 ? 'var(--red)' : 'var(--txt3)';
+      return `<td class="mono-val">${formatIDR(rep)}
+        <div style="font-size:10px;color:${gapColor};margin-top:2px">${onchainLabel}: ${formatIDR(oc)}</div>
+      </td>`;
+    };
     ctbody.innerHTML = (data.pakd_compliance || []).map(p => `
       <tr>
         <td>${p.nama}<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt4)">${p.pakd_id}</div></td>
-        <td class="mono-val">${formatIDR(p.customer_at_pakd_idr || 0)}</td>
-        <td class="mono-val">${formatIDR(p.customer_at_ptp_idr || 0)}</td>
+        ${cmpCell(p.customer_at_pakd_idr, p.pakd_onchain_idr, 'on-chain PAKD')}
+        ${cmpCell(p.customer_at_ptp_idr, p.kustodian_onchain_idr, 'on-chain kustodian (total)')}
         <td class="mono-val" style="color:${p.ratio_at_pakd > 0.3 ? 'var(--red)' : 'var(--green)'};font-weight:600">${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%</td>
         <td>${p.compliance_30_70 ? '<span class="badge-compliant">✓ COMPLIANT</span>' : '<span class="badge-violation">✗ VIOLATION</span>'}</td>
       </tr>
@@ -2902,9 +2909,9 @@ function formatIDRShort(n) {
 function exportKustodianCSV() {
   const data = _kustMonitoringData;
   if (!data) { alert('Pilih kustodian terlebih dahulu'); return; }
-  let csv = 'PAKD ID,Nama PAKD,AKD Konsumen di PAKD (Rp),AKD Konsumen di PTP (Rp),Rasio di PAKD,Status\n';
+  let csv = 'PAKD ID,Nama PAKD,AKD Konsumen di PAKD (Rp),On-Chain PAKD (Rp),AKD Konsumen di PTP (Rp),On-Chain Kustodian Total (Rp),Rasio di PAKD,Status\n';
   (data.pakd_compliance || []).forEach(p => {
-    csv += `${p.pakd_id},"${p.nama}",${p.customer_at_pakd_idr},${p.customer_at_ptp_idr},${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%,${p.status}\n`;
+    csv += `${p.pakd_id},"${p.nama}",${p.customer_at_pakd_idr},${p.pakd_onchain_idr || 0},${p.customer_at_ptp_idr},${p.kustodian_onchain_idr || 0},${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%,${p.status}\n`;
   });
   csv += '\nWallet Network,Address,Verified\n';
   (data.wallets || []).forEach(w => {

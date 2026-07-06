@@ -2493,7 +2493,7 @@ def _get_kustodian_monitoring_data(kust_id, conn):
         cur.execute("""
             SELECT DISTINCT ON (pakd_id)
                 pakd_id, kustodian_onchain_idr, compliance_30_70,
-                ratio_at_pakd, ratio_at_ptp, captured_at
+                ratio_at_pakd, ratio_at_ptp, captured_at, pakd_onchain_idr
             FROM reconciliation_snapshots
             WHERE pakd_id = ANY(%s)
             ORDER BY pakd_id, captured_at DESC
@@ -2505,6 +2505,7 @@ def _get_kustodian_monitoring_data(kust_id, conn):
                 "ratio_at_pakd": r[3],
                 "ratio_at_ptp": r[4],
                 "captured_at": r[5],
+                "pakd_onchain_idr": r[6],
             }
 
     pakd_compliance = []
@@ -2532,6 +2533,8 @@ def _get_kustodian_monitoring_data(kust_id, conn):
             "nama": nama,
             "customer_at_pakd_idr": customer_at_pakd,
             "customer_at_ptp_idr": customer_at_ptp,
+            "pakd_onchain_idr": float(snap.get("pakd_onchain_idr") or 0),
+            "kustodian_onchain_idr": float(snap_kust_onchain or 0),
             "ratio_at_pakd": float(snap.get("ratio_at_pakd") or 0),
             "compliance_30_70": compliance,
             "status": "COMPLIANT" if compliance else "VIOLATION",
