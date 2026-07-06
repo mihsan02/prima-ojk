@@ -692,6 +692,12 @@ def _get_aset_dilaporkan(pakd_id, fallback=0, conn=None):
             if row:
                 cur.close()
                 return float(row[0] or 0) + float(row[1] or 0) + float(row[2] or 0)
+            default = REPORTED_VALUES_DEFAULT.get(pakd_id)
+            if default:
+                cur.close()
+                return (default.get("customer_at_pakd_idr", 0)
+                        + default.get("customer_at_ptp_idr", 0)
+                        + default.get("proprietary_idr", 0))
             cur.execute("SELECT aset_dilaporkan FROM pakd WHERE id = %s", (pakd_id,))
             pakd_row = cur.fetchone()
             cur.close()
