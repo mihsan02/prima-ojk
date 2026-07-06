@@ -2828,9 +2828,11 @@ async function renderKustodianMonitoring(kustId) {
     // Tabel Status Penempatan AKD per PAKD (POJK 23/2025 Pasal 91)
     const cmpCell = (reported, onchain, onchainLabel) => {
       const rep = reported || 0, oc = onchain || 0;
-      const gapColor = rep > 0 && Math.abs(oc - rep) / rep > 0.10 ? 'var(--red)' : 'var(--txt3)';
-      return `<td class="mono-val">${formatIDR(rep)}
-        <div style="font-size:10px;color:${gapColor};margin-top:2px">${onchainLabel}: ${formatIDR(oc)}</div>
+      // Red only on negative deviation (on-chain below what was reported)
+      const ocColor = oc < rep ? 'var(--red)' : 'var(--txt2)';
+      return `<td class="mono-val">
+        <div><span style="font-size:9px;color:var(--txt4);font-weight:600;text-transform:uppercase">Dilaporkan</span><br>${formatIDR(rep)}</div>
+        <div style="margin-top:4px;color:${ocColor}"><span style="font-size:9px;color:var(--txt4);font-weight:600;text-transform:uppercase">${onchainLabel}</span><br>${formatIDR(oc)}</div>
       </td>`;
     };
     ctbody.innerHTML = (data.pakd_compliance || []).map(p => `
