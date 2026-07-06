@@ -228,7 +228,7 @@ class TestKustodianMonitoring:
             ],
             'fetchall': [
                 [('PAKD-DEMO-001', 'Alpha Kripto Indonesia')],                        # linked PAKDs
-                [('PAKD-DEMO-001', 15_000_000_000, True, 0.30, 0.70, None)],          # latest snapshots
+                [('PAKD-DEMO-001', 15_000_000_000, True, 0.30, 0.70, None, 2_500_000_000)],  # latest snapshots
                 [('ethereum', '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', True, None),
                  ('solana', '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', False, None)],  # wallets
             ],
@@ -256,6 +256,8 @@ class TestKustodianMonitoring:
             assert p['pakd_id'] == 'PAKD-DEMO-001'
             assert p['status'] == 'COMPLIANT'
             assert p['ratio_at_pakd'] == 0.30
+            assert p['pakd_onchain_idr'] == 2_500_000_000
+            assert p['kustodian_onchain_idr'] == 15_000_000_000
             assert len(data['wallets']) == 2
 
     def test_monitoring_auth_pakd_linked(self, client):
