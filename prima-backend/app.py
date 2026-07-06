@@ -2457,6 +2457,158 @@ def api_delete_kustodian(kust_id):
         return _error_response(str(e), status_code=500)
 
 
+def _get_kustodian_monitoring_data(kust_id, conn):
+    """Aggregate monitoring dashboard data for one Kustodian.
+
+    conn is REQUIRED (pool size 1 on Supabase free tier: caller holds the
+    connection, helper must never open its own). Returns None when the
+    kustodian does not exist.
+    """
+    cur = conn.cursor()
+
+    cur.execute("SELECT id, nama FROM kustodian WHERE id = %s", (kust_id,))
+    kust_row = cur.fetchone()
+    if not kust_row:
+        cur.close()
+        return None
+
+    cur.execute("""
+        SELECT kp.pakd_id, p.nama
+        FROM kustodian_pakd kp
+        JOIN pakd p ON p.id = kp.pakd_id
+        WHERE kp.kustodian_id = %s
+        ORDER BY kp.pakd_id
+    """, (kust_id,))
+    linked_pakds = cur.fetchall()
+
+    pakd_ids = [r[0] for r in linked_pakds]
+    snapshots = {}
+    if pakd_ids:
+        cur.execute("""
+            SELECT DISTINCT ON (pakd_id)
+                pakd_id, kustodian_onchain_idr, compliance_30_70,
+                ratio_at_pakd, ratio_at_ptp, captured_at
+            FROM reconciliation_snapshots
+            WHERE pakd_id = ANY(%s)
+            ORDER BY pakd_id, captured_at DESC
+        """, (pakd_ids,))
+        for r in cur.fetchall():
+            snapshots[r[0]] = {
+                "kustodian_onchain_idr": r[1],
+                "compliance_30_70": r[2],
+                "ratio_at_pakd": r[3],
+                "ratio_at_ptp": r[4],
+                "captured_at": r[5],
+            }
+
+    pakd_compliance = []
+    total_expected_at_ptp = 0
+    kustodian_onchain = 0
+
+    for pid, nama in linked_pakds:
+        reported = _get_reported_values(pid, conn=conn)
+        snap = snapshots.get(pid, {})
+
+        customer_at_pakd = reported.get("customer_at_pakd_idr", 0) or 0
+        customer_at_ptp = reported.get("customer_at_ptp_idr", 0) or 0
+        total_expected_at_ptp += customer_at_ptp
+
+        # kustodian_onchain_idr is the Kustodian's TOTAL on-chain balance,
+        # identical across linked PAKDs in the same run — take, don't sum.
+        snap_kust_onchain = snap.get("kustodian_onchain_idr")
+        if snap_kust_onchain is not None:
+            kustodian_onchain = float(snap_kust_onchain)
+
+        captured_at = snap.get("captured_at")
+        compliance = bool(snap.get("compliance_30_70")) if snap.get("compliance_30_70") is not None else False
+        pakd_compliance.append({
+            "pakd_id": pid,
+            "nama": nama,
+            "customer_at_pakd_idr": customer_at_pakd,
+            "customer_at_ptp_idr": customer_at_ptp,
+            "ratio_at_pakd": float(snap.get("ratio_at_pakd") or 0),
+            "compliance_30_70": compliance,
+            "status": "COMPLIANT" if compliance else "VIOLATION",
+            "latest_snapshot_at": captured_at.isoformat() if captured_at else None,
+        })
+
+    cur.execute("""
+        SELECT network, address, verified, verified_at
+        FROM wallets
+        WHERE entity_type = 'KUSTODIAN' AND entity_id = %s
+        ORDER BY network, address
+    """, (kust_id,))
+    wallets = []
+    for w in cur.fetchall():
+        wallets.append({
+            "network": w[0],
+            "address": w[1],
+            "verified": bool(w[2]),
+            "verified_at": w[3].isoformat() if hasattr(w[3], "isoformat") else (str(w[3]) if w[3] else None),
+        })
+    cur.close()
+
+    verified_count = sum(1 for w in wallets if w["verified"])
+    deviation_pct = 0
+    if total_expected_at_ptp > 0:
+        deviation_pct = round((kustodian_onchain - total_expected_at_ptp) / total_expected_at_ptp * 100, 2)
+
+    return {
+        "kustodian": {"id": kust_row[0], "nama": kust_row[1]},
+        "summary": {
+            "total_onchain_idr": kustodian_onchain,
+            "total_expected_at_ptp_idr": total_expected_at_ptp,
+            "deviation_pct": deviation_pct,
+            "jumlah_pakd": len(linked_pakds),
+            "wallet_verified_count": verified_count,
+            "wallet_total_count": len(wallets),
+            "verification_rate_pct": round(verified_count / len(wallets) * 100, 1) if wallets else 0,
+        },
+        "pakd_compliance": pakd_compliance,
+        "wallets": wallets,
+    }
+
+
+@app.route("/api/kustodian/<kust_id>/monitoring", methods=["GET"])
+@require_auth
+def api_kustodian_monitoring(kust_id):
+    """Kustodian monitoring dashboard (POJK 23/2025 Pasal 91, IOSCO Rec 12).
+
+    Auth scoping:
+      - super_admin/pengawas: any kustodian
+      - pakd: only kustodian linked to their entity
+      - kustodian: only own entity
+    """
+    user = g.current_user
+    if user["role"] == "kustodian":
+        if user.get("entity_id") != kust_id:
+            return _error_response("forbidden", status_code=403)
+
+    conn = _get_db_conn()
+    if not conn:
+        return _error_response("DB unavailable", status_code=503)
+    try:
+        if user["role"] == "pakd":
+            cur = conn.cursor()
+            cur.execute("SELECT 1 FROM kustodian_pakd WHERE kustodian_id = %s AND pakd_id = %s",
+                        (kust_id, user.get("entity_id")))
+            linked = cur.fetchone()
+            cur.close()
+            if not linked:
+                _return_db_conn(conn)
+                return _error_response("forbidden", status_code=403)
+
+        result = _get_kustodian_monitoring_data(kust_id, conn)
+        _return_db_conn(conn)
+        if result is None:
+            return _error_response(f"Kustodian {kust_id} tidak ditemukan", status_code=404)
+        return jsonify(result)
+    except Exception as e:
+        print(f"[KUSTODIAN] monitoring failed: {type(e).__name__}: {e}", flush=True)
+        _return_db_conn(conn)
+        return _error_response(str(e), status_code=500)
+
+
 @app.route("/api/upload-ereporting", methods=["POST"])
 @require_super_admin_or_token
 def api_upload_ereporting():

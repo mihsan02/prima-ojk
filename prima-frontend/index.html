@@ -811,15 +811,64 @@ tr:hover td{background:var(--bg2)}
       </table>
     </div>
 
-    <!-- Detail Kustodian -->
+    <!-- Detail Kustodian: Monitoring Dashboard (Sprint 4 · POJK 23/2025 Pasal 91, IOSCO Rec 12) -->
     <div id="kustodian-detail" style="display:none;margin-top:20px">
-      <div class="section-header"><div class="section-title"><div class="section-title-bar"></div>Detail Kustodian: <span id="kustodian-detail-nama"></span></div></div>
-      <div class="panel" style="margin-bottom:12px">
-        <div style="font-size:12px;color:var(--txt3);margin-bottom:8px;font-weight:600">PAKD Dilayani</div>
-        <div id="kustodian-detail-pakd" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      <div class="section-header" style="margin-bottom:16px">
+        <div class="section-title"><div class="section-title-bar"></div>Monitoring Kustodian: <span id="kustodian-detail-nama"></span></div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <select id="kustodian-selector" class="detail-select" onchange="renderKustodianMonitoring(this.value)" style="display:none"></select>
+          <button class="btn-secondary" onclick="exportKustodianCSV()">Export CSV</button>
+        </div>
       </div>
+
+      <div class="detail-kpi-grid" id="kust-kpi-grid">
+        <div class="kpi-card blue">
+          <div class="kpi-label">Total AKD Under Custody</div>
+          <div class="kpi-value blue mono" id="kust-kpi-onchain" style="font-size:17px">—</div>
+          <div class="kpi-sub">on-chain · IOSCO Rec 12</div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">Ekspektasi di PTP</div>
+          <div class="kpi-value mono" id="kust-kpi-expected" style="font-size:17px">—</div>
+          <div class="kpi-sub">dilaporkan PAKD · POJK 23/2025 Ps. 91</div>
+        </div>
+        <div class="kpi-card" id="kust-kpi-dev-card">
+          <div class="kpi-label">Deviasi Kustodian</div>
+          <div class="kpi-value mono" id="kust-kpi-deviasi" style="font-size:17px">—</div>
+          <div class="kpi-sub">on-chain vs ekspektasi · FSB safeguarding</div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-label">Verifikasi Wallet</div>
+          <div class="kpi-value mono" id="kust-kpi-wallet" style="font-size:17px">—</div>
+          <div class="kpi-sub">kepemilikan terverifikasi · IOSCO Rec 12</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:12px">
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 260px;gap:24px;align-items:start">
+            <div>
+              <div class="section-header">
+                <div class="section-title"><div class="section-title-bar"></div>Status Penempatan AKD pada Kustodian · POJK 23/2025 Pasal 91</div>
+              </div>
+              <table>
+                <thead><tr><th>PAKD</th><th>AKD Konsumen di PAKD (Rp)</th><th>AKD Konsumen di PTP (Rp)</th><th>Rasio di PAKD</th><th>Status</th></tr></thead>
+                <tbody id="kust-compliance-tbody"></tbody>
+              </table>
+            </div>
+            <div>
+              <div class="section-header">
+                <div class="section-title"><div class="section-title-bar"></div>Distribusi AKD per PAKD</div>
+              </div>
+              <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">Risiko konsentrasi · FSB / IOSCO Thematic Review 2025</div>
+              <div id="kust-donut-wrap" style="display:flex;flex-direction:column;align-items:center;min-height:180px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="panel">
-        <div style="font-size:12px;color:var(--txt3);margin-bottom:8px;font-weight:600">Wallet</div>
+        <div style="font-size:12px;color:var(--txt3);margin-bottom:8px;font-weight:600">Wallet Kustodian</div>
         <table>
           <thead><tr><th>Network</th><th>Address</th><th>Status</th></tr></thead>
           <tbody id="kustodian-detail-wallets"></tbody>
@@ -2718,22 +2767,156 @@ async function loadKustodian() {
 }
 
 function showKustodianDetail(id) {
-  const k = _kustodianData.find(x => x.id === id);
-  if (!k) return;
-  document.getElementById('kustodian-detail').style.display = 'block';
-  document.getElementById('kustodian-detail-nama').textContent = k.nama + ' (' + k.id + ')';
-  const pakdDiv = document.getElementById('kustodian-detail-pakd');
-  pakdDiv.innerHTML = (k.pakd_ids || []).map(p =>
-    `<span style="background:var(--bg2);border:1px solid var(--border);padding:4px 10px;border-radius:6px;font-size:12px;font-family:'JetBrains Mono',monospace">${p}</span>`
-  ).join('') || '<span style="color:var(--txt4);font-size:12px">Tidak ada PAKD terhubung</span>';
-  const wtbody = document.getElementById('kustodian-detail-wallets');
-  wtbody.innerHTML = (k.wallets || []).map(w => `
-    <tr>
-      <td><span style="font-size:11px;background:var(--bg2);padding:2px 8px;border-radius:4px;font-weight:600;text-transform:uppercase">${w.network}</span></td>
-      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;word-break:break-all">${w.address}</td>
-      <td>${w.verified ? '<span style="color:var(--green);font-weight:600">✓ Verified</span>' : '<span style="color:var(--txt4)">Unverified</span>'}</td>
-    </tr>
-  `).join('') || '<tr><td colspan="3" style="color:var(--txt4)">Tidak ada wallet</td></tr>';
+  renderKustodianMonitoring(id);
+}
+
+// --- Sprint 4: Kustodian Monitoring Dashboard ---
+let _kustMonitoringData = null;
+
+function kustDeviationColor(pct) {
+  if (pct >= -10 && pct <= 50) return 'var(--green)';
+  if ((pct >= -20 && pct < -10) || (pct > 50 && pct <= 100)) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+function kustDeviationCardClass(pct) {
+  if (pct >= -10 && pct <= 50) return 'kpi-card green';
+  if ((pct >= -20 && pct < -10) || (pct > 50 && pct <= 100)) return 'kpi-card amber';
+  return 'kpi-card red';
+}
+
+function _populateKustodianSelector(selectedId) {
+  const sel = document.getElementById('kustodian-selector');
+  if (!sel) return;
+  const user = AUTH.getUser();
+  const canSelect = user && (user.role === 'super_admin' || user.role === 'pengawas');
+  if (!canSelect || _kustodianData.length < 2) { sel.style.display = 'none'; return; }
+  sel.innerHTML = _kustodianData.map(k =>
+    `<option value="${k.id}" ${k.id === selectedId ? 'selected' : ''}>${k.nama} (${k.id})</option>`
+  ).join('');
+  sel.style.display = '';
+}
+
+async function renderKustodianMonitoring(kustId) {
+  const detail = document.getElementById('kustodian-detail');
+  detail.style.display = 'block';
+  document.getElementById('kustodian-detail-nama').textContent = kustId;
+  _populateKustodianSelector(kustId);
+  const ctbody = document.getElementById('kust-compliance-tbody');
+  ctbody.innerHTML = '<tr class="loading-row"><td colspan="5">Memuat data monitoring...</td></tr>';
+  try {
+    const resp = await apiFetch(API + '/api/kustodian/' + kustId + '/monitoring');
+    if (!resp.ok) {
+      ctbody.innerHTML = '<tr><td colspan="5" style="color:var(--red)">Gagal memuat data monitoring (' + resp.status + ')</td></tr>';
+      return;
+    }
+    const data = await resp.json();
+    _kustMonitoringData = data;
+    const s = data.summary;
+
+    document.getElementById('kustodian-detail-nama').textContent = data.kustodian.nama + ' (' + data.kustodian.id + ')';
+    document.getElementById('kust-kpi-onchain').textContent = formatIDR(s.total_onchain_idr || 0);
+    document.getElementById('kust-kpi-expected').textContent = formatIDR(s.total_expected_at_ptp_idr || 0);
+    const devEl = document.getElementById('kust-kpi-deviasi');
+    const dev = s.deviation_pct || 0;
+    devEl.textContent = (dev > 0 ? '+' : '') + dev.toFixed(2) + '%';
+    devEl.style.color = kustDeviationColor(dev);
+    document.getElementById('kust-kpi-dev-card').className = kustDeviationCardClass(dev);
+    document.getElementById('kust-kpi-wallet').textContent =
+      s.wallet_verified_count + ' / ' + s.wallet_total_count + ' (' + s.verification_rate_pct + '%)';
+
+    // Tabel Status Penempatan AKD per PAKD (POJK 23/2025 Pasal 91)
+    ctbody.innerHTML = (data.pakd_compliance || []).map(p => `
+      <tr>
+        <td>${p.nama}<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt4)">${p.pakd_id}</div></td>
+        <td class="mono-val">${formatIDR(p.customer_at_pakd_idr || 0)}</td>
+        <td class="mono-val">${formatIDR(p.customer_at_ptp_idr || 0)}</td>
+        <td class="mono-val" style="color:${p.ratio_at_pakd > 0.3 ? 'var(--red)' : 'var(--green)'};font-weight:600">${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%</td>
+        <td>${p.compliance_30_70 ? '<span class="badge-compliant">✓ COMPLIANT</span>' : '<span class="badge-violation">✗ VIOLATION</span>'}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="5" style="color:var(--txt4)">Tidak ada PAKD terhubung</td></tr>';
+
+    drawKustodianDonut(data.pakd_compliance || []);
+
+    // Tabel wallet
+    const wtbody = document.getElementById('kustodian-detail-wallets');
+    wtbody.innerHTML = (data.wallets || []).map(w => `
+      <tr>
+        <td><span style="font-size:11px;background:var(--bg2);padding:2px 8px;border-radius:4px;font-weight:600;text-transform:uppercase">${w.network}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;word-break:break-all">${w.address}</td>
+        <td>${w.verified ? '<span style="color:var(--green);font-weight:600">✓ Verified</span>' : '<span style="color:var(--txt4)">Unverified</span>'}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="3" style="color:var(--txt4)">Tidak ada wallet</td></tr>';
+  } catch (e) {
+    console.error('[KUSTODIAN] monitoring render failed:', e);
+    ctbody.innerHTML = '<tr><td colspan="5" style="color:var(--red)">Error: ' + e.message + '</td></tr>';
+  }
+}
+
+function drawKustodianDonut(pakdCompliance) {
+  const wrap = document.getElementById('kust-donut-wrap');
+  if (!wrap) return;
+  const total = pakdCompliance.reduce((sum, p) => sum + (p.customer_at_ptp_idr || 0), 0);
+  if (total === 0) {
+    wrap.innerHTML = '<div class="no-data-state">Tidak ada data penempatan</div>';
+    return;
+  }
+  const colors = ['#4a6cf7', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6'];
+  const sz = 170, cx = sz / 2, cy = sz / 2, r = 70, ri = 44;
+  const seg = (start, sweep, color) => {
+    const end = start + Math.min(sweep, 2 * Math.PI - 0.0001);
+    const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start);
+    const x2 = cx + r * Math.cos(end), y2 = cy + r * Math.sin(end);
+    const xi1 = cx + ri * Math.cos(start), yi1 = cy + ri * Math.sin(start);
+    const xi2 = cx + ri * Math.cos(end), yi2 = cy + ri * Math.sin(end);
+    const lg = sweep > Math.PI ? 1 : 0;
+    return '<path d="M' + xi1 + ' ' + yi1 + ' L' + x1 + ' ' + y1 + ' A' + r + ' ' + r + ' 0 ' + lg + ' 1 ' + x2 + ' ' + y2 +
+           ' L' + xi2 + ' ' + yi2 + ' A' + ri + ' ' + ri + ' 0 ' + lg + ' 0 ' + xi1 + ' ' + yi1 + ' Z" fill="' + color + '" opacity="0.85"/>';
+  };
+  let svg = '<svg width="' + sz + '" height="' + sz + '" viewBox="0 0 ' + sz + ' ' + sz + '">';
+  let angle = -Math.PI / 2;
+  pakdCompliance.forEach((p, i) => {
+    const sweep = ((p.customer_at_ptp_idr || 0) / total) * 2 * Math.PI;
+    if (sweep > 0) svg += seg(angle, sweep, colors[i % colors.length]);
+    angle += sweep;
+  });
+  svg += '<text x="' + cx + '" y="' + (cy - 5) + '" text-anchor="middle" font-size="10" fill="var(--txt3)">Total di PTP</text>';
+  svg += '<text x="' + cx + '" y="' + (cy + 11) + '" text-anchor="middle" font-size="11" font-weight="700" fill="var(--txt1)">' + formatIDRShort(total) + '</text>';
+  svg += '</svg>';
+  let legend = '<div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;font-size:11px;width:100%">';
+  pakdCompliance.forEach((p, i) => {
+    const pct = ((p.customer_at_ptp_idr || 0) / total * 100).toFixed(1);
+    legend += '<div style="display:flex;align-items:center;gap:6px"><div style="width:9px;height:9px;border-radius:2px;flex-shrink:0;background:' + colors[i % colors.length] + '"></div><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + p.nama + '</span><span class="mono" style="font-weight:600">' + pct + '%</span></div>';
+  });
+  legend += '</div>';
+  wrap.innerHTML = svg + legend;
+}
+
+function formatIDRShort(n) {
+  if (n >= 1e12) return 'Rp ' + (n / 1e12).toFixed(1) + ' T';
+  if (n >= 1e9) return 'Rp ' + (n / 1e9).toFixed(1) + ' M';
+  if (n >= 1e6) return 'Rp ' + (n / 1e6).toFixed(1) + ' Jt';
+  return formatIDR(n);
+}
+
+function exportKustodianCSV() {
+  const data = _kustMonitoringData;
+  if (!data) { alert('Pilih kustodian terlebih dahulu'); return; }
+  let csv = 'PAKD ID,Nama PAKD,AKD Konsumen di PAKD (Rp),AKD Konsumen di PTP (Rp),Rasio di PAKD,Status\n';
+  (data.pakd_compliance || []).forEach(p => {
+    csv += `${p.pakd_id},"${p.nama}",${p.customer_at_pakd_idr},${p.customer_at_ptp_idr},${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%,${p.status}\n`;
+  });
+  csv += '\nWallet Network,Address,Verified\n';
+  (data.wallets || []).forEach(w => {
+    csv += `${w.network},${w.address},${w.verified}\n`;
+  });
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'kustodian_' + data.kustodian.id + '_monitoring.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function openAddKustodianModal() {
