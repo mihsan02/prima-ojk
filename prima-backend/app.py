@@ -749,6 +749,22 @@ def _get_kustodian_share_for_pakd(kust_id, pakd_id, conn=None):
     return ptp_by_pakd.get(pakd_id, 0) / total_ptp
 
 
+def deviasi_with_custody(pakd_onchain_idr, kustodian_share_idr, aset_dilaporkan):
+    """Deviasi counting the PAKD's prorated custody share as its on-chain assets.
+
+    Reported totals include AKD placed at the PTP, so the on-chain side must
+    include the PAKD's share of the kustodian pool — otherwise a perfectly
+    compliant 30/70 PAKD always shows ~-70% deviasi.
+    Returns (total_attributable_idr, deviasi_pct).
+    """
+    total = (pakd_onchain_idr or 0) + (kustodian_share_idr or 0)
+    if aset_dilaporkan and aset_dilaporkan > 0:
+        deviasi_pct = (total - aset_dilaporkan) / aset_dilaporkan * 100
+    else:
+        deviasi_pct = 0
+    return total, deviasi_pct
+
+
 def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
     """Compute 30/70 compliance for a PAKD with linked kustodian(s).
     Returns dict with kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp, kustodian_details.
@@ -2212,13 +2228,14 @@ def recalc_snapshot(pakd_id):
             return jsonify({"error": "PAKD tidak ditemukan"}), 404
         pakd_nama = pakd[0]
         aset_dilaporkan = _get_aset_dilaporkan(pakd_id, fallback=pakd[1] or 0, conn=conn)
-        # Recalculate deviasi
+        # Recalculate deviasi (includes prorated custody share)
+        _c3070_pre = compute_30_70_compliance(pakd_id, int(aset_onchain), conn=conn)
+        _total_attr, deviasi = deviasi_with_custody(
+            aset_onchain, _c3070_pre.get("kustodian_onchain_idr", 0), aset_dilaporkan)
         if aset_dilaporkan == 0:
-            deviasi = 0.0 if aset_onchain == 0 else 9999.9999
-        else:
-            deviasi = (aset_onchain - aset_dilaporkan) / aset_dilaporkan * 100
+            deviasi = 0.0 if _total_attr == 0 else 9999.9999
         deviasi_clamped = max(-9999.9999, min(9999.9999, deviasi))
-        surplus = aset_onchain >= aset_dilaporkan
+        surplus = _total_attr >= aset_dilaporkan
         if surplus:
             status = "Aman"
         else:
@@ -2229,8 +2246,8 @@ def recalc_snapshot(pakd_id):
                 status = "Deviasi"
             else:
                 status = "Kritis"
-        # Insert new snapshot with 30/70 compliance
-        c3070 = compute_30_70_compliance(pakd_id, int(aset_onchain), conn=conn)
+        # Insert new snapshot with 30/70 compliance (computed above for deviasi)
+        c3070 = _c3070_pre
 
         cur.execute(
             """INSERT INTO reconciliation_snapshots
@@ -2847,14 +2864,15 @@ def reconciliation():
             _timings["fetch_sol_total"] = round(_timings.get("fetch_sol_total", 0) + _ct.get("fetch_sol_total", 0), 3)
             aset_dilaporkan  = _get_aset_dilaporkan(pakd["id"], fallback=pakd.get("aset_dilaporkan", 0))
 
-            if aset_dilaporkan > 0:
-                selisih     = aset_onchain_idr - aset_dilaporkan
-                deviasi_pct = selisih / aset_dilaporkan * 100
-            else:
-                selisih     = 0
-                deviasi_pct = 0
+            compliance_data = compute_30_70_compliance(pakd["id"], aset_onchain_idr)
 
-            surplus = aset_onchain_idr >= aset_dilaporkan
+            # Deviasi counts the PAKD's prorated custody share (reported totals
+            # include AKD placed at the PTP, so the on-chain side must too).
+            total_attributable, deviasi_pct = deviasi_with_custody(
+                aset_onchain_idr, compliance_data.get("kustodian_onchain_idr", 0), aset_dilaporkan)
+            selisih = total_attributable - aset_dilaporkan if aset_dilaporkan > 0 else 0
+
+            surplus = total_attributable >= aset_dilaporkan
             if surplus:
                 status_rec = "Aman"
             else:
@@ -2865,8 +2883,6 @@ def reconciliation():
                     status_rec = "Deviasi"
                 else:
                     status_rec = "Kritis"
-
-            compliance_data = compute_30_70_compliance(pakd["id"], aset_onchain_idr)
 
 
             hasil.append({
@@ -2948,9 +2964,10 @@ def internal_refresh_all():
             total = result_bal["total_idr"]
             breakdown = result_bal["breakdown"]
             dilaporkan = _get_aset_dilaporkan(pakd["id"], fallback=pakd.get("aset_dilaporkan", 0))
-            deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
-            status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
             compliance_data = compute_30_70_compliance(pakd["id"], int(total))
+            _, deviasi = deviasi_with_custody(
+                total, compliance_data.get("kustodian_onchain_idr", 0), dilaporkan)
+            status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
                 "aset_dilaporkan_idr": dilaporkan,
@@ -3899,9 +3916,10 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
             total = result_bal["total_idr"]
             breakdown = result_bal["breakdown"]
             dilaporkan = _get_aset_dilaporkan(pakd["id"], fallback=pakd.get("aset_dilaporkan", 0))
-            deviasi = ((total - dilaporkan) / dilaporkan * 100) if dilaporkan else 0
-            status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
             compliance_data = compute_30_70_compliance(pakd["id"], int(total))
+            _, deviasi = deviasi_with_custody(
+                total, compliance_data.get("kustodian_onchain_idr", 0), dilaporkan)
+            status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
 
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
