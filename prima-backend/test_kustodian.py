@@ -105,7 +105,7 @@ class TestKustodianCRUDWithMockDB:
         mock_conn = _make_mock_conn({'fetchall': [
             [('KUST-001', 'PT Kustodian Aset Prima', '2026-01-01', '2026-01-01')],
             [('PAKD-DEMO-001',)],
-            [('ethereum', '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', True, None)],
+            [('ethereum', '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', True, None, None)],
         ]})
         with patch('auth._fetch_user_profile', side_effect=_mock_fetch_profile), \
              patch('app._get_db_conn', return_value=mock_conn), \
@@ -204,7 +204,7 @@ class TestKustodianCRUDWithMockDB:
         mock_conn = _make_mock_conn({'fetchall': [
             [('KUST-001', 'Linked Kustodian', '2026-01-01', '2026-01-01')],
             [('PAKD-DEMO-001',)],
-            [('ethereum', '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', False, None)],
+            [('ethereum', '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', False, None, None)],
         ]})
         with patch('auth._fetch_user_profile', side_effect=_mock_fetch_profile), \
              patch('app._get_db_conn', return_value=mock_conn), \
@@ -229,8 +229,8 @@ class TestKustodianMonitoring:
             'fetchall': [
                 [('PAKD-DEMO-001', 'Alpha Kripto Indonesia')],                        # linked PAKDs
                 [('PAKD-DEMO-001', 15_000_000_000, True, 0.30, 0.70, None, 2_500_000_000)],  # latest snapshots
-                [('ethereum', '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', True, None),
-                 ('solana', '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', False, None)],  # wallets
+                [('ethereum', '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', True, None, 'PAKD-DEMO-001'),
+                 ('solana', '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', False, None, None)],  # wallets
             ],
         })
 
@@ -315,50 +315,6 @@ class TestKustodianMonitoring:
     def test_monitoring_requires_auth(self, client):
         resp = client.get('/api/kustodian/KUST-001/monitoring')
         assert resp.status_code == 401
-
-
-class TestKustodianShareProration:
-    """Shared kustodian custody must be distributed by reported placement, not mirrored."""
-
-    def test_share_prorated_by_reported_ptp(self):
-        import app as app_mod
-        mock_conn = MagicMock()
-        cur = MagicMock()
-        mock_conn.cursor.return_value = cur
-        # linked PAKDs for KUST-001; reported values fall back to REPORTED_VALUES_DEFAULT
-        cur.fetchall.return_value = [('PAKD-DEMO-001',), ('PAKD-OJK-001',), ('PAKD-OJK-002',)]
-        cur.fetchone.side_effect = [None, None, None]
-        share = app_mod._get_kustodian_share_for_pakd('KUST-001', 'PAKD-DEMO-001', conn=mock_conn)
-        # defaults: 7B / (7B + 8B + 3B) = 7/18
-        assert abs(share - 7 / 18) < 1e-9
-
-    def test_share_single_pakd_is_full(self):
-        import app as app_mod
-        mock_conn = MagicMock()
-        cur = MagicMock()
-        mock_conn.cursor.return_value = cur
-        cur.fetchall.return_value = [('PAKD-OJK-003',)]
-        assert app_mod._get_kustodian_share_for_pakd('KUST-002', 'PAKD-OJK-003', conn=mock_conn) == 1.0
-
-    def test_share_equal_split_when_nothing_reported(self):
-        import app as app_mod
-        from unittest.mock import patch as _patch
-        mock_conn = MagicMock()
-        cur = MagicMock()
-        mock_conn.cursor.return_value = cur
-        cur.fetchall.return_value = [('PAKD-A',), ('PAKD-B',)]
-        cur.fetchone.side_effect = [None, None]
-        with _patch.dict(app_mod.REPORTED_VALUES_DEFAULT, {}, clear=True):
-            share = app_mod._get_kustodian_share_for_pakd('KUST-X', 'PAKD-A', conn=mock_conn)
-        assert share == 0.5
-
-    def test_share_no_linkage_falls_back_to_full(self):
-        import app as app_mod
-        mock_conn = MagicMock()
-        cur = MagicMock()
-        mock_conn.cursor.return_value = cur
-        cur.fetchall.return_value = []
-        assert app_mod._get_kustodian_share_for_pakd('KUST-Y', 'PAKD-Z', conn=mock_conn) == 1.0
 
 
 class TestDeviasiWithCustody:

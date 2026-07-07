@@ -871,7 +871,7 @@ tr:hover td{background:var(--bg2)}
         <div class="section-header">
           <div class="section-title"><div class="section-title-bar"></div>Pemetaan Wallet Kustodian → PAKD</div>
         </div>
-        <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">Setiap wallet kustodian dipakai bersama oleh seluruh PAKD terhubung — persentase = porsi penempatan berdasarkan laporan</div>
+        <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">1 wallet kustodian didedikasikan untuk 1 PAKD — saldo wallet sepenuhnya milik PAKD tersebut</div>
         <div id="kust-bubble-wrap" style="overflow-x:auto"></div>
       </div>
 
@@ -881,7 +881,7 @@ tr:hover td{background:var(--bg2)}
           <button class="btn-secondary crud-action" onclick="addKustWallet()">+ Tambah Wallet</button>
         </div>
         <table>
-          <thead><tr><th>Network</th><th>Address</th><th>Status</th><th style="text-align:right">Aksi</th></tr></thead>
+          <thead><tr><th>Network</th><th>Address</th><th>PAKD (Dedicated)</th><th>Status</th><th style="text-align:right">Aksi</th></tr></thead>
           <tbody id="kustodian-detail-wallets"></tbody>
         </table>
       </div>
@@ -2850,7 +2850,7 @@ async function renderKustodianMonitoring(kustId) {
       <tr>
         <td>${p.nama}<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt4)">${p.pakd_id}</div><div style="font-size:9px;color:var(--txt4);margin-top:2px" title="Waktu snapshot rekonsiliasi terakhir">snapshot: ${p.latest_snapshot_at ? p.latest_snapshot_at.replace('T', ' ').slice(0, 16) : '—'}</div></td>
         ${cmpCell(p.customer_at_pakd_idr, p.pakd_onchain_idr, 'on-chain PAKD')}
-        ${cmpCell(p.customer_at_ptp_idr, p.kustodian_onchain_idr, 'on-chain kustodian (porsi PAKD)')}
+        ${cmpCell(p.customer_at_ptp_idr, p.kustodian_onchain_idr, 'on-chain kustodian (dedicated)')}
         <td class="mono-val" style="color:${p.ratio_at_pakd > 0.3 ? 'var(--red)' : 'var(--green)'};font-weight:600">${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%</td>
         <td>${p.compliance_30_70 ? '<span class="badge-compliant">✓ COMPLIANT</span>' : '<span class="badge-violation">✗ VIOLATION</span>'}</td>
       </tr>
@@ -2865,6 +2865,11 @@ async function renderKustodianMonitoring(kustId) {
       <tr>
         <td><span style="font-size:11px;background:var(--bg2);padding:2px 8px;border-radius:4px;font-weight:600;text-transform:uppercase">${w.network}</span></td>
         <td style="font-family:'JetBrains Mono',monospace;font-size:11px;word-break:break-all">${w.address}</td>
+        <td>${w.pakd_id
+          ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px">' + w.pakd_id + '</span>'
+          : '<span style="color:var(--amber);font-size:11px">Unassigned</span>'}
+          <button onclick="assignKustWallet(${i})" class="crud-action" title="Tetapkan PAKD"
+              style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px">🔗</button></td>
         <td>${w.verified ? '<span style="color:var(--green);font-weight:600">✓ Verified</span>' : '<span style="color:var(--txt4)">Unverified</span>'}</td>
         <td style="text-align:right">
           <button onclick="editKustWallet(${i})" class="crud-action" title="Ganti address"
@@ -2873,7 +2878,7 @@ async function renderKustodianMonitoring(kustId) {
               style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px">🗑️</button>
         </td>
       </tr>
-    `).join('') || '<tr><td colspan="4" style="color:var(--txt4)">Tidak ada wallet</td></tr>';
+    `).join('') || '<tr><td colspan="5" style="color:var(--txt4)">Tidak ada wallet</td></tr>';
     applyRoleUI();
   } catch (e) {
     console.error('[KUSTODIAN] monitoring render failed:', e);
@@ -2945,33 +2950,32 @@ function drawKustodianBubbleMap(data) {
     wrap.innerHTML = '<div class="no-data-state">Tidak ada wallet atau PAKD terhubung</div>';
     return;
   }
-  // Porsi tiap PAKD — sumber yang SAMA dengan donut (on-chain, fallback laporan)
-  const dist = custodyDistribution(pakds);
-  const shares = pakds.map(p => dist.total > 0 ? dist.valueOf(p) / dist.total : 1 / pakds.length);
+  // 1 wallet = 1 PAKD: setiap hub wallet terhubung ke SATU PAKD dedicated
   const colors = ['#4a6cf7', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6'];
+  const colorByPakd = {};
+  pakds.forEach((p, i) => { colorByPakd[p.pakd_id] = colors[i % colors.length]; });
 
-  const clusterW = Math.max(300, 90 + pakds.length * 40);
-  const H = 300;
+  const clusterW = 240;
+  const H = 260;
   let svg = '<svg width="' + (clusterW * wallets.length) + '" height="' + H + '" style="min-width:100%">';
   wallets.forEach((w, wi) => {
     const cx = clusterW * wi + clusterW / 2;
-    const cy = H / 2 + 40;
+    const cy = H - 90;
     const centerR = 52;
     const addrShort = w.address.length > 16 ? w.address.slice(0, 8) + '…' + w.address.slice(-6) : w.address;
-    // PAKD bubbles di atas wallet, sebaran busur
-    pakds.forEach((p, i) => {
-      const n = pakds.length;
-      const spread = Math.min(Math.PI * 0.9, 0.6 + n * 0.5);
-      const a = -Math.PI / 2 + (n === 1 ? 0 : (i / (n - 1) - 0.5) * spread);
-      const r = 20 + shares[i] * 26;
-      const dist = centerR + 46 + r;
-      const px = cx + dist * Math.cos(a);
-      const py = cy + dist * Math.sin(a);
-      svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + px + '" y2="' + py + '" stroke="var(--txt4)" stroke-dasharray="4 4" stroke-width="1"/>';
-      svg += '<circle cx="' + px + '" cy="' + py + '" r="' + r + '" fill="' + colors[i % colors.length] + '" opacity="0.85"/>';
-      svg += '<text x="' + px + '" y="' + (py + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">' + (shares[i] * 100).toFixed(0) + '%</text>';
-      svg += '<text x="' + px + '" y="' + (py - r - 6) + '" text-anchor="middle" font-size="9" fill="var(--txt3)" font-family="JetBrains Mono,monospace">' + p.pakd_id + '</text>';
-    });
+    const px = cx, py = 52;
+    if (w.pakd_id) {
+      const color = colorByPakd[w.pakd_id] || 'var(--txt4)';
+      svg += '<line x1="' + cx + '" y1="' + (cy - centerR) + '" x2="' + px + '" y2="' + (py + 30) + '" stroke="var(--txt4)" stroke-dasharray="4 4" stroke-width="1"/>';
+      svg += '<circle cx="' + px + '" cy="' + py + '" r="30" fill="' + color + '" opacity="0.9"/>';
+      svg += '<text x="' + px + '" y="' + (py + 4) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">100%</text>';
+      svg += '<text x="' + px + '" y="' + (py - 38) + '" text-anchor="middle" font-size="10" font-weight="600" fill="var(--txt2)" font-family="JetBrains Mono,monospace">' + w.pakd_id + '</text>';
+    } else {
+      svg += '<line x1="' + cx + '" y1="' + (cy - centerR) + '" x2="' + px + '" y2="' + (py + 30) + '" stroke="var(--txt4)" stroke-dasharray="2 5" stroke-width="1"/>';
+      svg += '<circle cx="' + px + '" cy="' + py + '" r="30" fill="var(--bg2)" stroke="var(--txt4)" stroke-dasharray="4 3" stroke-width="1.5"/>';
+      svg += '<text x="' + px + '" y="' + (py + 4) + '" text-anchor="middle" font-size="9" fill="var(--txt4)">belum</text>';
+      svg += '<text x="' + px + '" y="' + (py - 38) + '" text-anchor="middle" font-size="10" fill="var(--txt4)">UNASSIGNED</text>';
+    }
     // Wallet bubble
     svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + centerR + '" fill="var(--bg2)" stroke="var(--border)" stroke-width="2"/>';
     svg += '<text x="' + cx + '" y="' + (cy - 8) + '" text-anchor="middle" font-size="11" font-weight="700" fill="var(--txt1)">' + data.kustodian.id + '</text>';
@@ -3002,6 +3006,10 @@ async function saveKustodianWallets(newWallets) {
   }
 }
 
+function _kustWalletPayload(x) {
+  return {network: x.network, address: x.address, verified: x.verified, verified_at: x.verified_at, pakd_id: x.pakd_id || null};
+}
+
 function editKustWallet(i) {
   const data = _kustMonitoringData;
   if (!data || !data.wallets[i]) return;
@@ -3009,8 +3017,8 @@ function editKustWallet(i) {
   const addr = prompt('Address baru untuk wallet ' + w.network.toUpperCase() + ':', w.address);
   if (!addr || addr.trim() === w.address) return;
   const wallets = data.wallets.map((x, j) => j === i
-    ? {network: x.network, address: addr.trim(), verified: false, verified_at: null}
-    : {network: x.network, address: x.address, verified: x.verified, verified_at: x.verified_at});
+    ? Object.assign(_kustWalletPayload(x), {address: addr.trim(), verified: false, verified_at: null})
+    : _kustWalletPayload(x));
   saveKustodianWallets(wallets);
 }
 
@@ -3019,8 +3027,22 @@ function removeKustWallet(i) {
   if (!data || !data.wallets[i]) return;
   const w = data.wallets[i];
   if (!confirm('Hapus wallet ' + w.network.toUpperCase() + ' ' + w.address + '?')) return;
-  const wallets = data.wallets.filter((_, j) => j !== i)
-    .map(x => ({network: x.network, address: x.address, verified: x.verified, verified_at: x.verified_at}));
+  const wallets = data.wallets.filter((_, j) => j !== i).map(_kustWalletPayload);
+  saveKustodianWallets(wallets);
+}
+
+function assignKustWallet(i) {
+  const data = _kustMonitoringData;
+  if (!data || !data.wallets[i]) return;
+  const w = data.wallets[i];
+  const linked = (data.pakd_compliance || []).map(p => p.pakd_id);
+  const pid = (prompt('PAKD dedicated untuk wallet ' + w.network.toUpperCase() + ' ' + w.address.slice(0, 12) + '…\n' +
+    'Pilihan: ' + (linked.join(', ') || '(tidak ada PAKD terhubung)') + '\n(kosongkan untuk unassign)', w.pakd_id || '') || '').trim();
+  if (pid && linked.length && !linked.includes(pid) &&
+      !confirm(pid + ' tidak terhubung ke kustodian ini. Tetap tetapkan?')) return;
+  const wallets = data.wallets.map((x, j) => j === i
+    ? Object.assign(_kustWalletPayload(x), {pakd_id: pid || null})
+    : _kustWalletPayload(x));
   saveKustodianWallets(wallets);
 }
 
@@ -3031,9 +3053,11 @@ function addKustWallet() {
   if (!['ethereum', 'bitcoin', 'solana'].includes(network)) { if (network) alert('Network tidak dikenal: ' + network); return; }
   const addr = (prompt('Address wallet ' + network.toUpperCase() + ':') || '').trim();
   if (!addr) return;
-  const wallets = data.wallets
-    .map(x => ({network: x.network, address: x.address, verified: x.verified, verified_at: x.verified_at}))
-    .concat([{network, address: addr, verified: false, verified_at: null}]);
+  const linked = (data.pakd_compliance || []).map(p => p.pakd_id);
+  const pid = (prompt('PAKD dedicated untuk wallet ini (1 wallet = 1 PAKD)\nPilihan: ' +
+    (linked.join(', ') || '-') + '\n(kosongkan untuk unassigned)', linked[0] || '') || '').trim();
+  const wallets = data.wallets.map(_kustWalletPayload)
+    .concat([{network, address: addr, verified: false, verified_at: null, pakd_id: pid || null}]);
   saveKustodianWallets(wallets);
 }
 

@@ -593,7 +593,12 @@ def validate_wallet_address(network, address):
 # ---------------------------------------------------------------------------
 
 def _get_kustodian_data_for_pakd(pakd_id, conn=None):
-    """Fetch linked kustodian IDs and their wallets for a PAKD."""
+    """Fetch linked kustodian IDs and the wallets DEDICATED to this PAKD.
+
+    Custody model (supervisor guidance): one kustodian wallet serves exactly
+    one PAKD (wallets.pakd_id on the KUSTODIAN row). Wallets with pakd_id
+    NULL are unassigned and count toward no PAKD.
+    """
     own_conn = conn is None
     if own_conn:
         conn = _get_db_conn()
@@ -610,8 +615,9 @@ def _get_kustodian_data_for_pakd(pakd_id, conn=None):
             return [], []
         cur.execute("""
             SELECT entity_id, network, address, verified, verified_at
-            FROM wallets WHERE entity_type = 'KUSTODIAN' AND entity_id = ANY(%s)
-        """, (kust_ids,))
+            FROM wallets
+            WHERE entity_type = 'KUSTODIAN' AND entity_id = ANY(%s) AND pakd_id = %s
+        """, (kust_ids, pakd_id))
         wallet_rows = cur.fetchall()
         cur.close()
         if own_conn:
@@ -743,50 +749,12 @@ def _get_kustodian_onchain_resilient(kust_id, kust_wallets):
     return 0
 
 
-def _get_kustodian_share_for_pakd(kust_id, pakd_id, conn=None):
-    """Fraction of a kustodian's on-chain custody attributable to one PAKD.
-
-    A kustodian wallet pool is shared by every linked PAKD; the chain cannot
-    attribute it per client, so the split follows the REPORTED placement:
-    share = this PAKD's customer_at_ptp_idr / sum over all PAKDs linked to
-    this kustodian. Falls back to an equal split when nothing is reported,
-    and to 1.0 when the linkage can't be read (preserves old behaviour).
-    """
-    own_conn = conn is None
-    if own_conn:
-        conn = _get_db_conn()
-    linked = []
-    if conn:
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT pakd_id FROM kustodian_pakd WHERE kustodian_id = %s", (kust_id,))
-            linked = [r[0] for r in cur.fetchall()]
-            cur.close()
-        except Exception as e:
-            print(f"[30/70] _get_kustodian_share_for_pakd({kust_id}) query failed: {e}", flush=True)
-        finally:
-            if own_conn:
-                _return_db_conn(conn)
-    if not linked or pakd_id not in linked:
-        return 1.0
-    if len(linked) == 1:
-        return 1.0
-    ptp_by_pakd = {}
-    for pid in linked:
-        reported = _get_reported_values(pid, conn=None if own_conn else conn)
-        ptp_by_pakd[pid] = float(reported.get("customer_at_ptp_idr", 0) or 0)
-    total_ptp = sum(ptp_by_pakd.values())
-    if total_ptp <= 0:
-        return 1.0 / len(linked)
-    return ptp_by_pakd.get(pakd_id, 0) / total_ptp
-
-
 def deviasi_with_custody(pakd_onchain_idr, kustodian_share_idr, aset_dilaporkan):
-    """Deviasi counting the PAKD's prorated custody share as its on-chain assets.
+    """Deviasi counting the PAKD's dedicated custody balance as its on-chain assets.
 
     Reported totals include AKD placed at the PTP, so the on-chain side must
-    include the PAKD's share of the kustodian pool — otherwise a perfectly
-    compliant 30/70 PAKD always shows ~-70% deviasi.
+    include the balance of the kustodian wallets dedicated to this PAKD --
+    otherwise a perfectly compliant 30/70 PAKD always shows ~-70% deviasi.
     Returns (total_attributable_idr, deviasi_pct).
     """
     total = (pakd_onchain_idr or 0) + (kustodian_share_idr or 0)
@@ -816,18 +784,14 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
     kustodian_onchain_total = 0
     kustodian_details = []
     for kust_id in kust_ids:
+        # Wallets here are already DEDICATED to this PAKD (1 wallet = 1 PAKD),
+        # so the balance is attributed in full — no proration.
         kust_wallets = wallets_by_kust.get(kust_id, [])
-        kust_onchain = _get_kustodian_onchain_resilient(kust_id, kust_wallets)
-        # Prorate the shared custody pool to this PAKD by reported placement —
-        # never mirror the full kustodian balance onto every linked PAKD.
-        share = _get_kustodian_share_for_pakd(kust_id, pakd_id, conn=conn)
-        kust_onchain_share = kust_onchain * share
-        kustodian_onchain_total += kust_onchain_share
+        kust_onchain = _get_kustodian_onchain_resilient(f"{kust_id}:{pakd_id}", kust_wallets)
+        kustodian_onchain_total += kust_onchain
         kustodian_details.append({
             "kustodian_id": kust_id,
-            "onchain_idr": round(kust_onchain_share),
-            "onchain_total_idr": round(kust_onchain),
-            "share_pct": round(share * 100, 2),
+            "onchain_idr": round(kust_onchain),
             "wallet_count": len(kust_wallets),
         })
 
@@ -2376,8 +2340,8 @@ def api_list_kustodian():
             kust_id = r[0]
             cur.execute("SELECT pakd_id FROM kustodian_pakd WHERE kustodian_id = %s", (kust_id,))
             pakd_ids = [row[0] for row in cur.fetchall()]
-            cur.execute("SELECT network, address, verified, verified_at FROM wallets WHERE entity_type = 'KUSTODIAN' AND entity_id = %s", (kust_id,))
-            wallets = [{"network": w[0], "address": w[1], "verified": w[2], "verified_at": str(w[3]) if w[3] else None} for w in cur.fetchall()]
+            cur.execute("SELECT network, address, verified, verified_at, pakd_id FROM wallets WHERE entity_type = 'KUSTODIAN' AND entity_id = %s", (kust_id,))
+            wallets = [{"network": w[0], "address": w[1], "verified": w[2], "verified_at": str(w[3]) if w[3] else None, "pakd_id": w[4]} for w in cur.fetchall()]
             result.append({
                 "id": kust_id,
                 "nama": r[1],
@@ -2437,7 +2401,7 @@ def api_create_kustodian():
             cur.execute("""
                 INSERT INTO wallets (pakd_id, network, address, verified, verified_at, entity_type, entity_id)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (None, w["network"], w["address"], w.get("verified", False), w.get("verified_at"), "KUSTODIAN", body["id"]))
+            """, (w.get("pakd_id") or None, w["network"], w["address"], w.get("verified", False), w.get("verified_at"), "KUSTODIAN", body["id"]))
 
         conn.commit()
         cur.close()
@@ -2503,7 +2467,7 @@ def api_update_kustodian(kust_id):
                 cur.execute("""
                     INSERT INTO wallets (pakd_id, network, address, verified, verified_at, entity_type, entity_id)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (None, w["network"], w["address"], w.get("verified", False), w.get("verified_at"), "KUSTODIAN", kust_id))
+                """, (w.get("pakd_id") or None, w["network"], w["address"], w.get("verified", False), w.get("verified_at"), "KUSTODIAN", kust_id))
 
         conn.commit()
         cur.close()
@@ -2632,7 +2596,7 @@ def _get_kustodian_monitoring_data(kust_id, conn):
         })
 
     cur.execute("""
-        SELECT network, address, verified, verified_at
+        SELECT network, address, verified, verified_at, pakd_id
         FROM wallets
         WHERE entity_type = 'KUSTODIAN' AND entity_id = %s
         ORDER BY network, address
@@ -2644,6 +2608,7 @@ def _get_kustodian_monitoring_data(kust_id, conn):
             "address": w[1],
             "verified": bool(w[2]),
             "verified_at": w[3].isoformat() if hasattr(w[3], "isoformat") else (str(w[3]) if w[3] else None),
+            "pakd_id": w[4],
         })
     cur.close()
 
