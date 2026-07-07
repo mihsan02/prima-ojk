@@ -30,7 +30,7 @@ def test_curated_list_has_no_tier1_overlap():
     curated = {t["contract"].lower() for t in app.ETH_CURATED_TOKENS}
     overlap = tier1 & curated
     assert overlap == set(), f"Tier-1 overlap detected: {overlap}"
-    assert len(curated) == 50, f"Expected 50 curated tokens, got {len(curated)}"
+    assert len(curated) == 51, f"Expected 51 curated tokens, got {len(curated)}"  # 50 + OKB (dedicated kustodian wallet coverage)
 
 
 def test_fetch_balances_skips_zero_balance_tokens():
