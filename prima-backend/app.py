@@ -116,6 +116,7 @@ USDC_CONTRACT      = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 # ---------------------------------------------------------------------------
 
 ETH_CURATED_TOKENS = [
+    {"symbol": "OKB",    "contract": "0x75231F58b43240C9718Dd58B4967c5114342a86c", "decimals": 18},
     {"symbol": "WBTC",   "contract": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", "decimals": 8},
     {"symbol": "LINK",   "contract": "0x514910771AF9Ca656af840dff83E8264EcF986CA", "decimals": 18},
     {"symbol": "UNI",    "contract": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", "decimals": 18},
@@ -1759,27 +1760,37 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 tier1_mints     = {USDT_MINT_SOL, USDC_MINT_SOL, SOL_NATIVE_SENTINEL}
                 candidate_mints = [h["mint"] for h in all_holdings if h["mint"] not in tier1_mints]
                 if candidate_mints:
-                    verified_set = _get_jupiter_verified_set()
-                    prices       = _get_jupiter_prices(candidate_mints)
-                    usd_idr_rate = _get_usd_idr_rate()
-                    for holding in all_holdings:
-                        mint = holding["mint"]
-                        if mint in tier1_mints:
-                            continue
-                        in_verified = mint in verified_set
-                        usd_price   = prices.get(mint)
-                        has_price   = usd_price is not None and usd_price > 0
-                        if not has_price:
-                            usd_price = _get_dexscreener_price(mint)
-                            has_price = usd_price is not None and usd_price > 0
-                        pass_gate1 = in_verified or has_price
-                        pass_gate2 = has_price
-                        if pass_gate1 and pass_gate2:
-                            token_idr = holding["ui_amount"] * usd_price * usd_idr_rate
-                            other_token_idr_val += token_idr
-                            BALANCE_CACHE[(f"sol_other_token:{mint}", address)] = (time.time(), holding["ui_amount"])
-                        else:
-                            unvalued_mints_local.append(mint)
+                    # Pricing failures must degrade to native+tier1, never zero
+                    # the whole wallet (a 400-token wallet WILL hit API limits).
+                    try:
+                        verified_set = _get_jupiter_verified_set()
+                        prices       = _get_jupiter_prices(candidate_mints)
+                        usd_idr_rate = _get_usd_idr_rate()
+                        for holding in all_holdings:
+                            mint = holding["mint"]
+                            if mint in tier1_mints:
+                                continue
+                            in_verified = mint in verified_set
+                            usd_price   = prices.get(mint)
+                            has_price   = usd_price is not None and usd_price > 0
+                            if not has_price:
+                                try:
+                                    usd_price = _get_dexscreener_price(mint)
+                                except Exception:
+                                    usd_price = None
+                                has_price = usd_price is not None and usd_price > 0
+                            pass_gate1 = in_verified or has_price
+                            pass_gate2 = has_price
+                            if pass_gate1 and pass_gate2:
+                                token_idr = holding["ui_amount"] * usd_price * usd_idr_rate
+                                other_token_idr_val += token_idr
+                                BALANCE_CACHE[(f"sol_other_token:{mint}", address)] = (time.time(), holding["ui_amount"])
+                            else:
+                                unvalued_mints_local.append(mint)
+                    except Exception as price_err:
+                        print(f"[SPL_PRICE] token pricing for {address[:8]} failed, "
+                              f"keeping native+tier1 only: {type(price_err).__name__}: {price_err}", flush=True)
+                        unvalued_mints_local = [h["mint"] for h in all_holdings if h["mint"] not in tier1_mints]
                 wallet_total_idr = sol_native_idr_val + sol_usdt_idr_val + sol_usdc_idr_val + other_token_idr_val
                 entry["balance_native"]      = round(sol_bal, 9)
                 entry["balance_idr"]         = wallet_total_idr
