@@ -2839,7 +2839,7 @@ async function renderKustodianMonitoring(kustId) {
       <tr>
         <td>${p.nama}<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt4)">${p.pakd_id}</div></td>
         ${cmpCell(p.customer_at_pakd_idr, p.pakd_onchain_idr, 'on-chain PAKD')}
-        ${cmpCell(p.customer_at_ptp_idr, p.kustodian_onchain_idr, 'on-chain kustodian (total)')}
+        ${cmpCell(p.customer_at_ptp_idr, p.kustodian_onchain_idr, 'on-chain kustodian (porsi PAKD)')}
         <td class="mono-val" style="color:${p.ratio_at_pakd > 0.3 ? 'var(--red)' : 'var(--green)'};font-weight:600">${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%</td>
         <td>${p.compliance_30_70 ? '<span class="badge-compliant">✓ COMPLIANT</span>' : '<span class="badge-violation">✗ VIOLATION</span>'}</td>
       </tr>

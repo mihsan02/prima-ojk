@@ -315,3 +315,47 @@ class TestKustodianMonitoring:
     def test_monitoring_requires_auth(self, client):
         resp = client.get('/api/kustodian/KUST-001/monitoring')
         assert resp.status_code == 401
+
+
+class TestKustodianShareProration:
+    """Shared kustodian custody must be distributed by reported placement, not mirrored."""
+
+    def test_share_prorated_by_reported_ptp(self):
+        import app as app_mod
+        mock_conn = MagicMock()
+        cur = MagicMock()
+        mock_conn.cursor.return_value = cur
+        # linked PAKDs for KUST-001; reported values fall back to REPORTED_VALUES_DEFAULT
+        cur.fetchall.return_value = [('PAKD-DEMO-001',), ('PAKD-OJK-001',), ('PAKD-OJK-002',)]
+        cur.fetchone.side_effect = [None, None, None]
+        share = app_mod._get_kustodian_share_for_pakd('KUST-001', 'PAKD-DEMO-001', conn=mock_conn)
+        # defaults: 7B / (7B + 8B + 3B) = 7/18
+        assert abs(share - 7 / 18) < 1e-9
+
+    def test_share_single_pakd_is_full(self):
+        import app as app_mod
+        mock_conn = MagicMock()
+        cur = MagicMock()
+        mock_conn.cursor.return_value = cur
+        cur.fetchall.return_value = [('PAKD-OJK-003',)]
+        assert app_mod._get_kustodian_share_for_pakd('KUST-002', 'PAKD-OJK-003', conn=mock_conn) == 1.0
+
+    def test_share_equal_split_when_nothing_reported(self):
+        import app as app_mod
+        from unittest.mock import patch as _patch
+        mock_conn = MagicMock()
+        cur = MagicMock()
+        mock_conn.cursor.return_value = cur
+        cur.fetchall.return_value = [('PAKD-A',), ('PAKD-B',)]
+        cur.fetchone.side_effect = [None, None]
+        with _patch.dict(app_mod.REPORTED_VALUES_DEFAULT, {}, clear=True):
+            share = app_mod._get_kustodian_share_for_pakd('KUST-X', 'PAKD-A', conn=mock_conn)
+        assert share == 0.5
+
+    def test_share_no_linkage_falls_back_to_full(self):
+        import app as app_mod
+        mock_conn = MagicMock()
+        cur = MagicMock()
+        mock_conn.cursor.return_value = cur
+        cur.fetchall.return_value = []
+        assert app_mod._get_kustodian_share_for_pakd('KUST-Y', 'PAKD-Z', conn=mock_conn) == 1.0
