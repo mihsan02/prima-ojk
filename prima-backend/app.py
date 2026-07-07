@@ -711,6 +711,44 @@ def _get_aset_dilaporkan(pakd_id, fallback=0, conn=None):
     return fallback
 
 
+def _get_kustodian_share_for_pakd(kust_id, pakd_id, conn=None):
+    """Fraction of a kustodian's on-chain custody attributable to one PAKD.
+
+    A kustodian wallet pool is shared by every linked PAKD; the chain cannot
+    attribute it per client, so the split follows the REPORTED placement:
+    share = this PAKD's customer_at_ptp_idr / sum over all PAKDs linked to
+    this kustodian. Falls back to an equal split when nothing is reported,
+    and to 1.0 when the linkage can't be read (preserves old behaviour).
+    """
+    own_conn = conn is None
+    if own_conn:
+        conn = _get_db_conn()
+    linked = []
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT pakd_id FROM kustodian_pakd WHERE kustodian_id = %s", (kust_id,))
+            linked = [r[0] for r in cur.fetchall()]
+            cur.close()
+        except Exception as e:
+            print(f"[30/70] _get_kustodian_share_for_pakd({kust_id}) query failed: {e}", flush=True)
+        finally:
+            if own_conn:
+                _return_db_conn(conn)
+    if not linked or pakd_id not in linked:
+        return 1.0
+    if len(linked) == 1:
+        return 1.0
+    ptp_by_pakd = {}
+    for pid in linked:
+        reported = _get_reported_values(pid, conn=None if own_conn else conn)
+        ptp_by_pakd[pid] = float(reported.get("customer_at_ptp_idr", 0) or 0)
+    total_ptp = sum(ptp_by_pakd.values())
+    if total_ptp <= 0:
+        return 1.0 / len(linked)
+    return ptp_by_pakd.get(pakd_id, 0) / total_ptp
+
+
 def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
     """Compute 30/70 compliance for a PAKD with linked kustodian(s).
     Returns dict with kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp, kustodian_details.
@@ -736,10 +774,16 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
             kust_onchain = kust_balance["total_idr"]
         else:
             kust_onchain = 0
-        kustodian_onchain_total += kust_onchain
+        # Prorate the shared custody pool to this PAKD by reported placement —
+        # never mirror the full kustodian balance onto every linked PAKD.
+        share = _get_kustodian_share_for_pakd(kust_id, pakd_id, conn=conn)
+        kust_onchain_share = kust_onchain * share
+        kustodian_onchain_total += kust_onchain_share
         kustodian_details.append({
             "kustodian_id": kust_id,
-            "onchain_idr": round(kust_onchain),
+            "onchain_idr": round(kust_onchain_share),
+            "onchain_total_idr": round(kust_onchain),
+            "share_pct": round(share * 100, 2),
             "wallet_count": len(kust_wallets),
         })
 
@@ -2520,11 +2564,12 @@ def _get_kustodian_monitoring_data(kust_id, conn):
         customer_at_ptp = reported.get("customer_at_ptp_idr", 0) or 0
         total_expected_at_ptp += customer_at_ptp
 
-        # kustodian_onchain_idr is the Kustodian's TOTAL on-chain balance,
-        # identical across linked PAKDs in the same run — take, don't sum.
+        # kustodian_onchain_idr in snapshots is this PAKD's PRORATED share of
+        # the kustodian's custody pool (split by reported placement), so the
+        # kustodian total is the SUM of shares across linked PAKDs.
         snap_kust_onchain = snap.get("kustodian_onchain_idr")
         if snap_kust_onchain is not None:
-            kustodian_onchain = float(snap_kust_onchain)
+            kustodian_onchain += float(snap_kust_onchain)
 
         captured_at = snap.get("captured_at")
         compliance = bool(snap.get("compliance_30_70")) if snap.get("compliance_30_70") is not None else False
