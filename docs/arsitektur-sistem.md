@@ -301,7 +301,15 @@ Export: `GET /api/export-csv` (riwayat per-PAKD, max 200 baris) dan `GET /api/ex
 
 ### 6.2 Audit Trail
 
-Setiap operasi rekonsiliasi menghasilkan entri audit dan snapshot di tabel Supabase `reconciliation_snapshots`. Audit log menggunakan arsitektur dual-write: primary ke tabel Supabase `audit_log` (persisten antar restart), fallback ke `audit_log.json` (file lokal, best-effort). Endpoint `GET /api/audit-log` membaca dari Supabase dengan fallback ke file jika database unreachable, dan menyertakan field `source` (`"database"` atau `"file"`) di response. Catatan: audit log belum memiliki hash chain atau tamper-evident structure pada versi MVP. Lihat `docs/keterbatasan-sistem.md` Section 6 untuk rencana mitigasi.
+Setiap operasi rekonsiliasi menghasilkan entri audit dan snapshot di tabel Supabase `reconciliation_snapshots`. Audit log menggunakan arsitektur dual-write: primary ke tabel Supabase `audit_log` (persisten antar restart), fallback ke `audit_log.json` (file lokal, best-effort). Endpoint `GET /api/audit-log` membaca dari Supabase dengan fallback ke file jika database unreachable, dan menyertakan field `source` (`"database"` atau `"file"`) di response.
+
+Sejak Sprint 5, audit log tidak hanya mencatat operasi write (insert/update/delete) tetapi juga **read-access terhadap data rekonsiliasi**: siapa (email + role, dari JWT) yang mengakses dan kapan. Cakupan:
+
+- `GET /api/reconciliation/latest` dan `GET /api/reconciliation-history` — dicatat sebagai aksi `AKSES DATA`. Karena dashboard melakukan polling, akses berulang oleh user yang sama ke resource yang sama dalam window 5 menit hanya dicatat sekali (throttling in-memory) agar log tidak banjir.
+- `GET /api/export-csv` dan `GET /api/export-csv-overview` — dicatat sebagai aksi `EKSPOR DATA` pada **setiap** ekspor (tanpa throttling, karena ekstraksi data bersifat deliberate).
+- `GET /api/reconciliation` (rekonsiliasi live) — entri `REKONSILIASI` kini menyertakan siapa yang memicu.
+
+Identitas aktor disimpan di kolom `actor_email` dan `actor_role` (migrasi `docs/sprint5_migration.sql`) dan otomatis dilampirkan ke seluruh entri audit write yang berjalan dalam request context. Catatan: audit log belum memiliki hash chain atau tamper-evident structure pada versi MVP. Lihat `docs/keterbatasan-sistem.md` Section 6 untuk rencana mitigasi.
 
 ---
 

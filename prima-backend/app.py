@@ -531,19 +531,48 @@ def save_pakd(data):
             pass
         raise
 
-def write_audit(action, detail):
+def _current_actor():
+    """Ambil identitas user dari request context (jika ada) untuk audit trail.
+    Return {"email": ..., "role": ...} atau None (mis. dipanggil dari background job).
+    """
+    try:
+        user = getattr(g, "current_user", None)
+    except RuntimeError:
+        return None
+    if not user:
+        return None
+    return {
+        "email": user.get("email") or user.get("id") or "",
+        "role": user.get("role") or "",
+    }
+
+
+def write_audit(action, detail, actor=None):
     display_time  = datetime.now().strftime("%d %b %Y, %H:%M")
     timestamp_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if actor is None:
+        actor = _current_actor()
+    actor_email = (actor or {}).get("email") or None
+    actor_role  = (actor or {}).get("role") or None
 
     # Primary: Supabase (persistent)
     conn = _get_db_conn()
     if conn:
         try:
             cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO audit_log (waktu, aksi, detail, created_at) VALUES (%s, %s, %s, %s)",
-                (display_time, action, detail, timestamp_utc)
-            )
+            try:
+                cur.execute(
+                    "INSERT INTO audit_log (waktu, aksi, detail, created_at, actor_email, actor_role) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    (display_time, action, detail, timestamp_utc, actor_email, actor_role)
+                )
+            except Exception:
+                # Kolom actor belum ada (migrasi sprint5 belum dijalankan) → insert legacy
+                conn.rollback()
+                cur.execute(
+                    "INSERT INTO audit_log (waktu, aksi, detail, created_at) VALUES (%s, %s, %s, %s)",
+                    (display_time, action, detail, timestamp_utc)
+                )
             conn.commit()
             cur.close()
         except Exception as e:
@@ -557,7 +586,8 @@ def write_audit(action, detail):
         if os.path.exists(AUDIT_FILE):
             with open(AUDIT_FILE, "r") as f:
                 logs = json.load(f)
-        logs.insert(0, {"waktu": display_time, "aksi": action, "detail": detail})
+        logs.insert(0, {"waktu": display_time, "aksi": action, "detail": detail,
+                        "aktor": actor_email, "aktor_role": actor_role})
         logs = logs[:50]
         dir_ = os.path.dirname(AUDIT_FILE) or "."
         fd, tmp_path = tempfile.mkstemp(dir=dir_, suffix=".tmp")
@@ -566,6 +596,37 @@ def write_audit(action, detail):
         os.replace(tmp_path, AUDIT_FILE)
     except Exception as e:
         print(f"[AUDIT_FILE] write failed: {type(e).__name__}: {e}", flush=True)
+
+
+_ACCESS_LOG_SEEN  = {}    # {(user_id, resource): last_logged_epoch}
+ACCESS_LOG_WINDOW = 300   # detik — akses berulang oleh user yang sama dalam window ini tidak dicatat ulang
+
+
+def log_data_access(resource, extra=""):
+    """Catat siapa mengakses data rekonsiliasi dan kapan (audit read-access).
+
+    Dashboard melakukan polling, jadi akses berulang oleh user yang sama ke
+    resource yang sama dalam ACCESS_LOG_WINDOW hanya dicatat sekali agar
+    audit log tidak banjir.
+    """
+    actor = _current_actor()
+    if not actor:
+        return
+    try:
+        user_id = g.current_user.get("id")
+    except RuntimeError:
+        return
+    key = (user_id, resource)
+    now = time.time()
+    if now - _ACCESS_LOG_SEEN.get(key, 0) < ACCESS_LOG_WINDOW:
+        return
+    _ACCESS_LOG_SEEN[key] = now
+    who = actor["email"]
+    role = actor["role"]
+    detail = f"{who} ({role}) mengakses {resource}"
+    if extra:
+        detail += f" — {extra}"
+    write_audit("AKSES DATA", detail, actor=actor)
 
 
 def _check_wallet_uniqueness(wallets, pakd_id, existing_pakd_list):
@@ -2982,7 +3043,9 @@ def reconciliation():
             })
 
         _timings["fetch_all_pakd"] = round(time.perf_counter() - _t_fetch, 3)
-        write_audit("REKONSILIASI", f"{len(hasil)} PAKD direkonsiliasi (ETH native+USDT+USDC, BTC, SOL)")
+        write_audit("REKONSILIASI",
+                    f"{len(hasil)} PAKD direkonsiliasi (ETH native+USDT+USDC, BTC, SOL) — "
+                    f"dipicu oleh {user.get('email') or user.get('id')} ({user.get('role')})")
         # Resolve harga_fallback flag from ETH price fetch
         _t0 = time.perf_counter()
         _, eth_fallback = get_eth_price_idr()
@@ -3124,6 +3187,8 @@ def reconciliation_latest():
             })
         cur.close()
         _return_db_conn(conn)
+        log_data_access("snapshot rekonsiliasi terbaru (/api/reconciliation/latest)",
+                        f"{len(hasil)} PAKD")
         return jsonify({
             "data":       hasil,
             "total_pakd": len(hasil),
@@ -3185,6 +3250,8 @@ def reconciliation_history():
                 "harga_fallback":      r[8],
                 "network_breakdown":   r[9] if r[9] is not None else [],
             })
+        log_data_access("riwayat rekonsiliasi (/api/reconciliation-history)",
+                        f"pakd_id={pakd_id}" if pakd_id else "semua PAKD")
         return jsonify({"data": hasil, "total": len(hasil)})
     except Exception as e:
         return _error_response(str(e), status_code=500)
@@ -3599,12 +3666,21 @@ def audit_log():
     if conn:
         try:
             cur = conn.cursor()
-            cur.execute("SELECT waktu, aksi, detail FROM audit_log ORDER BY created_at DESC LIMIT 50")
-            rows = cur.fetchall()
+            try:
+                cur.execute("SELECT waktu, aksi, detail, actor_email, actor_role "
+                            "FROM audit_log ORDER BY created_at DESC LIMIT 50")
+                rows = cur.fetchall()
+            except Exception:
+                # Kolom actor belum ada (migrasi sprint5 belum dijalankan) → select legacy
+                conn.rollback()
+                cur.execute("SELECT waktu, aksi, detail, NULL, NULL "
+                            "FROM audit_log ORDER BY created_at DESC LIMIT 50")
+                rows = cur.fetchall()
             cur.close()
             _return_db_conn(conn)
             return jsonify({
-                "data": [{"waktu": r[0], "aksi": r[1], "detail": r[2]} for r in rows],
+                "data": [{"waktu": r[0], "aksi": r[1], "detail": r[2],
+                          "aktor": r[3], "aktor_role": r[4]} for r in rows],
                 "source": "database"
             })
         except Exception as e:
@@ -3889,6 +3965,9 @@ def export_csv_overview():
     writer.writerow(col_names)
     writer.writerows(rows)
 
+    write_audit("EKSPOR DATA",
+                f"{user.get('email') or user.get('id')} ({user.get('role')}) mengekspor CSV overview rekonsiliasi ({len(rows)} baris)")
+
     filename = f"prima-overview-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.csv"
     response = make_response(output.getvalue())
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
@@ -3929,6 +4008,10 @@ def export_csv():
     writer = csv.writer(output)
     writer.writerow(col_names)
     writer.writerows(rows)
+
+    write_audit("EKSPOR DATA",
+                f"{user.get('email') or user.get('id')} ({user.get('role')}) mengekspor CSV riwayat rekonsiliasi "
+                f"({'pakd_id=' + pakd_id if pakd_id else 'semua PAKD'}, {len(rows)} baris)")
 
     filename = f"prima-export-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.csv"
     response = make_response(output.getvalue())
