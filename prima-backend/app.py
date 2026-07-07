@@ -711,6 +711,38 @@ def _get_aset_dilaporkan(pakd_id, fallback=0, conn=None):
     return fallback
 
 
+# Last-known-good kustodian custody balance: kust_id -> (timestamp, total_idr).
+# Chain fetchers swallow errors and yield 0, which poisoned one PAKD's
+# snapshot with porsi 0 while siblings in the same run got real values.
+_KUST_ONCHAIN_LKG = {}
+_KUST_ONCHAIN_LKG_TTL = 900  # 15 minutes
+
+
+def _get_kustodian_onchain_resilient(kust_id, kust_wallets):
+    """Fetch a kustodian's total custody balance with retry + last-known-good.
+
+    A transient rate-limit turns into a silent 0 in get_total_balance_idr.
+    Retry once, then fall back to a recent successful value so a single
+    failed fetch can't zero one PAKD's porsi mid-refresh.
+    """
+    if not kust_wallets:
+        return 0
+    kust_onchain = get_total_balance_idr(kust_wallets)["total_idr"]
+    if kust_onchain <= 0:
+        print(f"[30/70] kustodian {kust_id} balance fetched as 0 — retrying once", flush=True)
+        time.sleep(2)
+        kust_onchain = get_total_balance_idr(kust_wallets)["total_idr"]
+    if kust_onchain > 0:
+        _KUST_ONCHAIN_LKG[kust_id] = (time.time(), kust_onchain)
+        return kust_onchain
+    cached = _KUST_ONCHAIN_LKG.get(kust_id)
+    if cached and time.time() - cached[0] < _KUST_ONCHAIN_LKG_TTL:
+        print(f"[30/70] kustodian {kust_id} fetch still 0 — using last-known-good "
+              f"Rp {cached[1]:,.0f} from {time.time() - cached[0]:.0f}s ago", flush=True)
+        return cached[1]
+    return 0
+
+
 def _get_kustodian_share_for_pakd(kust_id, pakd_id, conn=None):
     """Fraction of a kustodian's on-chain custody attributable to one PAKD.
 
@@ -785,11 +817,7 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
     kustodian_details = []
     for kust_id in kust_ids:
         kust_wallets = wallets_by_kust.get(kust_id, [])
-        if kust_wallets:
-            kust_balance = get_total_balance_idr(kust_wallets)
-            kust_onchain = kust_balance["total_idr"]
-        else:
-            kust_onchain = 0
+        kust_onchain = _get_kustodian_onchain_resilient(kust_id, kust_wallets)
         # Prorate the shared custody pool to this PAKD by reported placement —
         # never mirror the full kustodian balance onto every linked PAKD.
         share = _get_kustodian_share_for_pakd(kust_id, pakd_id, conn=conn)
