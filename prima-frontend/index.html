@@ -867,10 +867,21 @@ tr:hover td{background:var(--bg2)}
         </div>
       </div>
 
+      <div class="panel" style="margin-bottom:12px">
+        <div class="section-header">
+          <div class="section-title"><div class="section-title-bar"></div>Pemetaan Wallet Kustodian → PAKD</div>
+        </div>
+        <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">Setiap wallet kustodian dipakai bersama oleh seluruh PAKD terhubung — persentase = porsi penempatan berdasarkan laporan</div>
+        <div id="kust-bubble-wrap" style="overflow-x:auto"></div>
+      </div>
+
       <div class="panel">
-        <div style="font-size:12px;color:var(--txt3);margin-bottom:8px;font-weight:600">Wallet Kustodian</div>
+        <div class="section-header" style="margin-bottom:8px">
+          <div class="section-title"><div class="section-title-bar"></div>Wallet Kustodian</div>
+          <button class="btn-secondary crud-action" onclick="addKustWallet()">+ Tambah Wallet</button>
+        </div>
         <table>
-          <thead><tr><th>Network</th><th>Address</th><th>Status</th></tr></thead>
+          <thead><tr><th>Network</th><th>Address</th><th>Status</th><th style="text-align:right">Aksi</th></tr></thead>
           <tbody id="kustodian-detail-wallets"></tbody>
         </table>
       </div>
@@ -2846,16 +2857,24 @@ async function renderKustodianMonitoring(kustId) {
     `).join('') || '<tr><td colspan="5" style="color:var(--txt4)">Tidak ada PAKD terhubung</td></tr>';
 
     drawKustodianDonut(data.pakd_compliance || []);
+    drawKustodianBubbleMap(data);
 
-    // Tabel wallet
+    // Tabel wallet dengan aksi edit/hapus (super_admin)
     const wtbody = document.getElementById('kustodian-detail-wallets');
-    wtbody.innerHTML = (data.wallets || []).map(w => `
+    wtbody.innerHTML = (data.wallets || []).map((w, i) => `
       <tr>
         <td><span style="font-size:11px;background:var(--bg2);padding:2px 8px;border-radius:4px;font-weight:600;text-transform:uppercase">${w.network}</span></td>
         <td style="font-family:'JetBrains Mono',monospace;font-size:11px;word-break:break-all">${w.address}</td>
         <td>${w.verified ? '<span style="color:var(--green);font-weight:600">✓ Verified</span>' : '<span style="color:var(--txt4)">Unverified</span>'}</td>
+        <td style="text-align:right">
+          <button onclick="editKustWallet(${i})" class="crud-action" title="Ganti address"
+              style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px">✏️</button>
+          <button onclick="removeKustWallet(${i})" class="crud-action" title="Hapus wallet"
+              style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px">🗑️</button>
+        </td>
       </tr>
-    `).join('') || '<tr><td colspan="3" style="color:var(--txt4)">Tidak ada wallet</td></tr>';
+    `).join('') || '<tr><td colspan="4" style="color:var(--txt4)">Tidak ada wallet</td></tr>';
+    applyRoleUI();
   } catch (e) {
     console.error('[KUSTODIAN] monitoring render failed:', e);
     ctbody.innerHTML = '<tr><td colspan="5" style="color:var(--red)">Error: ' + e.message + '</td></tr>';
@@ -2865,7 +2884,17 @@ async function renderKustodianMonitoring(kustId) {
 function drawKustodianDonut(pakdCompliance) {
   const wrap = document.getElementById('kust-donut-wrap');
   if (!wrap) return;
-  const total = pakdCompliance.reduce((sum, p) => sum + (p.customer_at_ptp_idr || 0), 0);
+  // Kustodian view: distribusi custody ON-CHAIN per PAKD (porsi PAKD).
+  // Fallback ke nilai dilaporkan bila belum ada saldo on-chain.
+  let valueOf = p => p.kustodian_onchain_idr || 0;
+  let centerLabel = 'Under Custody', note = '';
+  let total = pakdCompliance.reduce((sum, p) => sum + valueOf(p), 0);
+  if (total === 0) {
+    valueOf = p => p.customer_at_ptp_idr || 0;
+    centerLabel = 'Total di PTP';
+    note = '<div style="font-size:10px;color:var(--amber);margin-top:6px;text-align:center">Estimasi dari laporan — saldo on-chain kustodian masih 0</div>';
+    total = pakdCompliance.reduce((sum, p) => sum + valueOf(p), 0);
+  }
   if (total === 0) {
     wrap.innerHTML = '<div class="no-data-state">Tidak ada data penempatan</div>';
     return;
@@ -2885,20 +2914,121 @@ function drawKustodianDonut(pakdCompliance) {
   let svg = '<svg width="' + sz + '" height="' + sz + '" viewBox="0 0 ' + sz + ' ' + sz + '">';
   let angle = -Math.PI / 2;
   pakdCompliance.forEach((p, i) => {
-    const sweep = ((p.customer_at_ptp_idr || 0) / total) * 2 * Math.PI;
+    const sweep = (valueOf(p) / total) * 2 * Math.PI;
     if (sweep > 0) svg += seg(angle, sweep, colors[i % colors.length]);
     angle += sweep;
   });
-  svg += '<text x="' + cx + '" y="' + (cy - 5) + '" text-anchor="middle" font-size="10" fill="var(--txt3)">Total di PTP</text>';
+  svg += '<text x="' + cx + '" y="' + (cy - 5) + '" text-anchor="middle" font-size="10" fill="var(--txt3)">' + centerLabel + '</text>';
   svg += '<text x="' + cx + '" y="' + (cy + 11) + '" text-anchor="middle" font-size="11" font-weight="700" fill="var(--txt1)">' + formatIDRShort(total) + '</text>';
   svg += '</svg>';
   let legend = '<div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;font-size:11px;width:100%">';
   pakdCompliance.forEach((p, i) => {
-    const pct = ((p.customer_at_ptp_idr || 0) / total * 100).toFixed(1);
+    const pct = (valueOf(p) / total * 100).toFixed(1);
     legend += '<div style="display:flex;align-items:center;gap:6px"><div style="width:9px;height:9px;border-radius:2px;flex-shrink:0;background:' + colors[i % colors.length] + '"></div><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + p.nama + '</span><span class="mono" style="font-weight:600">' + pct + '%</span></div>';
   });
   legend += '</div>';
-  wrap.innerHTML = svg + legend;
+  wrap.innerHTML = svg + legend + note;
+}
+
+function drawKustodianBubbleMap(data) {
+  const wrap = document.getElementById('kust-bubble-wrap');
+  if (!wrap) return;
+  const wallets = data.wallets || [];
+  const pakds = data.pakd_compliance || [];
+  if (!wallets.length || !pakds.length) {
+    wrap.innerHTML = '<div class="no-data-state">Tidak ada wallet atau PAKD terhubung</div>';
+    return;
+  }
+  // Porsi tiap PAKD atas pool custody kustodian, berdasarkan laporan
+  const totalPtp = pakds.reduce((s, p) => s + (p.customer_at_ptp_idr || 0), 0);
+  const shares = pakds.map(p => totalPtp > 0 ? (p.customer_at_ptp_idr || 0) / totalPtp : 1 / pakds.length);
+  const colors = ['#4a6cf7', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6'];
+
+  const clusterW = Math.max(300, 90 + pakds.length * 40);
+  const H = 300;
+  let svg = '<svg width="' + (clusterW * wallets.length) + '" height="' + H + '" style="min-width:100%">';
+  wallets.forEach((w, wi) => {
+    const cx = clusterW * wi + clusterW / 2;
+    const cy = H / 2 + 40;
+    const centerR = 52;
+    const addrShort = w.address.length > 16 ? w.address.slice(0, 8) + '…' + w.address.slice(-6) : w.address;
+    // PAKD bubbles di atas wallet, sebaran busur
+    pakds.forEach((p, i) => {
+      const n = pakds.length;
+      const spread = Math.min(Math.PI * 0.9, 0.6 + n * 0.5);
+      const a = -Math.PI / 2 + (n === 1 ? 0 : (i / (n - 1) - 0.5) * spread);
+      const r = 20 + shares[i] * 26;
+      const dist = centerR + 46 + r;
+      const px = cx + dist * Math.cos(a);
+      const py = cy + dist * Math.sin(a);
+      svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + px + '" y2="' + py + '" stroke="var(--txt4)" stroke-dasharray="4 4" stroke-width="1"/>';
+      svg += '<circle cx="' + px + '" cy="' + py + '" r="' + r + '" fill="' + colors[i % colors.length] + '" opacity="0.85"/>';
+      svg += '<text x="' + px + '" y="' + (py + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">' + (shares[i] * 100).toFixed(0) + '%</text>';
+      svg += '<text x="' + px + '" y="' + (py - r - 6) + '" text-anchor="middle" font-size="9" fill="var(--txt3)" font-family="JetBrains Mono,monospace">' + p.pakd_id + '</text>';
+    });
+    // Wallet bubble
+    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + centerR + '" fill="var(--bg2)" stroke="var(--border)" stroke-width="2"/>';
+    svg += '<text x="' + cx + '" y="' + (cy - 8) + '" text-anchor="middle" font-size="11" font-weight="700" fill="var(--txt1)">' + data.kustodian.id + '</text>';
+    svg += '<text x="' + cx + '" y="' + (cy + 6) + '" text-anchor="middle" font-size="10" font-weight="600" fill="var(--txt2)" style="text-transform:uppercase">' + w.network + '</text>';
+    svg += '<text x="' + cx + '" y="' + (cy + 20) + '" text-anchor="middle" font-size="8" fill="var(--txt4)" font-family="JetBrains Mono,monospace">' + addrShort + '</text>';
+  });
+  svg += '</svg>';
+  wrap.innerHTML = svg;
+}
+
+async function saveKustodianWallets(newWallets) {
+  const data = _kustMonitoringData;
+  if (!data) return;
+  try {
+    const resp = await apiFetch(API + '/api/kustodian/' + data.kustodian.id, {
+      method: 'PUT',
+      body: JSON.stringify({wallets: newWallets})
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('Error: ' + (err.message || JSON.stringify(err)));
+      return;
+    }
+    await renderKustodianMonitoring(data.kustodian.id);
+    loadKustodian();
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+function editKustWallet(i) {
+  const data = _kustMonitoringData;
+  if (!data || !data.wallets[i]) return;
+  const w = data.wallets[i];
+  const addr = prompt('Address baru untuk wallet ' + w.network.toUpperCase() + ':', w.address);
+  if (!addr || addr.trim() === w.address) return;
+  const wallets = data.wallets.map((x, j) => j === i
+    ? {network: x.network, address: addr.trim(), verified: false, verified_at: null}
+    : {network: x.network, address: x.address, verified: x.verified, verified_at: x.verified_at});
+  saveKustodianWallets(wallets);
+}
+
+function removeKustWallet(i) {
+  const data = _kustMonitoringData;
+  if (!data || !data.wallets[i]) return;
+  const w = data.wallets[i];
+  if (!confirm('Hapus wallet ' + w.network.toUpperCase() + ' ' + w.address + '?')) return;
+  const wallets = data.wallets.filter((_, j) => j !== i)
+    .map(x => ({network: x.network, address: x.address, verified: x.verified, verified_at: x.verified_at}));
+  saveKustodianWallets(wallets);
+}
+
+function addKustWallet() {
+  const data = _kustMonitoringData;
+  if (!data) { alert('Pilih kustodian terlebih dahulu'); return; }
+  const network = (prompt('Network (ethereum / bitcoin / solana):', 'ethereum') || '').trim().toLowerCase();
+  if (!['ethereum', 'bitcoin', 'solana'].includes(network)) { if (network) alert('Network tidak dikenal: ' + network); return; }
+  const addr = (prompt('Address wallet ' + network.toUpperCase() + ':') || '').trim();
+  if (!addr) return;
+  const wallets = data.wallets
+    .map(x => ({network: x.network, address: x.address, verified: x.verified, verified_at: x.verified_at}))
+    .concat([{network, address: addr, verified: false, verified_at: null}]);
+  saveKustodianWallets(wallets);
 }
 
 function formatIDRShort(n) {
