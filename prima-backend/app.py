@@ -1776,6 +1776,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 "verified": verified, "error": None,
             }
             _tw = time.perf_counter()
+            # Early append: on harvest timeout the caller keeps this dict with
+            # whatever has been committed into it so far.
+            _entries.append(entry)
             try:
                 sol_bal = get_cached_balance("solana", address, lambda a=address: fetch_sol_balance(a))
                 sol_native_idr_val = sol_bal * sol_price_idr
@@ -1783,6 +1786,15 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 sol_usdt_idr_val = sol_usdt_bal * usdt_price_idr
                 sol_usdc_bal = get_cached_balance("sol_usdc_spl", address, lambda a=address: fetch_spl_token_balance(a, USDC_MINT_SOL))
                 sol_usdc_idr_val = sol_usdc_bal * usdc_price_idr
+                # Commit native+tier1 NOW: a harvest timeout during slow token
+                # pricing must not discard the already-fetched balances.
+                entry["balance_native"]   = round(sol_bal, 9)
+                entry["sol_native_idr"]   = round(sol_native_idr_val)
+                entry["sol_usdt_balance"] = round(sol_usdt_bal, 6)
+                entry["sol_usdt_idr"]     = round(sol_usdt_idr_val)
+                entry["sol_usdc_balance"] = round(sol_usdc_bal, 6)
+                entry["sol_usdc_idr"]     = round(sol_usdc_idr_val)
+                entry["balance_idr"]      = sol_native_idr_val + sol_usdt_idr_val + sol_usdc_idr_val
                 other_token_idr_val  = 0.0
                 unvalued_mints_local = []
                 try:
@@ -1852,7 +1864,6 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             except Exception as e:
                 entry["error"] = f"SOL fetch error: {e}"
             _t += time.perf_counter() - _tw
-            _entries.append(entry)
         return {"entries": _entries, "sol_total": _sol_total, "sol_native": _sol_native,
                 "sol_usdt": _sol_usdt, "sol_usdc": _sol_usdc, "sol_other": _sol_other,
                 "sol_unvalued_count": _sol_unvalued_count, "sol_unvalued_mints": _sol_unvalued_mints,
