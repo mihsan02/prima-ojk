@@ -888,6 +888,42 @@ CMC_ID_TO_CGKEY = {
     "3408": "usd-coin",
 }
 
+# Curated ERC-20 symbols priced via a dedicated CMC call (IDR) when the
+# CoinGecko contract-price endpoint fails/throttles (CF-throttled from Render).
+CURATED_CMC_FALLBACK = {"OKB": "3897"}
+
+
+def _curated_idr_price_fallback(symbol):
+    """IDR price for a curated token via a single-asset CMC quote, or None."""
+    cmc_id = CURATED_CMC_FALLBACK.get(symbol)
+    if not cmc_id:
+        return None
+    cache_key = f"cmc_curated_{cmc_id}"
+    cached = PRICE_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < PRICE_TTL and cached[1] > 0:
+        return cached[1]
+    api_key = os.environ.get("COINMARKETCAP_API_KEY", "")
+    if not api_key:
+        return None
+    try:
+        resp = requests.get(
+            "https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest",
+            headers={"X-CMC_PRO_API_KEY": api_key, "Accept": "application/json"},
+            params={"id": cmc_id, "convert": "IDR", "aux": ""},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        entry = resp.json().get("data", {}).get(cmc_id)
+        if isinstance(entry, list):
+            entry = entry[0] if entry else None
+        price = (entry or {}).get("quote", {}).get("IDR", {}).get("price")
+        if price and price > 0:
+            PRICE_CACHE[cache_key] = (time.time(), float(price))
+            return float(price)
+    except Exception as e:
+        print(f"[CMC] curated fallback price ({symbol}/{cmc_id}) failed: {e}", flush=True)
+    return None
+
 
 def _refresh_price_cache_from_cmc():
     """
@@ -1656,7 +1692,11 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                             if usd_price and usd_price > 0:
                                 eth_other_idr_val += token["balance"] * usd_price * usd_idr_rate
                             else:
-                                unvalued_contracts_per_addr.append(token["contract"])
+                                idr_price = _curated_idr_price_fallback(token["symbol"])
+                                if idr_price:
+                                    eth_other_idr_val += token["balance"] * idr_price
+                                else:
+                                    unvalued_contracts_per_addr.append(token["contract"])
                         entry["eth_other_token_idr"]    = round(eth_other_idr_val)
                         entry["eth_unvalued_count"]     = len(unvalued_contracts_per_addr)
                         entry["eth_unvalued_contracts"] = unvalued_contracts_per_addr
