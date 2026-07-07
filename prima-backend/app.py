@@ -443,7 +443,11 @@ def load_pakd():
                 _return_db_conn(conn)
                 return []
             pakd_ids = [row[0] for row in pakd_rows]
-            cur.execute("SELECT pakd_id, network, address, verified, verified_at FROM wallets WHERE pakd_id = ANY(%s) ORDER BY pakd_id", (pakd_ids,))
+            # Exclude KUSTODIAN rows: dedicated kustodian wallets carry pakd_id
+            # but belong to the kustodian, not the PAKD's own wallet list.
+            cur.execute("""SELECT pakd_id, network, address, verified, verified_at FROM wallets
+                           WHERE pakd_id = ANY(%s) AND (entity_type IS NULL OR entity_type = 'PAKD')
+                           ORDER BY pakd_id""", (pakd_ids,))
             wallet_rows = cur.fetchall()
             cur.close()
             _return_db_conn(conn)
@@ -499,7 +503,9 @@ def save_pakd(data):
                 """, (pakd["id"], pakd["nama"], pakd.get("aset_dilaporkan", 0),
                       pakd.get("equity_idr"), pakd.get("persediaan_akd_idr"),
                       pakd.get("simpanan_pedagang_akd_idr"), pakd.get("customer_akd_idr")))
-                cur.execute("DELETE FROM wallets WHERE pakd_id = %s", (pakd["id"],))
+                # Never touch KUSTODIAN rows: dedicated kustodian wallets share
+                # pakd_id but are owned by the kustodian entity.
+                cur.execute("DELETE FROM wallets WHERE pakd_id = %s AND (entity_type IS NULL OR entity_type = 'PAKD')", (pakd["id"],))
                 for w in pakd.get("wallets", []):
                     cur.execute("""
                         INSERT INTO wallets (pakd_id, network, address, verified, verified_at)
