@@ -386,3 +386,45 @@ class TestDeviasiWithCustody:
         total, dev = app_mod.deviasi_with_custody(None, None, 5_000)
         assert total == 0
         assert dev == -100.0
+
+
+class TestKustodianOnchainResilient:
+    """A transient zero balance fetch must not zero a PAKD's custody porsi."""
+
+    def _reset(self):
+        import app as app_mod
+        app_mod._KUST_ONCHAIN_LKG.clear()
+
+    def test_empty_wallets_return_zero(self):
+        import app as app_mod
+        self._reset()
+        assert app_mod._get_kustodian_onchain_resilient('KUST-X', []) == 0
+
+    def test_retry_recovers_transient_zero(self):
+        import app as app_mod
+        from unittest.mock import patch as _patch
+        self._reset()
+        with _patch.object(app_mod, 'get_total_balance_idr',
+                           side_effect=[{'total_idr': 0}, {'total_idr': 1_420_000_000}]), \
+             _patch.object(app_mod.time, 'sleep'):
+            val = app_mod._get_kustodian_onchain_resilient('KUST-001', [{'network': 'ethereum', 'address': '0xabc'}])
+        assert val == 1_420_000_000
+
+    def test_last_known_good_used_when_fetch_stays_zero(self):
+        import app as app_mod
+        from unittest.mock import patch as _patch
+        self._reset()
+        app_mod._KUST_ONCHAIN_LKG['KUST-001'] = (app_mod.time.time(), 1_420_000_000)
+        with _patch.object(app_mod, 'get_total_balance_idr', return_value={'total_idr': 0}), \
+             _patch.object(app_mod.time, 'sleep'):
+            val = app_mod._get_kustodian_onchain_resilient('KUST-001', [{'network': 'ethereum', 'address': '0xabc'}])
+        assert val == 1_420_000_000
+
+    def test_genuine_zero_without_lkg_stays_zero(self):
+        import app as app_mod
+        from unittest.mock import patch as _patch
+        self._reset()
+        with _patch.object(app_mod, 'get_total_balance_idr', return_value={'total_idr': 0}), \
+             _patch.object(app_mod.time, 'sleep'):
+            val = app_mod._get_kustodian_onchain_resilient('KUST-002', [{'network': 'ethereum', 'address': '0xdead'}])
+        assert val == 0

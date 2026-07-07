@@ -2848,7 +2848,7 @@ async function renderKustodianMonitoring(kustId) {
     };
     ctbody.innerHTML = (data.pakd_compliance || []).map(p => `
       <tr>
-        <td>${p.nama}<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt4)">${p.pakd_id}</div></td>
+        <td>${p.nama}<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt4)">${p.pakd_id}</div><div style="font-size:9px;color:var(--txt4);margin-top:2px" title="Waktu snapshot rekonsiliasi terakhir">snapshot: ${p.latest_snapshot_at ? p.latest_snapshot_at.replace('T', ' ').slice(0, 16) : '—'}</div></td>
         ${cmpCell(p.customer_at_pakd_idr, p.pakd_onchain_idr, 'on-chain PAKD')}
         ${cmpCell(p.customer_at_ptp_idr, p.kustodian_onchain_idr, 'on-chain kustodian (porsi PAKD)')}
         <td class="mono-val" style="color:${p.ratio_at_pakd > 0.3 ? 'var(--red)' : 'var(--green)'};font-weight:600">${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%</td>
@@ -2881,11 +2881,10 @@ async function renderKustodianMonitoring(kustId) {
   }
 }
 
-function drawKustodianDonut(pakdCompliance) {
-  const wrap = document.getElementById('kust-donut-wrap');
-  if (!wrap) return;
-  // Kustodian view: distribusi custody ON-CHAIN per PAKD (porsi PAKD).
-  // Fallback ke nilai dilaporkan bila belum ada saldo on-chain.
+function custodyDistribution(pakdCompliance) {
+  // SINGLE source of truth untuk donut DAN bubble map:
+  // distribusi custody ON-CHAIN per PAKD (porsi PAKD), fallback ke nilai
+  // dilaporkan bila belum ada saldo on-chain.
   let valueOf = p => p.kustodian_onchain_idr || 0;
   let centerLabel = 'Under Custody', note = '';
   let total = pakdCompliance.reduce((sum, p) => sum + valueOf(p), 0);
@@ -2895,6 +2894,13 @@ function drawKustodianDonut(pakdCompliance) {
     note = '<div style="font-size:10px;color:var(--amber);margin-top:6px;text-align:center">Estimasi dari laporan — saldo on-chain kustodian masih 0</div>';
     total = pakdCompliance.reduce((sum, p) => sum + valueOf(p), 0);
   }
+  return {valueOf, centerLabel, note, total};
+}
+
+function drawKustodianDonut(pakdCompliance) {
+  const wrap = document.getElementById('kust-donut-wrap');
+  if (!wrap) return;
+  const {valueOf, centerLabel, note, total} = custodyDistribution(pakdCompliance);
   if (total === 0) {
     wrap.innerHTML = '<div class="no-data-state">Tidak ada data penempatan</div>';
     return;
@@ -2939,9 +2945,9 @@ function drawKustodianBubbleMap(data) {
     wrap.innerHTML = '<div class="no-data-state">Tidak ada wallet atau PAKD terhubung</div>';
     return;
   }
-  // Porsi tiap PAKD atas pool custody kustodian, berdasarkan laporan
-  const totalPtp = pakds.reduce((s, p) => s + (p.customer_at_ptp_idr || 0), 0);
-  const shares = pakds.map(p => totalPtp > 0 ? (p.customer_at_ptp_idr || 0) / totalPtp : 1 / pakds.length);
+  // Porsi tiap PAKD — sumber yang SAMA dengan donut (on-chain, fallback laporan)
+  const dist = custodyDistribution(pakds);
+  const shares = pakds.map(p => dist.total > 0 ? dist.valueOf(p) / dist.total : 1 / pakds.length);
   const colors = ['#4a6cf7', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6'];
 
   const clusterW = Math.max(300, 90 + pakds.length * 40);
