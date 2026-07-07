@@ -359,3 +359,30 @@ class TestKustodianShareProration:
         mock_conn.cursor.return_value = cur
         cur.fetchall.return_value = []
         assert app_mod._get_kustodian_share_for_pakd('KUST-Y', 'PAKD-Z', conn=mock_conn) == 1.0
+
+
+class TestDeviasiWithCustody:
+    """Deviasi must count the PAKD's prorated custody share as on-chain assets."""
+
+    def test_perfect_30_70_placement_has_zero_deviation(self):
+        import app as app_mod
+        total, dev = app_mod.deviasi_with_custody(3_000_000_000, 7_000_000_000, 10_000_000_000)
+        assert total == 10_000_000_000
+        assert dev == 0
+
+    def test_missing_custody_share_shows_deficit(self):
+        import app as app_mod
+        total, dev = app_mod.deviasi_with_custody(3_000_000_000, 0, 10_000_000_000)
+        assert total == 3_000_000_000
+        assert round(dev, 2) == -70.0
+
+    def test_zero_dilaporkan_yields_zero(self):
+        import app as app_mod
+        total, dev = app_mod.deviasi_with_custody(1_000, 2_000, 0)
+        assert dev == 0
+
+    def test_none_inputs_are_safe(self):
+        import app as app_mod
+        total, dev = app_mod.deviasi_with_custody(None, None, 5_000)
+        assert total == 0
+        assert dev == -100.0
