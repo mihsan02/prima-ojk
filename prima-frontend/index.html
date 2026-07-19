@@ -1768,7 +1768,7 @@ function renderWalletsCell(d) {
     const action = canVerify
       ? `<button class="verify-mini-btn" onclick="openVerifyModal('${escapeAttr(w.address)}','${w.network}','${escapeAttr(d.id)}')">Verify</button>`
       : '';
-    return `<div class="wallet-mini-row">${chainTagHtml(w.network)}<span class="wallet-addr" title="${escapeAttr(w.address)}">${shortAddr(w.address)}</span>${verifyBadgeHtml(w)}${action}</div>`;
+    return `<div class="wallet-mini-row" data-addr="${escapeAttr(w.address)}" data-net="${w.network}">${chainTagHtml(w.network)}<span class="wallet-addr" title="${escapeAttr(w.address)}">${shortAddr(w.address)}</span>${verifyBadgeHtml(w)}${action}</div>`;
   }).join('');
 }
 
@@ -1852,6 +1852,26 @@ function closeVerifyModal() {
   setModalSubmitState(true, 'Verifikasi');
 }
 
+function markWalletVerifiedLocally(address, network) {
+  const now = new Date().toISOString();
+  if (Array.isArray(_pakdCache)) {
+    _pakdCache.forEach(p => (p.wallets || []).forEach(w => {
+      if (w.address === address && (!network || w.network === network)) {
+        w.verified = true; w.verified_at = now;
+      }
+    }));
+  }
+  document.querySelectorAll('.wallet-mini-row').forEach(row => {
+    if (row.getAttribute('data-addr') === address &&
+        (!network || row.getAttribute('data-net') === network)) {
+      const badge = row.querySelector('.verify-badge');
+      if (badge) { badge.className = 'verify-badge verified'; badge.textContent = '\u2713 Verified'; }
+      const btn = row.querySelector('.verify-mini-btn');
+      if (btn) btn.remove();
+    }
+  });
+}
+
 async function submitVerifyFromModal() {
   const signature = document.getElementById('verify-modal-signature').value.trim();
   if (!signature) {
@@ -1875,8 +1895,9 @@ async function submitVerifyFromModal() {
     });
     const json = await res.json();
     if (json.verified) {
+      markWalletVerifiedLocally(modalState.address, modalState.network);
       closeVerifyModal();
-      loadAll();
+      loadAudit();
     } else {
       modalShowError(json.message || 'Verifikasi gagal.');
       setModalSubmitState(false, 'Verifikasi');
@@ -2050,7 +2071,8 @@ async function verifyChallenge() {
       showVpResult(true, '✓ ' + json.message);
       document.getElementById('vp-challenge-box').style.display = 'none';
       document.getElementById('vp-verify-box').style.display = 'none';
-      loadAll();
+      if (json.address) markWalletVerifiedLocally(json.address, null);
+      loadAudit();
     } else {
       showVpResult(false, '✗ ' + (json.message || 'Verifikasi gagal.'));
     }
