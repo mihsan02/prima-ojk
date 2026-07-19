@@ -3913,7 +3913,7 @@ def wallet_verify():
         write_audit("WALLET VERIFIED", f"Address {address} ({network}) terverifikasi milik {matched_pakd}")
 
     return jsonify({
-        "verified":     True,
+        "verified":     wallet_found,
         "address":      address,
         "network":      network,
         "signer":       signer_display,
