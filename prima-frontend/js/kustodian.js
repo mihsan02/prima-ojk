@@ -1,4 +1,6 @@
-const API = 'https://prima-ojk.onrender.com';
+// Kosong disengaja. Semua endpoint relatif terhadap origin penyaji
+// halaman, supaya dev lokal tidak menulis ke Supabase produksi.
+const API = '';  // relatif: ikut origin yang menyajikan halaman
 
 // ── Sprint 1: Auth Session Management ──
 // In-memory backup: survives cross-tab localStorage wipes (another tab's idle
