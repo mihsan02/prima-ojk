@@ -24,10 +24,6 @@ function formatIDR(n) {
   return 'Rp ' + Math.round(n).toLocaleString('id-ID');
 }
 
-function formatIDR(n) {
-  return 'Rp ' + Math.round(n).toLocaleString('id-ID');
-}
-
 function statusClass(s) {
   if (s === 'Aman') return 'aman';
   if (s === 'Deviasi') return 'deviasi';
