@@ -2150,6 +2150,14 @@ def index():
     return resp
 
 
+@app.route("/js/<path:filename>")
+def frontend_js(filename):
+    resp = send_from_directory("../prima-frontend/js", filename)
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
+
+
 @app.route("/api/status")
 def status():
     return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.9-pasal50-pasal91"})
