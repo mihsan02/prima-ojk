@@ -2150,6 +2150,11 @@ def index():
     return resp
 
 
+@app.route("/js/<path:filename>")
+def frontend_js(filename):
+    return send_from_directory("../prima-frontend/js", filename)
+
+
 @app.route("/api/status")
 def status():
     return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.9-pasal50-pasal91"})
