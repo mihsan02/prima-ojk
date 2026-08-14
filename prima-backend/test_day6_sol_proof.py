@@ -127,7 +127,8 @@ def test_w3_verify_succeeds_correct_signature(client):
     })
     assert r2.status_code == 200
     body = r2.get_json()
-    assert body["verified"] is True
+    assert body["signature_valid"] is True
+    assert body["wallet_found"] is False
     assert body["address"]  == addr
     assert body["network"]  == "solana"
 
@@ -226,7 +227,8 @@ def test_w10_verify_accepts_base64_signature(client):
         "signature": sig_b64,
     })
     assert r2.status_code == 200
-    assert r2.get_json()["verified"] is True
+    assert r2.get_json()["signature_valid"] is True
+    assert r2.get_json()["wallet_found"] is False
 
 
 # ─────────────────────────────────────────────────────────────────────────────

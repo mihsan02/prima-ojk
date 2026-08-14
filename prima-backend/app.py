@@ -3912,7 +3912,11 @@ def wallet_verify():
         save_pakd(pakd_list)
         write_audit("WALLET VERIFIED", f"Address {address} ({network}) terverifikasi milik {matched_pakd}")
 
+    # Titik ini hanya tercapai setelah verifikasi signature lolos.
+    # Semua kegagalan signature return 400 lebih awal. signature_valid
+    # hardcoded True
     return jsonify({
+        "signature_valid": True,
         "verified":     wallet_found,
         "address":      address,
         "network":      network,

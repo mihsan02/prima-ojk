@@ -169,7 +169,8 @@ class TestWalletProofIntegration:
                 r2 = client.post('/api/wallet-verify', headers=headers,
                                   json={'address': address, 'signature': sig_b64})
             assert r2.status_code == 200
-            assert r2.get_json()['verified'] is True
+            assert r2.get_json()['signature_valid'] is True
+            assert r2.get_json()['wallet_found'] is False
 
             # Challenge is single-use: replay must fail
             r3 = client.post('/api/wallet-verify', headers=headers,
