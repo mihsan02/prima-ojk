@@ -1458,14 +1458,14 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             btc_price_idr = get_cached_price("bitcoin", fetch_btc_price_idr)
         except Exception:
             btc_price_idr = None
-            harga_tidak_tersedia.add("bitcoin")
+            harga_tidak_tersedia.add("btc_native")
 
     if sol_price_idr is None:
         try:
             sol_price_idr = get_cached_price("solana", fetch_sol_price_idr)
         except Exception:
             sol_price_idr = None
-            harga_tidak_tersedia.add("solana")
+            harga_tidak_tersedia.add("sol_native")
 
     # Stablecoins: always batch in one call via _get_stablecoin_prices_idr().
     if usdt_price_idr is None or usdc_price_idr is None:
@@ -1628,7 +1628,11 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             _entries.append(entry)
             try:
                 sol_bal = get_cached_balance("solana", address, lambda a=address: fetch_sol_balance(a))
-                sol_native_idr_val = sol_bal * sol_price_idr
+                # T1.2 (D3/D4) Opsi A: harga SOL native tidak tersedia berarti
+                # native TIDAK dinilai. SPL di bawah tetap dinilai karena harga
+                # stablecoin datang dari kaskade yang lain.
+                _sol_native_dinilai = sol_price_idr is not None
+                sol_native_idr_val = (sol_bal * sol_price_idr) if _sol_native_dinilai else 0.0
                 sol_usdt_bal = get_cached_balance("sol_usdt_spl", address, lambda a=address: fetch_spl_token_balance(a, USDT_MINT_SOL))
                 sol_usdt_idr_val = sol_usdt_bal * usdt_price_idr
                 sol_usdc_bal = get_cached_balance("sol_usdc_spl", address, lambda a=address: fetch_spl_token_balance(a, USDC_MINT_SOL))
@@ -1636,7 +1640,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 # Commit native+tier1 NOW: a harvest timeout during slow token
                 # pricing must not discard the already-fetched balances.
                 entry["balance_native"]   = round(sol_bal, 9)
-                entry["sol_native_idr"]   = round(sol_native_idr_val)
+                entry["sol_native_idr"]   = round(sol_native_idr_val) if _sol_native_dinilai else None
                 entry["sol_usdt_balance"] = round(sol_usdt_bal, 6)
                 entry["sol_usdt_idr"]     = round(sol_usdt_idr_val)
                 entry["sol_usdc_balance"] = round(sol_usdc_bal, 6)
@@ -1693,7 +1697,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 wallet_total_idr = sol_native_idr_val + sol_usdt_idr_val + sol_usdc_idr_val + other_token_idr_val
                 entry["balance_native"]      = round(sol_bal, 9)
                 entry["balance_idr"]         = wallet_total_idr
-                entry["sol_native_idr"]      = round(sol_native_idr_val)
+                entry["sol_native_idr"]      = round(sol_native_idr_val) if _sol_native_dinilai else None
                 entry["sol_usdt_balance"]    = round(sol_usdt_bal, 6)
                 entry["sol_usdt_idr"]        = round(sol_usdt_idr_val)
                 entry["sol_usdc_balance"]    = round(sol_usdc_bal, 6)
@@ -1744,12 +1748,13 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     _ex = _ChainTPE(max_workers=3)
     _eth_entries, _btc_entries, _sol_entries = [], [], []
     _f_eth = _ex.submit(_proc_eth, eth_wallets, _eth_entries)
-    # Chain tanpa harga tidak diproses: tanpa harga, tidak ada penilaian yang
-    # jujur bisa dihasilkan, dan baris bernilai nol akan menyesatkan.
-    _f_btc = (None if "bitcoin" in harga_tidak_tersedia
+    # BTC native adalah satu-satunya aset di chain bitcoin, jadi tanpa
+    # harganya tidak ada apa pun yang bisa dinilai di sana.
+    _f_btc = (None if "btc_native" in harga_tidak_tersedia
               else _ex.submit(_proc_btc, btc_wallets, _btc_entries))
-    _f_sol = (None if "solana" in harga_tidak_tersedia
-              else _ex.submit(_proc_sol, sol_wallets, _sol_entries))
+    # Solana TIDAK di-skip walau harga SOL native gagal: SPL USDT/USDC
+    # dihargai lewat kaskade stablecoin yang terpisah dan tetap sahih.
+    _f_sol = _ex.submit(_proc_sol, sol_wallets, _sol_entries)
     from concurrent.futures import TimeoutError as FuturesTimeout
     try:
             _r_eth = _f_eth.result(timeout=25)
@@ -1778,26 +1783,20 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             _r_btc = {"entries": _partial,
                       "btc_total": sum(en["balance_idr"] or 0 for en in _partial),
                       "t": 0}
-    if _f_sol is None:
-        # Harga SOL tidak tersedia: sama seperti BTC di atas.
-        _r_sol = {"entries": [], "sol_total": 0.0, "sol_native": 0.0,
-                  "sol_usdt": 0.0, "sol_usdc": 0.0, "sol_other": 0.0,
-                  "sol_unvalued_count": 0, "sol_unvalued_mints": [], "t": 0.0}
-    else:
-        try:
-            _r_sol = _f_sol.result(timeout=25)
-        except (FuturesTimeout, Exception) as e:
-            print(f"[CHAIN_FETCH] SOL timeout/error: {e}", flush=True)
-            _partial = _harvest_partial(_sol_entries, sol_wallets, "solana", "SOL", "SOL", 25)
-            _r_sol = {"entries": _partial,
-                      "sol_total": sum(en["balance_idr"] or 0 for en in _partial),
-                      "sol_native": sum(en["sol_native_idr"] or 0 for en in _partial),
-                      "sol_usdt": sum(en["sol_usdt_idr"] or 0 for en in _partial),
-                      "sol_usdc": sum(en["sol_usdc_idr"] or 0 for en in _partial),
-                      "sol_other": sum(en["sol_other_token_idr"] or 0 for en in _partial),
-                      "sol_unvalued_count": sum(en["sol_unvalued_count"] or 0 for en in _partial),
-                      "sol_unvalued_mints": [m for en in _partial for m in (en["sol_unvalued_mints"] or [])],
-                      "t": 0}
+    try:
+        _r_sol = _f_sol.result(timeout=25)
+    except (FuturesTimeout, Exception) as e:
+        print(f"[CHAIN_FETCH] SOL timeout/error: {e}", flush=True)
+        _partial = _harvest_partial(_sol_entries, sol_wallets, "solana", "SOL", "SOL", 25)
+        _r_sol = {"entries": _partial,
+                  "sol_total": sum(en["balance_idr"] or 0 for en in _partial),
+                  "sol_native": sum(en["sol_native_idr"] or 0 for en in _partial),
+                  "sol_usdt": sum(en["sol_usdt_idr"] or 0 for en in _partial),
+                  "sol_usdc": sum(en["sol_usdc_idr"] or 0 for en in _partial),
+                  "sol_other": sum(en["sol_other_token_idr"] or 0 for en in _partial),
+                  "sol_unvalued_count": sum(en["sol_unvalued_count"] or 0 for en in _partial),
+                  "sol_unvalued_mints": [m for en in _partial for m in (en["sol_unvalued_mints"] or [])],
+                  "t": 0}
 
     # --- Merge results ---
     other_entries = []
