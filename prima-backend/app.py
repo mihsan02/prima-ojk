@@ -91,6 +91,11 @@ SOLANA_RPC_URL = os.environ.get(
 )
 
 ETHERSCAN_API_KEY  = os.environ.get("ETHERSCAN_API_KEY", "")
+
+# T1.1 (D1): get_eth_balance dipindah ke core/acquisition.py. Di-import
+# sebagai nama global supaya pemanggil lama tetap bekerja tanpa diubah.
+from core.acquisition import get_eth_balance  # noqa: E402
+
 DATA_FILE          = os.path.join(os.path.dirname(__file__), "pakd_data.json")
 AUDIT_FILE         = os.path.join(os.path.dirname(__file__), "audit_log.json")
 
@@ -1070,16 +1075,6 @@ def get_eth_price_idr():
         return 39_910_503, True
 
 
-def get_eth_balance(address):
-    url = (f"https://api.etherscan.io/v2/api?chainid=1&module=account"
-           f"&action=balance&address={address}&tag=latest&apikey={ETHERSCAN_API_KEY}")
-    try:
-        data = requests.get(url, timeout=10).json()
-        if data["status"] == "1":
-            return int(data["result"]) / 1e18
-        return 0
-    except Exception:
-        return 0
 
 
 # ---------------------------------------------------------------------------
