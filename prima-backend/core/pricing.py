@@ -186,9 +186,13 @@ def get_eth_price_with_provenance():
     """
     Fetch current ETH/IDR price beserta asal-usulnya.
 
-    Kaskade tidak berubah dari sebelumnya: CMC primary, CoinGecko
-    fallback, hardcoded final. Yang bertambah hanya pelacakan tier mana
-    yang menghasilkan nilai, dan seberapa tua nilai itu.
+    Kaskade: CMC primary, CoinGecko fallback, cache basi, hardcoded
+    final. Provenance melacak tier mana yang menghasilkan nilai dan
+    seberapa tua nilai itu.
+
+    T2.0 menyisipkan tier cache basi tepat sebelum hardcoded. Sebelumnya
+    entri yang lewat PRICE_TTL langsung dibuang ke konstanta D5, dan
+    sumber "cache" berumur > 900 detik tidak pernah terbit dari kaskade.
     """
     # Tier 1: CMC primary (atau cache-nya yang masih dalam TTL)
     if _refresh_price_cache_from_cmc():
@@ -210,8 +214,20 @@ def get_eth_price_with_provenance():
     except Exception:
         pass
 
-    # Tier 3: hardcoded. Nilainya sengaja dipertahankan -- yang berubah
-    # adalah pemakaiannya kini terlacak, bukan keberadaannya.
+    # Tier 3: cache basi, berapa pun umurnya. Tanpa tier ini entri yang
+    # lewat PRICE_TTL langsung jatuh ke hardcoded, dan sumber "cache"
+    # dengan umur > 900 detik tidak pernah muncul dari kaskade -- padahal
+    # harga pasar berumur beberapa menit jauh lebih informatif daripada
+    # konstanta D5. Umurnya tidak dipangkas: penurunan mutu dibaca dari
+    # umur_detik oleh kelengkapan_dari_provenance(), bukan disembunyikan.
+    cached = PRICE_CACHE.get("ethereum")
+    if cached:
+        now = time.time()
+        return _provenance(cached[1], "cache", cached[0], now - cached[0])
+
+    # Tier 4: hardcoded. Nilainya sengaja dipertahankan -- yang berubah
+    # adalah pemakaiannya kini terlacak, bukan keberadaannya. Kini hanya
+    # terpakai saat cache benar-benar kosong (cold start).
     now = time.time()
     return _provenance(HARGA_ETH_HARDCODED, "hardcoded", now, 0)
 
