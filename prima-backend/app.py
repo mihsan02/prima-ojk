@@ -80,7 +80,9 @@ ETHERSCAN_API_KEY  = os.environ.get("ETHERSCAN_API_KEY", "")
 
 # T1.1 (D1): get_eth_balance dipindah ke core/acquisition.py. Di-import
 # sebagai nama global supaya pemanggil lama tetap bekerja tanpa diubah.
-from core.acquisition import get_eth_balance  # noqa: E402
+from core.acquisition import (  # noqa: E402
+    get_eth_balance, fetch_erc20_balance, STABLECOIN_DECIMALS,
+)
 
 # T1.2 (D3/D4): kaskade harga pindah ke core/pricing.py. Di-import balik
 # sebagai nama global supaya seluruh pemanggil lama -- termasuk tes yang
@@ -179,7 +181,6 @@ USDT_MINT_SOL = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
 USDC_MINT_SOL = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 SOL_NATIVE_SENTINEL  = "So11111111111111111111111111111111111111112"  # wrapped SOL mint
 SPL_TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"  # standard SPL, NOT Token-2022
-STABLECOIN_DECIMALS = 6
 
 
 # ---------------------------------------------------------------------------
@@ -974,45 +975,6 @@ def _curated_idr_price_fallback(symbol):
 # ERC-20 token fetchers (Day 4)
 # ---------------------------------------------------------------------------
 
-def fetch_erc20_balance(address, contract_address, decimals=STABLECOIN_DECIMALS):
-    """
-    Fetch ERC-20 token balance via Etherscan V2 API.
-
-    Uses tag=latest to match the confirmed chain state. Unconfirmed
-    (pending) token transfers are excluded — same reasoning as BTC
-    mempool and SOL processed commitment: unsettled transfers must not
-    count toward regulatory reserve.
-
-    Args:
-        address          : Ethereum wallet address (checksummed or lowercase)
-        contract_address : ERC-20 token contract address
-        decimals         : Token decimal places (USDT=6, USDC=6, WETH=18)
-
-    Returns:
-        float — token balance in human-readable units (e.g. 1000.50 USDT)
-
-    Source:
-        https://docs.etherscan.io/v2/api-endpoints/accounts#get-erc20-token-account-balance-for-tokencontractaddress
-    """
-    url = (
-        f"https://api.etherscan.io/v2/api"
-        f"?chainid=1"
-        f"&module=account"
-        f"&action=tokenbalance"
-        f"&contractaddress={contract_address}"
-        f"&address={address}"
-        f"&tag=latest"
-        f"&apikey={ETHERSCAN_API_KEY}"
-    )
-    resp = requests.get(url, timeout=10)
-    resp.raise_for_status()
-    data = resp.json()
-    if data["status"] == "1":
-        return int(data["result"]) / (10 ** decimals)
-    # status "0" with result "0" means zero balance, not an error.
-    # Other status "0" cases (invalid address, etc.) return 0 and let
-    # the caller surface the issue via reconciliation output.
-    return 0.0
 
 
 
