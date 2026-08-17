@@ -103,7 +103,7 @@ def test_I8_stressed_price_bypasses_live_fetch():
         if k == "sol_usdt_spl": return 1_000.0
         return 0.0
     with patch("app.get_cached_balance", side_effect=router), \
-         patch("app._get_stablecoin_prices_idr") as mock_fn:
+         patch("core.pricing._get_stablecoin_prices_idr") as mock_fn:
         result = prima_app.get_total_balance_idr([SOL_WALLET],
             sol_price_idr=MOCK_SOL_PRICE,
             eth_price_idr=MOCK_ETH_PRICE,

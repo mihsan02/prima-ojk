@@ -51,29 +51,15 @@ SATOSHI_PER_BTC    = 100_000_000
 _last_rekon_time = 0
 REKON_COOLDOWN   = 60
 LAMPORTS_PER_SOL   = 1_000_000_000
-PRICE_CACHE        = {}
 BALANCE_CACHE      = {}
 REFRESH_LOCK       = {"running": False, "started_at": None}
 JOBS               = {}  # {job_id: {"status": "pending|running|done|failed", "result": None, "created_at": float}}
-PRICE_TTL          = 300   # bumped from 60 (Day 15): CMC credit budget guard
 BALANCE_TTL        = 300  # bumped: cache outlives request duration
 _SERVER_START_TIME = time.time()
 
 MAX_BALANCE_CACHE       = 500
-MAX_PRICE_CACHE         = 100
 MAX_JUPITER_PRICE_CACHE = 300
 
-def _evict_stale_entries(cache_dict, max_entries):
-    """Hapus entry terlama jika cache melebihi batas."""
-    if len(cache_dict) <= max_entries:
-        return
-    sorted_keys = sorted(
-        cache_dict.keys(),
-        key=lambda k: cache_dict[k][0] if isinstance(cache_dict[k], tuple) else 0
-    )
-    to_remove = len(cache_dict) - max_entries
-    for k in sorted_keys[:to_remove]:
-        del cache_dict[k]
 
 # ---- Jupiter API constants (Day 16) ----
 JUPITER_API_BASE      = "https://api.jup.ag"
@@ -95,6 +81,17 @@ ETHERSCAN_API_KEY  = os.environ.get("ETHERSCAN_API_KEY", "")
 # T1.1 (D1): get_eth_balance dipindah ke core/acquisition.py. Di-import
 # sebagai nama global supaya pemanggil lama tetap bekerja tanpa diubah.
 from core.acquisition import get_eth_balance  # noqa: E402
+
+# T1.2 (D3/D4): kaskade harga pindah ke core/pricing.py. Di-import balik
+# sebagai nama global supaya seluruh pemanggil lama -- termasuk tes yang
+# mengakses app.PRICE_CACHE -- tetap bekerja tanpa diubah.
+from core.pricing import (  # noqa: E402
+    PRICE_CACHE, PRICE_TTL, MAX_PRICE_CACHE, FALLBACK_STABLECOIN_IDR,
+    CMC_ID_TO_CGKEY, _evict_stale_entries, get_cached_price,
+    _refresh_price_cache_from_cmc, get_eth_price_idr,
+    fetch_stablecoin_prices_idr, _get_stablecoin_prices_idr,
+    fetch_btc_price_idr, fetch_sol_price_idr, _get_usd_idr_rate,
+)
 
 DATA_FILE          = os.path.join(os.path.dirname(__file__), "pakd_data.json")
 AUDIT_FILE         = os.path.join(os.path.dirname(__file__), "audit_log.json")
@@ -184,10 +181,6 @@ SOL_NATIVE_SENTINEL  = "So11111111111111111111111111111111111111112"  # wrapped 
 SPL_TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"  # standard SPL, NOT Token-2022
 STABLECOIN_DECIMALS = 6
 
-# Fallback IDR/USD rate used only when CoinGecko is unreachable.
-# Conservative estimate — updated manually per quarter.
-# Current reference: Bank Indonesia Kurs Tengah, April 2026.
-FALLBACK_STABLECOIN_IDR = 16_350.0
 
 # ---------------------------------------------------------------------------
 # Regulatory thresholds and stress test scenarios
@@ -899,19 +892,6 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
 # Cache helpers
 # ---------------------------------------------------------------------------
 
-def get_cached_price(network, fetch_fn):
-    """
-    Return cached price for network. Calls fetch_fn only when cache is
-    cold or older than PRICE_TTL seconds.
-    """
-    now = time.time()
-    if network in PRICE_CACHE:
-        cached_at, price = PRICE_CACHE[network]
-        if now - cached_at < PRICE_TTL:
-            return price
-    price = fetch_fn()
-    PRICE_CACHE[network] = (now, price)
-    return price
 
 
 def get_cached_balance(cache_key, address, fetch_fn):
@@ -946,13 +926,6 @@ def get_cached_balance(cache_key, address, fetch_fn):
 # assets at 1 credit per call.
 # ---------------------------------------------------------------------------
 
-CMC_ID_TO_CGKEY = {
-    "1":    "bitcoin",
-    "1027": "ethereum",
-    "5426": "solana",
-    "825":  "tether",
-    "3408": "usd-coin",
-}
 
 # Curated ERC-20 symbols priced via a dedicated CMC call (IDR) when the
 # CoinGecko contract-price endpoint fails/throttles (CF-throttled from Render).
@@ -991,88 +964,8 @@ def _curated_idr_price_fallback(symbol):
     return None
 
 
-def _refresh_price_cache_from_cmc():
-    """
-    Attempt to populate PRICE_CACHE for all 5 assets via single CMC call.
-
-    Returns True if cache is fresh for all 5 assets after this call.
-    Returns False if CMC key absent or call failed; callers fall through
-    to existing CoinGecko per-asset logic.
-
-    Idempotent: skips network call when cache already fully fresh.
-    """
-    api_key = os.environ.get("COINMARKETCAP_API_KEY", "")
-    if not api_key:
-        if os.environ.get('PRIMA_DEBUG'):
-            print("[CMC] api_key absent, falling through to CoinGecko", flush=True)
-        return False
-
-    now = time.time()
-    cgkeys = list(CMC_ID_TO_CGKEY.values())
-    all_fresh = all(
-        k in PRICE_CACHE and (now - PRICE_CACHE[k][0]) < PRICE_TTL
-        for k in cgkeys
-    )
-    if all_fresh:
-        return True
-
-    try:
-        resp = requests.get(
-            "https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest",
-            headers={"X-CMC_PRO_API_KEY": api_key, "Accept": "application/json"},
-            params={
-                "id":      ",".join(CMC_ID_TO_CGKEY.keys()),
-                "convert": "IDR",
-                "aux":     "",
-            },
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json().get("data", {})
-
-        for cmc_id, cgkey in CMC_ID_TO_CGKEY.items():
-            entry = data.get(cmc_id)
-            # /v2 returns array per id; unwrap first element if list
-            if isinstance(entry, list):
-                entry = entry[0] if entry else None
-            if not entry:
-                continue
-            price = entry.get("quote", {}).get("IDR", {}).get("price")
-            if price is not None:
-                PRICE_CACHE[cgkey] = (now, float(price))
-
-        success = all(k in PRICE_CACHE for k in cgkeys)
-        if os.environ.get('PRIMA_DEBUG'):
-            print(f"[CMC] refresh success={success}, populated={list(PRICE_CACHE.keys())}", flush=True)
-        _evict_stale_entries(PRICE_CACHE, MAX_PRICE_CACHE)
-        return success
-    except Exception as e:
-        # Log to stdout for Render Logs visibility (Day 15 cascade debug)
-        if os.environ.get('PRIMA_DEBUG'):
-            print(f"[JUPITER] price fetch failed: {type(e).__name__}: {e}", flush=True)
-        return False
 
 
-def get_eth_price_idr():
-    """
-    Fetch current ETH/IDR price.
-    Cascade: CMC primary, CoinGecko fallback, hardcoded final.
-    Returns (price_idr, harga_fallback_flag).
-    """
-    # Cascade Tier 1: CMC primary
-    if _refresh_price_cache_from_cmc():
-        cached = PRICE_CACHE.get("ethereum")
-        if cached and (time.time() - cached[0]) < PRICE_TTL:
-            return cached[1], False
-    # Cascade Tier 2: CoinGecko fallback
-    try:
-        url = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=idr"
-        resp = requests.get(url, timeout=10)
-        if resp.status_code != 200:
-            return 39_910_503, True
-        return resp.json()["ethereum"]["idr"], False
-    except Exception:
-        return 39_910_503, True
 
 
 
@@ -1122,75 +1015,8 @@ def fetch_erc20_balance(address, contract_address, decimals=STABLECOIN_DECIMALS)
     return 0.0
 
 
-def fetch_stablecoin_prices_idr():
-    """
-    Fetch USDT and USDC prices in IDR from CoinGecko in a single request.
-
-    Stablecoins are not guaranteed to be 1:1 with USD — USDC depegged
-    to USD 0.87 on 11 March 2023 (SVB collapse). Fetching live prices
-    matters for an accurate stress test baseline.
-
-    Populates PRICE_CACHE["tether"] and PRICE_CACHE["usd-coin"] as a
-    side effect, so subsequent get_cached_price calls for either token
-    will hit cache without a second request.
-
-    Returns:
-        (usdt_price_idr: float, usdc_price_idr: float)
-    """
-    # Cascade Tier 1: CMC primary
-    if _refresh_price_cache_from_cmc():
-        usdt_cached = PRICE_CACHE.get("tether")
-        usdc_cached = PRICE_CACHE.get("usd-coin")
-        now = time.time()
-        if (usdt_cached and (now - usdt_cached[0]) < PRICE_TTL and
-            usdc_cached and (now - usdc_cached[0]) < PRICE_TTL):
-            return usdt_cached[1], usdc_cached[1]
-    # Cascade Tier 2: CoinGecko (existing logic below)
-    url = "https://api.coingecko.com/api/v3/simple/price"
-    resp = requests.get(
-        url,
-        params={"ids": "tether,usd-coin", "vs_currencies": "idr"},
-        timeout=10,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-
-    usdt_price = float(data.get("tether",   {}).get("idr", FALLBACK_STABLECOIN_IDR))
-    usdc_price = float(data.get("usd-coin", {}).get("idr", FALLBACK_STABLECOIN_IDR))
-
-    # Populate cache for both tokens atomically from this single response.
-    now = time.time()
-    PRICE_CACHE["tether"]   = (now, usdt_price)
-    PRICE_CACHE["usd-coin"] = (now, usdc_price)
-
-    return usdt_price, usdc_price
 
 
-def _get_stablecoin_prices_idr():
-    """
-    Return (usdt_price_idr, usdc_price_idr) using cache when fresh.
-
-    Checks PRICE_CACHE for both tokens. If either is stale or absent,
-    calls fetch_stablecoin_prices_idr() which refills both in one request.
-    This prevents the caller from issuing two separate CoinGecko calls.
-    """
-    now  = time.time()
-    usdt = PRICE_CACHE.get("tether")
-    usdc = PRICE_CACHE.get("usd-coin")
-
-    both_fresh = (
-        usdt is not None and (now - usdt[0]) < PRICE_TTL and
-        usdc is not None and (now - usdc[0]) < PRICE_TTL
-    )
-    if both_fresh:
-        return usdt[1], usdc[1]
-
-    try:
-        return fetch_stablecoin_prices_idr()
-    except Exception:
-        usdt_fallback = usdt[1] if usdt else FALLBACK_STABLECOIN_IDR
-        usdc_fallback = usdc[1] if usdc else FALLBACK_STABLECOIN_IDR
-        return usdt_fallback, usdc_fallback
 
 
 # ---------------------------------------------------------------------------
@@ -1225,20 +1051,6 @@ def fetch_btc_balance(address):
     raise RuntimeError(f"All BTC providers failed for {address}")
 
 
-def fetch_btc_price_idr():
-    """
-    Fetch current BTC/IDR price.
-    Cascade: CMC primary, CoinGecko fallback.
-    Returns float (IDR per 1 BTC).
-    """
-    if _refresh_price_cache_from_cmc():
-        cached = PRICE_CACHE.get("bitcoin")
-        if cached and (time.time() - cached[0]) < PRICE_TTL:
-            return cached[1]
-    url = "https://api.coingecko.com/api/v3/simple/price"
-    resp = requests.get(url, params={"ids": "bitcoin", "vs_currencies": "idr"}, timeout=10)
-    resp.raise_for_status()
-    return float(resp.json()["bitcoin"]["idr"])
 
 
 # ---------------------------------------------------------------------------
@@ -1276,24 +1088,6 @@ def fetch_sol_balance(address):
     return lamports / LAMPORTS_PER_SOL
 
 
-def fetch_sol_price_idr():
-    """
-    Fetch current SOL/IDR price.
-    Cascade: CMC primary, CoinGecko fallback.
-    Returns float (IDR per 1 SOL).
-    """
-    if _refresh_price_cache_from_cmc():
-        cached = PRICE_CACHE.get("solana")
-        if cached and (time.time() - cached[0]) < PRICE_TTL:
-            return cached[1]
-    url  = "https://api.coingecko.com/api/v3/simple/price"
-    resp = requests.get(
-        url,
-        params={"ids": "solana", "vs_currencies": "idr"},
-        timeout=10,
-    )
-    resp.raise_for_status()
-    return float(resp.json()["solana"]["idr"])
 
 def fetch_spl_token_balance(address, mint_address):
     """
@@ -1514,17 +1308,6 @@ def _get_dexscreener_price(mint: str):
         return None
 
 
-def _get_usd_idr_rate():
-    """
-    Return USD-to-IDR rate via USDT IDR price (USDT is USD-pegged within
-    de-peg tolerance). No new API dependency: reuses _get_stablecoin_prices_idr.
-    Falls back to FALLBACK_STABLECOIN_IDR on cascade failure.
-    """
-    try:
-        usdt_idr, _ = _get_stablecoin_prices_idr()
-        return float(usdt_idr)
-    except Exception:
-        return float(FALLBACK_STABLECOIN_IDR)
 # ---------------------------------------------------------------------------
 # Unified multi-network balance fetcher (updated Day 4)
 # ---------------------------------------------------------------------------
@@ -1658,6 +1441,12 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
       breakdown          : list   — per-wallet detail
     """
     # --- Resolve prices (use provided values or fetch/cache) ---
+    # T1.2 (D3/D4): chain yang harganya gagal diambil masuk ke himpunan ini.
+    # Chain tersebut TIDAK dinilai dan TIDAK muncul di breakdown -- hilang,
+    # bukan nol. Menilainya nol rupiah membuat verdict tetap keluar seolah
+    # kepemilikannya memang kosong.
+    harga_tidak_tersedia = set()
+
     if eth_price_idr is None:
         try:
             eth_price_idr = get_cached_price("ethereum", lambda: get_eth_price_idr()[0])
@@ -1668,13 +1457,15 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         try:
             btc_price_idr = get_cached_price("bitcoin", fetch_btc_price_idr)
         except Exception:
-            btc_price_idr = 0.0
+            btc_price_idr = None
+            harga_tidak_tersedia.add("btc_native")
 
     if sol_price_idr is None:
         try:
             sol_price_idr = get_cached_price("solana", fetch_sol_price_idr)
         except Exception:
-            sol_price_idr = 0.0
+            sol_price_idr = None
+            harga_tidak_tersedia.add("sol_native")
 
     # Stablecoins: always batch in one call via _get_stablecoin_prices_idr().
     if usdt_price_idr is None or usdc_price_idr is None:
@@ -1837,7 +1628,11 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             _entries.append(entry)
             try:
                 sol_bal = get_cached_balance("solana", address, lambda a=address: fetch_sol_balance(a))
-                sol_native_idr_val = sol_bal * sol_price_idr
+                # T1.2 (D3/D4) Opsi A: harga SOL native tidak tersedia berarti
+                # native TIDAK dinilai. SPL di bawah tetap dinilai karena harga
+                # stablecoin datang dari kaskade yang lain.
+                _sol_native_dinilai = sol_price_idr is not None
+                sol_native_idr_val = (sol_bal * sol_price_idr) if _sol_native_dinilai else 0.0
                 sol_usdt_bal = get_cached_balance("sol_usdt_spl", address, lambda a=address: fetch_spl_token_balance(a, USDT_MINT_SOL))
                 sol_usdt_idr_val = sol_usdt_bal * usdt_price_idr
                 sol_usdc_bal = get_cached_balance("sol_usdc_spl", address, lambda a=address: fetch_spl_token_balance(a, USDC_MINT_SOL))
@@ -1845,7 +1640,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 # Commit native+tier1 NOW: a harvest timeout during slow token
                 # pricing must not discard the already-fetched balances.
                 entry["balance_native"]   = round(sol_bal, 9)
-                entry["sol_native_idr"]   = round(sol_native_idr_val)
+                entry["sol_native_idr"]   = round(sol_native_idr_val) if _sol_native_dinilai else None
                 entry["sol_usdt_balance"] = round(sol_usdt_bal, 6)
                 entry["sol_usdt_idr"]     = round(sol_usdt_idr_val)
                 entry["sol_usdc_balance"] = round(sol_usdc_bal, 6)
@@ -1902,7 +1697,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 wallet_total_idr = sol_native_idr_val + sol_usdt_idr_val + sol_usdc_idr_val + other_token_idr_val
                 entry["balance_native"]      = round(sol_bal, 9)
                 entry["balance_idr"]         = wallet_total_idr
-                entry["sol_native_idr"]      = round(sol_native_idr_val)
+                entry["sol_native_idr"]      = round(sol_native_idr_val) if _sol_native_dinilai else None
                 entry["sol_usdt_balance"]    = round(sol_usdt_bal, 6)
                 entry["sol_usdt_idr"]        = round(sol_usdt_idr_val)
                 entry["sol_usdc_balance"]    = round(sol_usdc_bal, 6)
@@ -1953,7 +1748,12 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     _ex = _ChainTPE(max_workers=3)
     _eth_entries, _btc_entries, _sol_entries = [], [], []
     _f_eth = _ex.submit(_proc_eth, eth_wallets, _eth_entries)
-    _f_btc = _ex.submit(_proc_btc, btc_wallets, _btc_entries)
+    # BTC native adalah satu-satunya aset di chain bitcoin, jadi tanpa
+    # harganya tidak ada apa pun yang bisa dinilai di sana.
+    _f_btc = (None if "btc_native" in harga_tidak_tersedia
+              else _ex.submit(_proc_btc, btc_wallets, _btc_entries))
+    # Solana TIDAK di-skip walau harga SOL native gagal: SPL USDT/USDC
+    # dihargai lewat kaskade stablecoin yang terpisah dan tetap sahih.
     _f_sol = _ex.submit(_proc_sol, sol_wallets, _sol_entries)
     from concurrent.futures import TimeoutError as FuturesTimeout
     try:
@@ -1970,28 +1770,33 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                       "eth_unvalued_count": sum(en["eth_unvalued_count"] or 0 for en in _partial),
                       "eth_unvalued_contracts": [c for en in _partial for c in (en["eth_unvalued_contracts"] or [])],
                       "t": 0}
-    try:
+    if _f_btc is None:
+        # Harga BTC tidak tersedia: chain ini tidak dinilai sama sekali dan
+        # tidak menyumbang baris apa pun ke breakdown.
+        _r_btc = {"entries": [], "btc_total": 0.0, "t": 0.0}
+    else:
+        try:
             _r_btc = _f_btc.result(timeout=15)
-    except (FuturesTimeout, Exception) as e:
+        except (FuturesTimeout, Exception) as e:
             print(f"[CHAIN_FETCH] BTC timeout/error: {e}", flush=True)
             _partial = _harvest_partial(_btc_entries, btc_wallets, "bitcoin", "BTC", "BTC", 15)
             _r_btc = {"entries": _partial,
                       "btc_total": sum(en["balance_idr"] or 0 for en in _partial),
                       "t": 0}
     try:
-            _r_sol = _f_sol.result(timeout=25)
+        _r_sol = _f_sol.result(timeout=25)
     except (FuturesTimeout, Exception) as e:
-            print(f"[CHAIN_FETCH] SOL timeout/error: {e}", flush=True)
-            _partial = _harvest_partial(_sol_entries, sol_wallets, "solana", "SOL", "SOL", 25)
-            _r_sol = {"entries": _partial,
-                      "sol_total": sum(en["balance_idr"] or 0 for en in _partial),
-                      "sol_native": sum(en["sol_native_idr"] or 0 for en in _partial),
-                      "sol_usdt": sum(en["sol_usdt_idr"] or 0 for en in _partial),
-                      "sol_usdc": sum(en["sol_usdc_idr"] or 0 for en in _partial),
-                      "sol_other": sum(en["sol_other_token_idr"] or 0 for en in _partial),
-                      "sol_unvalued_count": sum(en["sol_unvalued_count"] or 0 for en in _partial),
-                      "sol_unvalued_mints": [m for en in _partial for m in (en["sol_unvalued_mints"] or [])],
-                      "t": 0}
+        print(f"[CHAIN_FETCH] SOL timeout/error: {e}", flush=True)
+        _partial = _harvest_partial(_sol_entries, sol_wallets, "solana", "SOL", "SOL", 25)
+        _r_sol = {"entries": _partial,
+                  "sol_total": sum(en["balance_idr"] or 0 for en in _partial),
+                  "sol_native": sum(en["sol_native_idr"] or 0 for en in _partial),
+                  "sol_usdt": sum(en["sol_usdt_idr"] or 0 for en in _partial),
+                  "sol_usdc": sum(en["sol_usdc_idr"] or 0 for en in _partial),
+                  "sol_other": sum(en["sol_other_token_idr"] or 0 for en in _partial),
+                  "sol_unvalued_count": sum(en["sol_unvalued_count"] or 0 for en in _partial),
+                  "sol_unvalued_mints": [m for en in _partial for m in (en["sol_unvalued_mints"] or [])],
+                  "t": 0}
 
     # --- Merge results ---
     other_entries = []
@@ -2058,6 +1863,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         "eth_unvalued_count":       eth_unvalued_count_total,
         "eth_unvalued_contracts":   eth_unvalued_contracts_global,
         "breakdown":       breakdown,
+        # T1.2 (D3/D4): chain yang harganya gagal diambil. Kepemilikan di
+        # chain ini TIDAK ikut total_idr dan tidak ada di breakdown.
+        "harga_tidak_tersedia": sorted(harga_tidak_tersedia),
     }
 
 

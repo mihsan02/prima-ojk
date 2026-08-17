@@ -32,7 +32,7 @@ def test_cmc_no_key_returns_false(monkeypatch):
     """When COINMARKETCAP_API_KEY env is unset, refresh returns False
     without making any network call."""
     monkeypatch.delenv("COINMARKETCAP_API_KEY", raising=False)
-    with patch("app.requests.get") as mock_get:
+    with patch("core.pricing.requests.get") as mock_get:
         result = app._refresh_price_cache_from_cmc()
         assert result is False
         mock_get.assert_not_called()
@@ -54,7 +54,7 @@ def test_cmc_success_populates_all_5(monkeypatch):
             "3408": [{"quote": {"IDR": {"price": 16_400}}}],
         }
     }
-    with patch("app.requests.get", return_value=fake_response):
+    with patch("core.pricing.requests.get", return_value=fake_response):
         result = app._refresh_price_cache_from_cmc()
     assert result is True
     assert app.PRICE_CACHE["bitcoin"][1] == 1_400_000_000
@@ -67,7 +67,7 @@ def test_cmc_success_populates_all_5(monkeypatch):
 def test_cmc_network_failure_returns_false(monkeypatch):
     """When CMC raises exception, refresh returns False, cache unpolluted."""
     monkeypatch.setenv("COINMARKETCAP_API_KEY", "test_key_32_chars_xxxxxxxxxxxxxx")
-    with patch("app.requests.get", side_effect=Exception("network down")):
+    with patch("core.pricing.requests.get", side_effect=Exception("network down")):
         result = app._refresh_price_cache_from_cmc()
     assert result is False
     assert "bitcoin" not in app.PRICE_CACHE
@@ -79,7 +79,7 @@ def test_cmc_idempotent_when_cache_fresh(monkeypatch):
     now = time.time()
     for cgkey in ["bitcoin", "ethereum", "solana", "tether", "usd-coin"]:
         app.PRICE_CACHE[cgkey] = (now, 1.0)
-    with patch("app.requests.get") as mock_get:
+    with patch("core.pricing.requests.get") as mock_get:
         result = app._refresh_price_cache_from_cmc()
         assert result is True
         mock_get.assert_not_called()
@@ -91,7 +91,7 @@ def test_eth_cascade_falls_through_to_coingecko_when_cmc_absent(monkeypatch):
     fake_resp = MagicMock()
     fake_resp.status_code = 200
     fake_resp.json.return_value = {"ethereum": {"idr": 39_500_000}}
-    with patch("app.requests.get", return_value=fake_resp):
+    with patch("core.pricing.requests.get", return_value=fake_resp):
         price, fallback = app.get_eth_price_idr()
     assert price == 39_500_000
     assert fallback is False
