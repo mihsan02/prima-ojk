@@ -260,12 +260,20 @@ def fetch_sol_price_idr():
     return float(resp.json()["solana"]["idr"])
 
 
-def _get_usd_idr_rate():
+def _get_usd_idr_rate(usdt_price_idr=None):
     """
     Return USD-to-IDR rate via USDT IDR price (USDT is USD-pegged within
     de-peg tolerance). No new API dependency: reuses _get_stablecoin_prices_idr.
     Falls back to FALLBACK_STABLECOIN_IDR on cascade failure.
+
+    T1.3 (D14): usdt_price_idr dioper oleh pemanggil yang SUDAH punya harga
+    USDT -- termasuk stress test yang mengoper harga ter-depeg. Tanpa ini
+    penilaian "other token" diam-diam memakai kurs live, sehingga stress
+    test Pasal 50/91 menguji dengan tekanan yang lebih ringan dari yang
+    diminta. Kalau None, perilaku lama tidak berubah.
     """
+    if usdt_price_idr is not None:
+        return float(usdt_price_idr)
     try:
         usdt_idr, _ = _get_stablecoin_prices_idr()
         return float(usdt_idr)

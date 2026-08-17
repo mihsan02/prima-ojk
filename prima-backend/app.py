@@ -1530,7 +1530,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                     if curated_balances:
                         contracts_to_price = [t["contract"] for t in curated_balances]
                         curated_prices     = _get_coingecko_eth_token_prices(contracts_to_price)
-                        usd_idr_rate       = _get_usd_idr_rate()
+                        usd_idr_rate       = _get_usd_idr_rate(usdt_price_idr)
                         eth_other_idr_val           = 0.0
                         unvalued_contracts_per_addr = []
                         for token in curated_balances:
@@ -1668,7 +1668,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                     try:
                         verified_set = _get_jupiter_verified_set()
                         prices       = _get_jupiter_prices(candidate_mints)
-                        usd_idr_rate = _get_usd_idr_rate()
+                        usd_idr_rate = _get_usd_idr_rate(usdt_price_idr)
                         for holding in all_holdings:
                             mint = holding["mint"]
                             if mint in tier1_mints:
