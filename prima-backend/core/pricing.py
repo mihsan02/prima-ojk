@@ -166,8 +166,30 @@ def get_price_with_provenance(network, fetch_fn):
     dipanggil saat cache dingin atau sudah melewati PRICE_TTL. Yang
     bertambah hanya pelaporan tier mana yang menghasilkan nilai.
 
-        "cache" -- entri dipakai tanpa memanggil fetch_fn
-        "live"  -- fetch_fn dipanggil dan berhasil
+        "cache"     -- entri dipakai tanpa memanggil fetch_fn
+        "cmc"       -- fetch_fn mengambil dari CMC
+        "coingecko" -- fetch_fn mengambil dari CoinGecko
+
+    Tier ditentukan dari jejak yang ditinggalkan fetch_fn di PRICE_CACHE:
+    _refresh_price_cache_from_cmc() menulis entri dan menstempel
+    _CMC_LIVE_WRITE_AT dengan nilai yang sama, sedangkan jalur CoinGecko
+    di fetch_btc_price_idr()/fetch_sol_price_idr() tidak menyentuh cache
+    sama sekali. Stempel yang cocok berarti CMC.
+
+    KETERBATASAN (D23). Predikat itu menyimpulkan tier dari efek samping
+    fetch_fn, bukan dari laporan fetch_fn sendiri, sehingga hanya sahih
+    untuk fetch_fn yang melewati _refresh_price_cache_from_cmc(). fetch_fn
+    lain akan dilabeli "coingecko", dan "coingecko" dipetakan ke LENGKAP
+    oleh kelengkapan_dari_provenance() -- artinya harga hardcoded bisa
+    terlaporkan sebagai lengkap. Jalur app.py:1414 membungkus
+    get_eth_price_idr(), yang tier terakhirnya justru hardcoded, dan
+    persis itulah kasusnya. Jalur tersebut belum dibaca siapa pun hari
+    ini, jadi salah label itu belum berakibat; ia harus dibereskan
+    sebelum ada yang membacanya.
+
+    UTANG: predikat ini menduplikasi baris yang sama di
+    get_eth_price_with_provenance(). Ekstraksi ke helper bersama sengaja
+    tidak dilakukan supaya fungsi tersebut tidak tersentuh di T2.1b.
 
     Tidak ada tier hardcoded di sini. fetch_btc_price_idr() dan
     fetch_sol_price_idr() memanggil raise_for_status(), dan lemparannya
@@ -180,8 +202,12 @@ def get_price_with_provenance(network, fetch_fn):
         if now - cached_at < PRICE_TTL:
             return _provenance(price, "cache", cached_at, now - cached_at)
     price = fetch_fn()
+    # Urutannya mengikat: baca jejak CMC sebelum penulisan di bawah
+    # menimpa stempelnya.
+    tertulis = PRICE_CACHE.get(network)
+    sumber = "cmc" if tertulis and tertulis[0] == _CMC_LIVE_WRITE_AT else "coingecko"
     PRICE_CACHE[network] = (now, price)
-    return _provenance(price, "live", now, 0)
+    return _provenance(price, sumber, now, 0)
 
 
 def kelengkapan_dari_provenance(prov):
