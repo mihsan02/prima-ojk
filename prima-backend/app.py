@@ -91,6 +91,7 @@ from core.pricing import (  # noqa: E402
     PRICE_CACHE, PRICE_TTL, MAX_PRICE_CACHE, FALLBACK_STABLECOIN_IDR,
     CMC_ID_TO_CGKEY, _evict_stale_entries, get_cached_price,
     _refresh_price_cache_from_cmc, get_eth_price_idr,
+    get_eth_price_with_provenance,
     fetch_stablecoin_prices_idr, _get_stablecoin_prices_idr,
     fetch_btc_price_idr, fetch_sol_price_idr, _get_usd_idr_rate,
 )
@@ -1410,10 +1411,23 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     harga_tidak_tersedia = set()
 
     if eth_price_idr is None:
+        # D24: samakan ETH dengan BTC/SOL. Tier hardcoded pada kaskade
+        # bukan harga pasar, jadi ia diperlakukan sebagai harga yang
+        # tidak tersedia -- kepemilikan ETH hilang dari breakdown alih-alih
+        # dinilai memakai konstanta. Lapisan get_cached_price("ethereum")
+        # dilepas: kaskade ETH sudah punya cache dan provenance sendiri,
+        # dan menumpuknya membuat provenance yang dilaporkan bisa
+        # menggambarkan nilai yang berbeda dari yang dipakai.
         try:
-            eth_price_idr = get_cached_price("ethereum", lambda: get_eth_price_idr()[0])
+            prov_eth = get_eth_price_with_provenance()
+            if prov_eth["sumber"] == "hardcoded":
+                eth_price_idr = None
+                harga_tidak_tersedia.add("eth_native")
+            else:
+                eth_price_idr = prov_eth["nilai"]
         except Exception:
-            eth_price_idr = 39_910_503
+            eth_price_idr = None
+            harga_tidak_tersedia.add("eth_native")
 
     if btc_price_idr is None:
         try:
@@ -1470,7 +1484,15 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             _tw = time.perf_counter()
             try:
                 eth_bal = get_cached_balance("ethereum", address, lambda a=address: get_eth_balance(a))
-                eth_native_idr_val = eth_bal * eth_price_idr
+                # D24: tanpa penjaga ini, eth_price_idr None melempar
+                # TypeError yang tertangkap blok except di bawah dan
+                # dilaporkan sebagai "ETH fetch error" -- kegagalan harga
+                # menyamar sebagai kegagalan fetch saldo. Polanya mengikuti
+                # Solana (_sol_native_dinilai), bukan Bitcoin: USDT dan USDC
+                # di wallet ini dihargai lewat kaskade stablecoin terpisah
+                # yang tetap sahih, jadi hanya komponen native yang gugur.
+                _eth_native_dinilai = eth_price_idr is not None
+                eth_native_idr_val = (eth_bal * eth_price_idr) if _eth_native_dinilai else 0.0
                 usdt_bal = get_cached_balance("usdt_erc20", address, lambda a=address: fetch_erc20_balance(a, USDT_CONTRACT))
                 usdt_idr_val = usdt_bal * usdt_price_idr
                 usdc_bal = get_cached_balance("usdc_erc20", address, lambda a=address: fetch_erc20_balance(a, USDC_CONTRACT))
@@ -1478,7 +1500,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 wallet_total_idr = eth_native_idr_val + usdt_idr_val + usdc_idr_val
                 entry["balance_native"] = eth_bal
                 entry["balance_idr"]    = wallet_total_idr
-                entry["eth_native_idr"] = round(eth_native_idr_val)
+                entry["eth_native_idr"] = round(eth_native_idr_val) if _eth_native_dinilai else None
                 entry["usdt_balance"]   = round(usdt_bal, 6)
                 entry["usdt_idr"]       = round(usdt_idr_val)
                 entry["usdc_balance"]   = round(usdc_bal, 6)

@@ -39,10 +39,15 @@ class TestHargaTidakTersedia(unittest.TestCase):
         self.addCleanup(pricing.PRICE_CACHE.clear)
 
     def _hitung(self, wallets):
+        # D24: jalur ETH tidak lagi lewat get_cached_price, jadi harganya
+        # disuntikkan sebagai argumen. Tanpa ini kaskade ETH sungguhan
+        # berjalan dan jatuh ke tier hardcoded, yang kini menandai
+        # eth_native sebagai harga tidak tersedia -- bukan yang diuji di sini.
         with patch("app.get_cached_price", side_effect=_harga_btc_gagal), \
              patch("app.get_cached_balance", side_effect=lambda k, a, f: 1.0):
             return prima_app.get_total_balance_idr(
                 wallets,
+                eth_price_idr=MOCK_ETH_PRICE,
                 usdt_price_idr=MOCK_USDT_PRICE,
                 usdc_price_idr=MOCK_USDC_PRICE)
 
@@ -83,12 +88,12 @@ class TestHargaTidakTersedia(unittest.TestCase):
     def test_semua_harga_ada_maka_himpunan_kosong(self):
         """Jalur normal tidak boleh ikut berubah."""
         with patch("app.get_cached_price",
-                   side_effect=lambda n, f: {"ethereum": MOCK_ETH_PRICE,
-                                             "bitcoin": 1_400_000_000.0,
+                   side_effect=lambda n, f: {"bitcoin": 1_400_000_000.0,
                                              "solana": 1_500_000.0}[n]), \
              patch("app.get_cached_balance", side_effect=lambda k, a, f: 1.0):
             hasil = prima_app.get_total_balance_idr(
                 [BTC_WALLET],
+                eth_price_idr=MOCK_ETH_PRICE,
                 usdt_price_idr=MOCK_USDT_PRICE,
                 usdc_price_idr=MOCK_USDC_PRICE)
 
@@ -132,6 +137,7 @@ class TestSolNativeGagalSplBertahan(unittest.TestCase):
              patch("app.fetch_all_spl_balances", return_value=[]):
             return prima_app.get_total_balance_idr(
                 [SOL_WALLET],
+                eth_price_idr=MOCK_ETH_PRICE,
                 usdt_price_idr=MOCK_USDT_PRICE,
                 usdc_price_idr=MOCK_USDC_PRICE)
 
