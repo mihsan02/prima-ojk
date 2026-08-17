@@ -10,6 +10,7 @@ _get_usd_idr_rate (D14) sengaja dibiarkan utuh; keduanya T1.3.
 
 import os
 import time
+from datetime import datetime, timezone
 
 import requests
 
@@ -24,6 +25,18 @@ PRICE_TTL          = 300   # bumped from 60 (Day 15): CMC credit budget guard
 
 
 MAX_PRICE_CACHE         = 100
+
+# T1.3 (D5): stempel waktu saat _refresh_price_cache_from_cmc() benar-benar
+# menulis dari balasan CMC live. Dipakai membedakan sumber "cmc" (baru saja
+# diambil) dari "cache" (entri lama yang masih dalam TTL) -- keduanya lolos
+# lewat cabang yang sama, jadi tanpa penanda ini tidak terbedakan.
+_CMC_LIVE_WRITE_AT = None
+
+# Ambang umur cache yang masih dianggap LENGKAP. Sengaja jauh di atas
+# PRICE_TTL (300 s): Render free tier sering cold start, dan aturan biner
+# akan menyalakan DATA TIDAK LENGKAP pada latensi CMC yang normal --
+# operator lalu belajar mengabaikannya.
+UMUR_CACHE_LENGKAP_DETIK = 900
 
 
 def _evict_stale_entries(cache_dict, max_entries):
@@ -108,6 +121,8 @@ def _refresh_price_cache_from_cmc():
         resp.raise_for_status()
         data = resp.json().get("data", {})
 
+        global _CMC_LIVE_WRITE_AT
+        _CMC_LIVE_WRITE_AT = now
         for cmc_id, cgkey in CMC_ID_TO_CGKEY.items():
             entry = data.get(cmc_id)
             # /v2 returns array per id; unwrap first element if list
@@ -131,26 +146,85 @@ def _refresh_price_cache_from_cmc():
         return False
 
 
-def get_eth_price_idr():
+HARGA_ETH_HARDCODED = 39_910_503
+
+
+def _provenance(nilai, sumber, as_of_ts, umur_detik):
+    """Bentuk provenance yang dibaca T2.1 dan T2.3."""
+    return {
+        "nilai":       nilai,
+        "sumber":      sumber,
+        "as_of":       datetime.fromtimestamp(as_of_ts, tz=timezone.utc)
+                               .isoformat().replace("+00:00", "Z"),
+        "umur_detik":  int(round(umur_detik)),
+    }
+
+
+def kelengkapan_dari_provenance(prov):
+    """Petakan provenance harga ke status kelengkapan data.
+
+        cmc / coingecko, live      -> LENGKAP
+        cache, umur <= 900 detik   -> LENGKAP
+        cache, umur >  900 detik   -> SEBAGIAN
+        hardcoded                  -> SEBAGIAN, selalu
+
+    T1.3 hanya MENGHASILKAN status ini. Yang membacanya dan menahan
+    verdict adalah T2.3 -- logika verdict tidak disentuh di sini.
     """
-    Fetch current ETH/IDR price.
-    Cascade: CMC primary, CoinGecko fallback, hardcoded final.
-    Returns (price_idr, harga_fallback_flag).
+    sumber = prov.get("sumber")
+    if sumber == "hardcoded":
+        return "SEBAGIAN"
+    if sumber == "cache":
+        return ("LENGKAP" if prov.get("umur_detik", 0) <= UMUR_CACHE_LENGKAP_DETIK
+                else "SEBAGIAN")
+    if sumber in ("cmc", "coingecko"):
+        return "LENGKAP"
+    return "SEBAGIAN"
+
+
+def get_eth_price_with_provenance():
     """
-    # Cascade Tier 1: CMC primary
+    Fetch current ETH/IDR price beserta asal-usulnya.
+
+    Kaskade tidak berubah dari sebelumnya: CMC primary, CoinGecko
+    fallback, hardcoded final. Yang bertambah hanya pelacakan tier mana
+    yang menghasilkan nilai, dan seberapa tua nilai itu.
+    """
+    # Tier 1: CMC primary (atau cache-nya yang masih dalam TTL)
     if _refresh_price_cache_from_cmc():
         cached = PRICE_CACHE.get("ethereum")
-        if cached and (time.time() - cached[0]) < PRICE_TTL:
-            return cached[1], False
-    # Cascade Tier 2: CoinGecko fallback
+        now = time.time()
+        if cached and (now - cached[0]) < PRICE_TTL:
+            # Cabang yang sama melayani dua hal: nilai yang BARU saja
+            # ditulis panggilan CMC live, dan entri lama yang masih segar.
+            sumber = "cmc" if cached[0] == _CMC_LIVE_WRITE_AT else "cache"
+            return _provenance(cached[1], sumber, cached[0], now - cached[0])
+
+    # Tier 2: CoinGecko fallback
     try:
         url = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=idr"
         resp = requests.get(url, timeout=10)
-        if resp.status_code != 200:
-            return 39_910_503, True
-        return resp.json()["ethereum"]["idr"], False
+        if resp.status_code == 200:
+            now = time.time()
+            return _provenance(resp.json()["ethereum"]["idr"], "coingecko", now, 0)
     except Exception:
-        return 39_910_503, True
+        pass
+
+    # Tier 3: hardcoded. Nilainya sengaja dipertahankan -- yang berubah
+    # adalah pemakaiannya kini terlacak, bukan keberadaannya.
+    now = time.time()
+    return _provenance(HARGA_ETH_HARDCODED, "hardcoded", now, 0)
+
+
+def get_eth_price_idr():
+    """
+    Bentuk lama: (price_idr, harga_fallback_flag).
+
+    Dipertahankan supaya kelima pemanggil di app.py tidak perlu diubah.
+    Sumber kebenarannya kini get_eth_price_with_provenance().
+    """
+    prov = get_eth_price_with_provenance()
+    return prov["nilai"], prov["sumber"] == "hardcoded"
 
 
 def fetch_stablecoin_prices_idr():
