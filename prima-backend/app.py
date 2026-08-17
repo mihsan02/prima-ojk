@@ -1484,7 +1484,15 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             _tw = time.perf_counter()
             try:
                 eth_bal = get_cached_balance("ethereum", address, lambda a=address: get_eth_balance(a))
-                eth_native_idr_val = eth_bal * eth_price_idr
+                # D24: tanpa penjaga ini, eth_price_idr None melempar
+                # TypeError yang tertangkap blok except di bawah dan
+                # dilaporkan sebagai "ETH fetch error" -- kegagalan harga
+                # menyamar sebagai kegagalan fetch saldo. Polanya mengikuti
+                # Solana (_sol_native_dinilai), bukan Bitcoin: USDT dan USDC
+                # di wallet ini dihargai lewat kaskade stablecoin terpisah
+                # yang tetap sahih, jadi hanya komponen native yang gugur.
+                _eth_native_dinilai = eth_price_idr is not None
+                eth_native_idr_val = (eth_bal * eth_price_idr) if _eth_native_dinilai else 0.0
                 usdt_bal = get_cached_balance("usdt_erc20", address, lambda a=address: fetch_erc20_balance(a, USDT_CONTRACT))
                 usdt_idr_val = usdt_bal * usdt_price_idr
                 usdc_bal = get_cached_balance("usdc_erc20", address, lambda a=address: fetch_erc20_balance(a, USDC_CONTRACT))
@@ -1492,7 +1500,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 wallet_total_idr = eth_native_idr_val + usdt_idr_val + usdc_idr_val
                 entry["balance_native"] = eth_bal
                 entry["balance_idr"]    = wallet_total_idr
-                entry["eth_native_idr"] = round(eth_native_idr_val)
+                entry["eth_native_idr"] = round(eth_native_idr_val) if _eth_native_dinilai else None
                 entry["usdt_balance"]   = round(usdt_bal, 6)
                 entry["usdt_idr"]       = round(usdt_idr_val)
                 entry["usdc_balance"]   = round(usdc_bal, 6)

@@ -81,6 +81,50 @@ class TestHargaEthHardcoded(unittest.TestCase):
         self.assertEqual(hasil["eth_native_idr"], SALDO_ETH * HARGA_COINGECKO,
                          hasil)
 
+    def test_native_tak_dinilai_tapi_stablecoin_bertahan(self):
+        """D24 Bagian A: penjaga harga ETH di jalur penilaian.
+
+        Tanpa penjaga, eth_bal * eth_price_idr melempar TypeError saat
+        harganya None, dan blok except di sekitarnya mengubahnya menjadi
+        entry["error"] = "ETH fetch error: ..." -- kegagalan harga
+        dilaporkan sebagai kegagalan fetch saldo.
+
+        Polanya mengikuti Solana, bukan Bitcoin. Wallet ETH memegang USDT
+        dan USDC yang dihargai lewat kaskade stablecoin terpisah dan tetap
+        sahih, jadi wallet-nya bertahan di breakdown dengan komponen
+        native saja yang tidak dinilai. Men-skip seluruh chain seperti BTC
+        akan menghapus aset stabil yang harganya baik-baik saja.
+        """
+        hasil = self._hitung({"side_effect": Exception("network down")})
+
+        baris = [e for e in hasil["breakdown"] if e.get("network") == "ethereum"]
+        self.assertEqual(len(baris), 1, hasil["breakdown"])
+        entry = baris[0]
+
+        self.assertNotIn("unsupported operand", str(entry["error"]), entry)
+        self.assertIsNone(entry["eth_native_idr"], entry)
+        self.assertEqual(entry["usdt_idr"], round(SALDO_ETH * MOCK_USDT_PRICE), entry)
+        self.assertEqual(entry["usdc_idr"], round(SALDO_ETH * MOCK_USDC_PRICE), entry)
+
+    def test_penanda_bertahan_walau_wallet_masih_bernilai(self):
+        """Ketiga sifat sekaligus, pada satu wallet yang sama.
+
+        Pola SOL membuat wallet ETH tetap muncul dengan USDT-nya dinilai.
+        Justru karena itu penanda harga_tidak_tersedia menjadi krusial:
+        tanpa penanda, wallet yang tampak bernilai wajar menyembunyikan
+        fakta bahwa komponen ETH native-nya tidak dinilai sama sekali,
+        dan verdict rekonsiliasi keluar seolah datanya utuh.
+        """
+        hasil = self._hitung({"side_effect": Exception("network down")})
+
+        entry = [e for e in hasil["breakdown"] if e.get("network") == "ethereum"][0]
+
+        self.assertEqual(entry["usdt_idr"], round(SALDO_ETH * MOCK_USDT_PRICE), entry)
+        self.assertIsNone(entry["eth_native_idr"], entry)
+        self.assertIn("eth_native", hasil["harga_tidak_tersedia"],
+                      f"harga_tidak_tersedia={hasil['harga_tidak_tersedia']!r}, "
+                      f"usdt_idr={entry['usdt_idr']!r}")
+
     def test_konstanta_d5_tidak_tersisa_di_app(self):
         """Angka itu milik pricing.py sebagai tier, bukan milik app.py."""
         sumber_app = pathlib.Path(prima_app.__file__).read_text()
