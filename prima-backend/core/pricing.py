@@ -62,15 +62,13 @@ def get_cached_price(network, fetch_fn):
     """
     Return cached price for network. Calls fetch_fn only when cache is
     cold or older than PRICE_TTL seconds.
+
+    Bentuk lama, float telanjang. Dipertahankan supaya kelima pemanggil
+    di app.py dan lima berkas tes yang mem-patch app.get_cached_price
+    tidak perlu diubah. Logikanya kini tinggal satu tempat, di
+    get_price_with_provenance().
     """
-    now = time.time()
-    if network in PRICE_CACHE:
-        cached_at, price = PRICE_CACHE[network]
-        if now - cached_at < PRICE_TTL:
-            return price
-    price = fetch_fn()
-    PRICE_CACHE[network] = (now, price)
-    return price
+    return get_price_with_provenance(network, fetch_fn)["nilai"]
 
 
 CMC_ID_TO_CGKEY = {
@@ -158,6 +156,32 @@ def _provenance(nilai, sumber, as_of_ts, umur_detik):
                                .isoformat().replace("+00:00", "Z"),
         "umur_detik":  int(round(umur_detik)),
     }
+
+
+def get_price_with_provenance(network, fetch_fn):
+    """
+    Harga per network berikut asal-usulnya, memakai PRICE_CACHE.
+
+    Logika cache tidak berubah dari get_cached_price(): fetch_fn hanya
+    dipanggil saat cache dingin atau sudah melewati PRICE_TTL. Yang
+    bertambah hanya pelaporan tier mana yang menghasilkan nilai.
+
+        "cache" -- entri dipakai tanpa memanggil fetch_fn
+        "live"  -- fetch_fn dipanggil dan berhasil
+
+    Tidak ada tier hardcoded di sini. fetch_btc_price_idr() dan
+    fetch_sol_price_idr() memanggil raise_for_status(), dan lemparannya
+    dibiarkan naik apa adanya: bagi rekonsiliasi, harga yang absen lebih
+    aman daripada harga yang salah. Cache pun tidak ditulis saat gagal.
+    """
+    now = time.time()
+    if network in PRICE_CACHE:
+        cached_at, price = PRICE_CACHE[network]
+        if now - cached_at < PRICE_TTL:
+            return _provenance(price, "cache", cached_at, now - cached_at)
+    price = fetch_fn()
+    PRICE_CACHE[network] = (now, price)
+    return _provenance(price, "live", now, 0)
 
 
 def kelengkapan_dari_provenance(prov):
