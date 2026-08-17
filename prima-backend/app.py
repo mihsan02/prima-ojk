@@ -91,6 +91,7 @@ from core.pricing import (  # noqa: E402
     PRICE_CACHE, PRICE_TTL, MAX_PRICE_CACHE, FALLBACK_STABLECOIN_IDR,
     CMC_ID_TO_CGKEY, _evict_stale_entries, get_cached_price,
     _refresh_price_cache_from_cmc, get_eth_price_idr,
+    get_eth_price_with_provenance,
     fetch_stablecoin_prices_idr, _get_stablecoin_prices_idr,
     fetch_btc_price_idr, fetch_sol_price_idr, _get_usd_idr_rate,
 )
@@ -1410,10 +1411,23 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     harga_tidak_tersedia = set()
 
     if eth_price_idr is None:
+        # D24: samakan ETH dengan BTC/SOL. Tier hardcoded pada kaskade
+        # bukan harga pasar, jadi ia diperlakukan sebagai harga yang
+        # tidak tersedia -- kepemilikan ETH hilang dari breakdown alih-alih
+        # dinilai memakai konstanta. Lapisan get_cached_price("ethereum")
+        # dilepas: kaskade ETH sudah punya cache dan provenance sendiri,
+        # dan menumpuknya membuat provenance yang dilaporkan bisa
+        # menggambarkan nilai yang berbeda dari yang dipakai.
         try:
-            eth_price_idr = get_cached_price("ethereum", lambda: get_eth_price_idr()[0])
+            prov_eth = get_eth_price_with_provenance()
+            if prov_eth["sumber"] == "hardcoded":
+                eth_price_idr = None
+                harga_tidak_tersedia.add("eth_native")
+            else:
+                eth_price_idr = prov_eth["nilai"]
         except Exception:
-            eth_price_idr = 39_910_503
+            eth_price_idr = None
+            harga_tidak_tersedia.add("eth_native")
 
     if btc_price_idr is None:
         try:
