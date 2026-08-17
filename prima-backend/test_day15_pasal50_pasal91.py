@@ -73,7 +73,7 @@ def _stress_patches():
     return [
         patch("app.get_eth_price_idr",         return_value=(MOCK_ETH_SPOT, False)),
         patch("app.get_cached_price",           side_effect=_mock_get_cached_price),
-        patch("app._get_stablecoin_prices_idr", return_value=(MOCK_USDT_PRICE, MOCK_USDC_PRICE)),
+        patch("core.pricing._get_stablecoin_prices_idr", return_value=(MOCK_USDT_PRICE, MOCK_USDC_PRICE)),
         patch("app.load_pakd",                  return_value=MOCK_PAKD_SOL),
         patch("app.get_total_balance_idr",      return_value=MOCK_STRESS_BALANCE),
         patch("app.write_audit"),
@@ -123,7 +123,7 @@ def test_P2_pasal50_mild_sol_stressed(client):
     with (
         patch("app.get_eth_price_idr",         return_value=(MOCK_ETH_SPOT, False)),
         patch("app.get_cached_price",           side_effect=_mock_get_cached_price),
-        patch("app._get_stablecoin_prices_idr", return_value=(MOCK_USDT_PRICE, MOCK_USDC_PRICE)),
+        patch("core.pricing._get_stablecoin_prices_idr", return_value=(MOCK_USDT_PRICE, MOCK_USDC_PRICE)),
         patch("app.load_pakd",                  return_value=MOCK_PAKD_SOL),
         patch("app.get_total_balance_idr",      return_value=MOCK_STRESS_BALANCE),
         patch("app.write_audit"),
@@ -145,7 +145,7 @@ def test_P3_pasal50_sol_stressed_ordering(client):
     with (
         patch("app.get_eth_price_idr",         return_value=(MOCK_ETH_SPOT, False)),
         patch("app.get_cached_price",           side_effect=_mock_get_cached_price),
-        patch("app._get_stablecoin_prices_idr", return_value=(MOCK_USDT_PRICE, MOCK_USDC_PRICE)),
+        patch("core.pricing._get_stablecoin_prices_idr", return_value=(MOCK_USDT_PRICE, MOCK_USDC_PRICE)),
         patch("app.load_pakd",                  return_value=MOCK_PAKD_SOL),
         patch("app.get_total_balance_idr",      return_value=MOCK_STRESS_BALANCE),
         patch("app.write_audit"),
@@ -167,7 +167,7 @@ def test_P4_pasal50_per_pakd_fields(client):
     with (
         patch("app.get_eth_price_idr",         return_value=(MOCK_ETH_SPOT, False)),
         patch("app.get_cached_price",           side_effect=_mock_get_cached_price),
-        patch("app._get_stablecoin_prices_idr", return_value=(MOCK_USDT_PRICE, MOCK_USDC_PRICE)),
+        patch("core.pricing._get_stablecoin_prices_idr", return_value=(MOCK_USDT_PRICE, MOCK_USDC_PRICE)),
         patch("app.load_pakd",                  return_value=MOCK_PAKD_SOL),
         patch("app.get_total_balance_idr",      return_value=MOCK_STRESS_BALANCE),
         patch("app.write_audit"),
@@ -193,7 +193,7 @@ def test_P5_pasal91_severe_equity_zero(client):
     with (
         patch("app.get_eth_price_idr",         return_value=(MOCK_ETH_SPOT, False)),
         patch("app.get_cached_price",           side_effect=_mock_get_cached_price),
-        patch("app._get_stablecoin_prices_idr", return_value=(MOCK_USDT_PRICE, MOCK_USDC_PRICE)),
+        patch("core.pricing._get_stablecoin_prices_idr", return_value=(MOCK_USDT_PRICE, MOCK_USDC_PRICE)),
         patch("app.load_pakd",                  return_value=MOCK_PAKD_SOL),
         patch("app.get_total_balance_idr",      return_value=MOCK_STRESS_BALANCE),
         patch("app.write_audit"),
