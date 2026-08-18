@@ -234,6 +234,26 @@ class TestKustodianMonitoring:
             ],
         })
 
+    def _monitoring_mock_conn_tanpa_snapshot(self):
+        """Salinan _monitoring_mock_conn tanpa satu pun baris snapshot.
+
+        T2.4: PAKD tertaut tetap satu dan wallet tetap dua; yang hilang
+        hanya baris reconciliation_snapshots. Bentuk tuple snapshot di
+        helper lama tidak disentuh -- ia mengikuti urutan kolom SELECT.
+        """
+        return _make_mock_conn({
+            'fetchone': [
+                ('KUST-001', 'PT Kustodian Aset Prima'),   # kustodian lookup
+                None,                                       # _get_reported_values -> fallback ke defaults
+            ],
+            'fetchall': [
+                [('PAKD-DEMO-001', 'Alpha Kripto Indonesia')],                        # linked PAKDs
+                [],                                                                    # latest snapshots: kosong
+                [('ethereum', '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', True, None, 'PAKD-DEMO-001'),
+                 ('solana', '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', False, None, None)],  # wallets
+            ],
+        })
+
     def test_monitoring_returns_dashboard_data(self, client):
         token = _make_token('admin-001')
         with patch('auth._fetch_user_profile', side_effect=_mock_fetch_profile), \
@@ -315,6 +335,61 @@ class TestKustodianMonitoring:
     def test_monitoring_requires_auth(self, client):
         resp = client.get('/api/kustodian/KUST-001/monitoring')
         assert resp.status_code == 401
+
+    def _baris_pertama(self, client, mock_conn):
+        """Satu panggilan endpoint monitoring, kembalikan baris pakd_compliance[0].
+
+        D22 tidak berlaku di sini sebagai keputusan sadar: jalur ini membaca
+        reconciliation_snapshots lewat koneksi yang di-mock dan tidak pernah
+        menyentuh get_total_balance_idr, jadi tidak ada cache saldo maupun
+        cache harga yang bisa mencemari hasilnya.
+        """
+        token = _make_token('admin-001')
+        with patch('auth._fetch_user_profile', side_effect=_mock_fetch_profile), \
+             patch('app._get_db_conn', return_value=mock_conn), \
+             patch('app._return_db_conn'):
+            resp = client.get('/api/kustodian/KUST-001/monitoring',
+                              headers={'Authorization': f'Bearer {token}'})
+        assert resp.status_code == 200, resp.status_code
+        data = resp.get_json()
+        assert len(data['pakd_compliance']) == 1, data['pakd_compliance']
+        return data['pakd_compliance'][0]
+
+    def test_baris_tanpa_snapshot_tak_terbedakan_dari_pelanggar(self, client):
+        baris_bersnapshot = self._baris_pertama(
+            client, self._monitoring_mock_conn())
+        baris_tanpa_snapshot = self._baris_pertama(
+            client, self._monitoring_mock_conn_tanpa_snapshot())
+
+        # KERUGIAN. .get dipakai supaya kunci yang belum ada menghasilkan
+        # None, bukan KeyError: yang diukur adalah ketiadaan pembeda, bukan
+        # ketiadaan kunci.
+        penanda_bersnapshot = (baris_bersnapshot.get('verdict_status'),
+                               baris_bersnapshot.get('ratio_provenance'))
+        penanda_tanpa_snapshot = (baris_tanpa_snapshot.get('verdict_status'),
+                                  baris_tanpa_snapshot.get('ratio_provenance'))
+        assert penanda_bersnapshot != penanda_tanpa_snapshot, (
+            "baris tanpa data rekonsiliasi dan baris bersnapshot menerbitkan "
+            f"penanda verdict yang identik: {penanda_tanpa_snapshot!r}; "
+            "pembaca tidak bisa membedakan ketiadaan data dari pelanggaran")
+
+        # Penjaga pasca-perbaikan. Tidak tercapai sebelum tambalan.
+        assert baris_tanpa_snapshot['verdict_status'] == 'BELUM_DIREKONSILIASI'
+        assert baris_tanpa_snapshot['ratio_provenance'] is None
+        assert baris_bersnapshot['ratio_provenance'] == 'declared'
+
+    def test_rasio_terlapor_tidak_ditandai_declared(self, client):
+        baris = self._baris_pertama(client, self._monitoring_mock_conn())
+
+        # KERUGIAN. Rasio ini dihitung dari nilai yang dilaporkan sendiri,
+        # tapi payload tidak memuat apa pun yang membedakannya dari rasio
+        # yang terverifikasi on-chain.
+        assert 'ratio_provenance' in baris, (
+            "payload baris tidak memuat penanda asal-usul rasio; rasio "
+            f"terlapor dan rasio terverifikasi tampak sama: {sorted(baris)!r}")
+
+        # Penjaga pasca-perbaikan.
+        assert baris['ratio_provenance'] == 'declared'
 
 
 class TestDeviasiWithCustody:

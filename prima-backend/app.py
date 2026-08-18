@@ -2574,6 +2574,10 @@ def _get_kustodian_monitoring_data(kust_id, conn):
 
     for pid, nama in linked_pakds:
         reported = _get_reported_values(pid, conn=conn)
+        # T2.4/D33: dihitung SEBELUM .get(pid, {}), karena sesudahnya
+        # informasi ini hilang -- PAKD tanpa baris dan PAKD dengan baris
+        # berkolom NULL sama-sama menghasilkan None di tiap titik pakai.
+        punya_snapshot = pid in snapshots
         snap = snapshots.get(pid, {})
 
         customer_at_pakd = reported.get("customer_at_pakd_idr", 0) or 0
@@ -2600,6 +2604,18 @@ def _get_kustodian_monitoring_data(kust_id, conn):
             "compliance_30_70": compliance,
             "status": "COMPLIANT" if compliance else "VIOLATION",
             "latest_snapshot_at": captured_at.isoformat() if captured_at else None,
+            # D33: punya_snapshot diturunkan dari keanggotaan pid di dict
+            # snapshots, bukan dari captured_at. captured_at bisa NULL pada
+            # baris yang ADA, dan baris yang ada berarti rekonsiliasi pernah
+            # berjalan -- dua kondisi itu berhimpitan hari ini tapi artinya
+            # berbeda.
+            "verdict_status": ("COMPLIANT" if compliance else "VIOLATION")
+                              if punya_snapshot else "BELUM_DIREKONSILIASI",
+            # D16: bernilai "declared" karena ratio_at_pakd dihitung dari
+            # customer_at_pakd_idr dan customer_at_ptp_idr, keduanya nilai
+            # yang dilaporkan sendiri; tidak ada angka on-chain yang masuk
+            # ke perhitungannya.
+            "ratio_provenance": "declared" if punya_snapshot else None,
         })
 
     cur.execute("""
