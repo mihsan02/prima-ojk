@@ -902,6 +902,23 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None, as_of=None):
         # D30: yang paling buruk menang. Satu jaringan hanya sah kalau
         # SETIAP kustodian penyumbangnya punya provenance sah untuknya;
         # satu None saja membuat gabungannya None.
+        #
+        # Penyumbang di sini didefinisikan lewat kehadiran kunci di dict
+        # provenance, sementara completeness.py menurunkan relevansi
+        # jaringan dari entries yang balance_native-nya di atas nol. Dua
+        # definisi, dan keduanya sepakat hanya karena
+        # get_total_balance_idr menginisialisasi ketiga kunci jaringan
+        # sekaligus, sehingga kunci yang absen tidak pernah lahir dari
+        # jalur produksi. Kesetaraan itu juga bergantung pada loop ini
+        # yang selalu berjalan satu putaran: satu PAKD tertaut ke satu
+        # Kustodian per 18 Agustus 2026.
+        #
+        # Bila salah satu dari dua syarat itu berubah, yaitu ada PAKD
+        # dengan lebih dari satu Kustodian atau ada jalur yang
+        # menghasilkan provenance tanpa kunci jaringan, samakan definisi
+        # penyumbang dengan yang dipakai completeness.py: turunkan dari
+        # entries, dan perlakukan kunci provenance yang absen pada
+        # penyumbang sebagai None, bukan sebagai bukan penyumbang.
         for _net, _prov in kust_onchain["provenance_harga"].items():
             if _net not in provenance_gabungan or _prov is None:
                 provenance_gabungan[_net] = _prov
