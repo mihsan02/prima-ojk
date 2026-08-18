@@ -423,6 +423,19 @@ class TestKustodianOnchainResilient:
     """A transient zero balance fetch must not zero a PAKD's custody porsi."""
 
     def _reset(self):
+        """Bersihkan HANYA _KUST_ONCHAIN_LKG. Pengecualian yang dibenarkan.
+
+        D39: kelas ini sengaja tidak membersihkan BALANCE_CACHE,
+        PRICE_CACHE, maupun JUPITER_PRICE_CACHE. Setiap tes di kelas ini
+        mem-patch get_total_balance_idr secara utuh, atau mem-patch
+        _get_kustodian_onchain_resilient yang membungkusnya, sehingga tak
+        satu pun jalur produksi yang membaca ketiga cache itu pernah
+        dieksekusi. Membersihkannya hanya akan menambah gerak tanpa
+        mengubah hasil, dan menyamarkan bahwa isolasi kelas ini bersandar
+        pada patch, bukan pada keadaan cache. _KUST_ONCHAIN_LKG berbeda:
+        ia dibaca dan ditulis oleh _get_kustodian_onchain_resilient
+        sendiri, di luar jangkauan patch, jadi ia WAJIB dibersihkan.
+        """
         import app as app_mod
         app_mod._KUST_ONCHAIN_LKG.clear()
 
@@ -469,3 +482,93 @@ class TestKustodianOnchainResilient:
         # D30: kontrak berubah dari int menjadi dict; nilai yang diuji sama.
         assert val['total_idr'] == 0
         assert val['sumber_total'] == 'gagal'
+
+    # ---- D34/D35: nol kustodian yang tidak terukur tidak boleh tersaji
+    # sebagai angka nol yang setara dengan nol hasil pengukuran. ----
+
+    _REPORTED = {"customer_at_pakd_idr": 30_000_000_000,
+                 "customer_at_ptp_idr": 70_000_000_000,
+                 "proprietary_idr": 0}
+
+    def test_kustodian_onchain_none_saat_gagal(self):
+        import app as app_mod
+        from unittest.mock import patch as _patch
+        self._reset()
+        GAGAL = {"total_idr": 0.0, "entries": [], "sumber_total": "gagal",
+                 "provenance_harga": {"ethereum": None},
+                 "lkg_umur_detik": None}
+        with _patch.object(app_mod, "_get_kustodian_data_for_pakd",
+                           return_value=(["KUST-001"],
+                                         {"KUST-001": [{"network": "ethereum",
+                                                        "address": "0xabc"}]})), \
+             _patch.object(app_mod, "_get_reported_values",
+                           return_value=dict(self._REPORTED)), \
+             _patch.object(app_mod, "_get_kustodian_onchain_resilient",
+                           return_value=GAGAL) as m:
+            hasil = app_mod.compute_30_70_compliance(
+                "PAKD-001", 0, as_of="2026-08-18T04:00:00+00:00")
+        assert m.call_count == 1, (
+            "premis batal: cabang berkustodian seharusnya memanggil "
+            f"_get_kustodian_onchain_resilient sekali. call_count={m.call_count}")
+
+        # KERUGIAN. Pengukuran yang gagal tersaji sebagai angka nol,
+        # tidak terbedakan dari kustodian yang benar-benar kosong.
+        assert hasil.get("kustodian_onchain_idr") is None, (
+            "total kustodian yang gagal terukur tersaji sebagai "
+            f"{hasil.get('kustodian_onchain_idr')!r}, bukan None")
+
+        # Penjaga pasca-perbaikan. Hanya nilai yang dikembalikan yang
+        # bercabang; sisa payload tetap utuh dan numerik.
+        assert hasil["has_kustodian"] is True
+        assert isinstance(hasil["ratio_at_pakd"], (int, float))
+        assert isinstance(hasil["ratio_at_ptp"], (int, float))
+        assert hasil["ratio_at_pakd"] is not None
+        assert hasil["ratio_at_ptp"] is not None
+
+    def test_kustodian_onchain_none_tanpa_kustodian(self):
+        import app as app_mod
+        from unittest.mock import patch as _patch
+        self._reset()
+        with _patch.object(app_mod, "_get_kustodian_data_for_pakd",
+                           return_value=([], {})):
+            hasil = app_mod.compute_30_70_compliance(
+                "PAKD-002", 0, as_of="2026-08-18T04:00:00+00:00")
+
+        # KERUGIAN. PAKD tanpa kustodian sama sekali juga menerbitkan
+        # nol, seolah porsi PTP-nya telah diukur dan hasilnya nol.
+        assert hasil.get("kustodian_onchain_idr") is None, (
+            "PAKD tanpa kustodian tersaji sebagai "
+            f"{hasil.get('kustodian_onchain_idr')!r}, bukan None")
+
+        # Penjaga pasca-perbaikan.
+        assert hasil["has_kustodian"] is False
+        assert hasil["ratio_at_pakd"] == 1.0
+
+    def test_kustodian_onchain_angka_saat_live(self):
+        """TES KONTROL. Tanpa ini, perbaikan yang selalu None akan lulus."""
+        import app as app_mod
+        from unittest.mock import patch as _patch
+        self._reset()
+        TOTAL = 1_420_000_000.4
+        LIVE = {"total_idr": TOTAL, "entries": [], "sumber_total": "live",
+                "provenance_harga": {"ethereum": "coingecko"},
+                "lkg_umur_detik": None}
+        with _patch.object(app_mod, "_get_kustodian_data_for_pakd",
+                           return_value=(["KUST-001"],
+                                         {"KUST-001": [{"network": "ethereum",
+                                                        "address": "0xabc"}]})), \
+             _patch.object(app_mod, "_get_reported_values",
+                           return_value=dict(self._REPORTED)), \
+             _patch.object(app_mod, "_get_kustodian_onchain_resilient",
+                           return_value=LIVE) as m:
+            hasil = app_mod.compute_30_70_compliance(
+                "PAKD-001", 0, as_of="2026-08-18T04:00:00+00:00")
+        assert m.call_count == 1, (
+            "premis batal: cabang berkustodian seharusnya memanggil "
+            f"_get_kustodian_onchain_resilient sekali. call_count={m.call_count}")
+
+        nilai = hasil["kustodian_onchain_idr"]
+        assert nilai is not None
+        assert isinstance(nilai, (int, float))
+        assert nilai == round(TOTAL)
+        assert hasil["has_kustodian"] is True
