@@ -354,7 +354,10 @@ class TestKustodianOnchainResilient:
     def test_empty_wallets_return_zero(self):
         import app as app_mod
         self._reset()
-        assert app_mod._get_kustodian_onchain_resilient('KUST-X', []) == 0
+        # D30: kembaliannya kini dict, jadi totalnya dibaca lewat kunci.
+        hasil = app_mod._get_kustodian_onchain_resilient('KUST-X', [])
+        assert hasil['total_idr'] == 0
+        assert hasil['sumber_total'] == 'tanpa_wallet'
 
     def test_retry_recovers_transient_zero(self):
         import app as app_mod
@@ -364,17 +367,22 @@ class TestKustodianOnchainResilient:
                            side_effect=[{'total_idr': 0}, {'total_idr': 1_420_000_000}]), \
              _patch.object(app_mod.time, 'sleep'):
             val = app_mod._get_kustodian_onchain_resilient('KUST-001', [{'network': 'ethereum', 'address': '0xabc'}])
-        assert val == 1_420_000_000
+        # D30: kontrak berubah dari int menjadi dict; nilai yang diuji sama.
+        assert val['total_idr'] == 1_420_000_000
 
     def test_last_known_good_used_when_fetch_stays_zero(self):
         import app as app_mod
         from unittest.mock import patch as _patch
         self._reset()
-        app_mod._KUST_ONCHAIN_LKG['KUST-001'] = (app_mod.time.time(), 1_420_000_000)
+        # D30: nilai LKG kini dict, bukan int; indeks 0 tetap timestamp.
+        app_mod._KUST_ONCHAIN_LKG['KUST-001'] = (app_mod.time.time(), {
+            'total_idr': 1_420_000_000, 'entries': [], 'provenance_harga': {}})
         with _patch.object(app_mod, 'get_total_balance_idr', return_value={'total_idr': 0}), \
              _patch.object(app_mod.time, 'sleep'):
             val = app_mod._get_kustodian_onchain_resilient('KUST-001', [{'network': 'ethereum', 'address': '0xabc'}])
-        assert val == 1_420_000_000
+        # D30: kontrak berubah dari int menjadi dict; nilai yang diuji sama.
+        assert val['total_idr'] == 1_420_000_000
+        assert val['sumber_total'] == 'lkg'
 
     def test_genuine_zero_without_lkg_stays_zero(self):
         import app as app_mod
@@ -383,4 +391,6 @@ class TestKustodianOnchainResilient:
         with _patch.object(app_mod, 'get_total_balance_idr', return_value={'total_idr': 0}), \
              _patch.object(app_mod.time, 'sleep'):
             val = app_mod._get_kustodian_onchain_resilient('KUST-002', [{'network': 'ethereum', 'address': '0xdead'}])
-        assert val == 0
+        # D30: kontrak berubah dari int menjadi dict; nilai yang diuji sama.
+        assert val['total_idr'] == 0
+        assert val['sumber_total'] == 'gagal'

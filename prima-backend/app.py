@@ -95,6 +95,7 @@ from core.pricing import (  # noqa: E402
     fetch_stablecoin_prices_idr, _get_stablecoin_prices_idr,
     fetch_btc_price_idr, fetch_sol_price_idr, _get_usd_idr_rate,
 )
+from core.completeness import hitung_kelengkapan  # noqa: E402
 
 DATA_FILE          = os.path.join(os.path.dirname(__file__), "pakd_data.json")
 AUDIT_FILE         = os.path.join(os.path.dirname(__file__), "audit_log.json")
@@ -785,7 +786,9 @@ def _get_aset_dilaporkan(pakd_id, fallback=0, conn=None):
     return fallback
 
 
-# Last-known-good kustodian custody balance: kust_id -> (timestamp, total_idr).
+# Last-known-good kustodian custody balance: kust_id -> (timestamp, dict).
+# D30: nilai tersimpan kini dict {total_idr, entries, provenance_harga}.
+# Indeks 0 tetap timestamp, jadi pemeriksaan TTL tidak berubah.
 # Chain fetchers swallow errors and yield 0, which poisoned one PAKD's
 # snapshot with porsi 0 while siblings in the same run got real values.
 _KUST_ONCHAIN_LKG = {}
@@ -798,23 +801,49 @@ def _get_kustodian_onchain_resilient(kust_id, kust_wallets):
     A transient rate-limit turns into a silent 0 in get_total_balance_idr.
     Retry once, then fall back to a recent successful value so a single
     failed fetch can't zero one PAKD's porsi mid-refresh.
+
+    D30: kembaliannya dict, bukan int. Total telanjang membuat kustodian
+    yang salah satu harganya gagal tidak terbedakan dari kustodian yang
+    asetnya terbaca lengkap -- keduanya menerbitkan angka yang sama.
     """
     if not kust_wallets:
-        return 0
-    kust_onchain = get_total_balance_idr(kust_wallets)["total_idr"]
+        return {"total_idr": 0, "entries": [], "provenance_harga": {},
+                "sumber_total": "tanpa_wallet", "lkg_umur_detik": None}
+    result = get_total_balance_idr(kust_wallets)
+    kust_onchain = result["total_idr"]
     if kust_onchain <= 0:
         print(f"[30/70] kustodian {kust_id} balance fetched as 0 — retrying once", flush=True)
         time.sleep(2)
-        kust_onchain = get_total_balance_idr(kust_wallets)["total_idr"]
+        result = get_total_balance_idr(kust_wallets)
+        kust_onchain = result["total_idr"]
+    # Pola toleran: kunci yang absen dan kunci bernilai None diperlakukan sama.
+    entries = result.get("entries") or []
+    provenance_harga = result.get("provenance_harga") or {}
     if kust_onchain > 0:
-        _KUST_ONCHAIN_LKG[kust_id] = (time.time(), kust_onchain)
-        return kust_onchain
+        _KUST_ONCHAIN_LKG[kust_id] = (time.time(), {
+            "total_idr": kust_onchain,
+            "entries": entries,
+            "provenance_harga": provenance_harga,
+        })
+        return {"total_idr": kust_onchain, "entries": entries,
+                "provenance_harga": provenance_harga,
+                "sumber_total": "live", "lkg_umur_detik": None}
     cached = _KUST_ONCHAIN_LKG.get(kust_id)
     if cached and time.time() - cached[0] < _KUST_ONCHAIN_LKG_TTL:
+        umur = time.time() - cached[0]
+        tersimpan = cached[1]
         print(f"[30/70] kustodian {kust_id} fetch still 0 — using last-known-good "
-              f"Rp {cached[1]:,.0f} from {time.time() - cached[0]:.0f}s ago", flush=True)
-        return cached[1]
-    return 0
+              f"Rp {tersimpan['total_idr']:,.0f} from {umur:.0f}s ago", flush=True)
+        # Provenance yang disajikan adalah milik nilai yang dipakai, bukan
+        # milik percobaan yang baru saja gagal. Dict baru: entri cache
+        # tidak boleh termutasi oleh pemanggil.
+        return {"total_idr": tersimpan["total_idr"],
+                "entries": list(tersimpan["entries"]),
+                "provenance_harga": dict(tersimpan["provenance_harga"]),
+                "sumber_total": "lkg", "lkg_umur_detik": umur}
+    return {"total_idr": 0, "entries": entries,
+            "provenance_harga": provenance_harga,
+            "sumber_total": "gagal", "lkg_umur_detik": None}
 
 
 def deviasi_with_custody(pakd_onchain_idr, kustodian_share_idr, aset_dilaporkan):
@@ -833,11 +862,15 @@ def deviasi_with_custody(pakd_onchain_idr, kustodian_share_idr, aset_dilaporkan)
     return total, deviasi_pct
 
 
-def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
+def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None, as_of=None):
     """Compute 30/70 compliance for a PAKD with linked kustodian(s).
     Returns dict with kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp, kustodian_details.
     """
     kust_ids, wallets_by_kust = _get_kustodian_data_for_pakd(pakd_id, conn=conn)
+
+    # D30: as_of disuntikkan supaya keluarannya deterministik saat diuji.
+    if as_of is None:
+        as_of = datetime.now(timezone.utc).isoformat()
 
     if not kust_ids:
         return {
@@ -847,21 +880,31 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
             "ratio_at_ptp": 0.0,
             "kustodian_details": [],
             "has_kustodian": False,
+            "kustodian_kelengkapan": hitung_kelengkapan([], {}, as_of),
         }
 
     kustodian_onchain_total = 0
     kustodian_details = []
+    entries_gabungan = []
+    provenance_gabungan = {}
     for kust_id in kust_ids:
         # Wallets here are already DEDICATED to this PAKD (1 wallet = 1 PAKD),
         # so the balance is attributed in full — no proration.
         kust_wallets = wallets_by_kust.get(kust_id, [])
         kust_onchain = _get_kustodian_onchain_resilient(f"{kust_id}:{pakd_id}", kust_wallets)
-        kustodian_onchain_total += kust_onchain
+        kustodian_onchain_total += kust_onchain["total_idr"]
         kustodian_details.append({
             "kustodian_id": kust_id,
-            "onchain_idr": round(kust_onchain),
+            "onchain_idr": round(kust_onchain["total_idr"]),
             "wallet_count": len(kust_wallets),
         })
+        entries_gabungan.extend(kust_onchain["entries"])
+        # D30: yang paling buruk menang. Satu jaringan hanya sah kalau
+        # SETIAP kustodian penyumbangnya punya provenance sah untuknya;
+        # satu None saja membuat gabungannya None.
+        for _net, _prov in kust_onchain["provenance_harga"].items():
+            if _net not in provenance_gabungan or _prov is None:
+                provenance_gabungan[_net] = _prov
 
     reported = _get_reported_values(pakd_id, conn=conn)
     customer_at_pakd = reported.get("customer_at_pakd_idr", 0)
@@ -887,6 +930,9 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None):
         "reported_customer_at_pakd_idr": customer_at_pakd,
         "reported_customer_at_ptp_idr": customer_at_ptp,
         "reported_proprietary_idr": reported.get("proprietary_idr", 0),
+        # D30: total kustodian kini datang bersama asal-usulnya.
+        "kustodian_kelengkapan": hitung_kelengkapan(
+            entries_gabungan, provenance_gabungan, as_of),
     }
 
 
