@@ -1966,7 +1966,8 @@ def frontend_js(filename):
 
 @app.route("/api/status")
 def status():
-    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.9-pasal50-pasal91"})
+    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.9-pasal50-pasal91",
+                    "commit": os.environ.get("RENDER_GIT_COMMIT", "unknown")[:7]})
 
 def require_admin_token(f):
     @functools.wraps(f)
