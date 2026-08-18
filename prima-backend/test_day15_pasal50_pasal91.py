@@ -50,6 +50,22 @@ MOCK_STRESS_BALANCE = {
     "sol_native_idr":  4_000_000_000,
     "sol_usdt_idr":    0,
     "sol_usdc_idr":    0,
+    "entries": [
+        {
+            "network":        "solana",
+            "address":        "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH",
+            "balance_native": 1600.0,
+            "error":          None,
+        },
+    ],
+    "provenance_harga": {
+        "solana": {
+            "nilai":      MOCK_SOL_SPOT,
+            "sumber":     "cmc",
+            "as_of":      "2026-08-20T00:00:00Z",
+            "umur_detik": 0,
+        },
+    },
     "breakdown":       [],
 }
 
@@ -241,3 +257,13 @@ if __name__ == "__main__":
         capture_output=False,
     )
     sys.exit(result.returncode)
+
+
+def test_D25b_mock_stress_balance_membawa_kelengkapan_lengkap():
+    from core.completeness import hitung_kelengkapan
+    entries = MOCK_STRESS_BALANCE.get("entries") or []
+    prov    = MOCK_STRESS_BALANCE.get("provenance_harga") or {}
+    hasil = hitung_kelengkapan(entries, prov, as_of="2026-08-20T00:00:00Z")
+    assert hasil["status"] == "LENGKAP", hasil
+    assert "solana" in prov and prov["solana"] is not None, prov
+    assert hasil["sumber_gagal"] == [], hasil["sumber_gagal"]
