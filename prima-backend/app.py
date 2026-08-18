@@ -874,7 +874,10 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None, as_of=None):
 
     if not kust_ids:
         return {
-            "kustodian_onchain_idr": 0,
+            # D34/D35: tanpa kustodian sama sekali, porsi PTP tidak
+            # pernah diukur. None berarti "tidak terukur"; 0 akan berarti
+            # "diukur dan hasilnya nol", dua keadaan yang berbeda.
+            "kustodian_onchain_idr": None,
             "compliance_30_70": False,
             "ratio_at_pakd": 1.0,
             "ratio_at_ptp": 0.0,
@@ -885,6 +888,13 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None, as_of=None):
 
     kustodian_onchain_total = 0
     kustodian_details = []
+    # D34/D35: dikumpulkan per kontributor, bukan satu nilai skalar.
+    # Loop di bawah berjalan sekali per 18 Agustus 2026 karena satu PAKD
+    # tertaut ke satu Kustodian, tapi begitu ada PAKD dengan lebih dari
+    # satu Kustodian, satu kontributor yang gagal sudah cukup membuat
+    # totalnya tidak terukur -- yang paling buruk menang, sama seperti
+    # aturan provenance_harga di bawah.
+    sumber_per_kontributor = []
     entries_gabungan = []
     provenance_gabungan = {}
     for kust_id in kust_ids:
@@ -893,6 +903,7 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None, as_of=None):
         kust_wallets = wallets_by_kust.get(kust_id, [])
         kust_onchain = _get_kustodian_onchain_resilient(f"{kust_id}:{pakd_id}", kust_wallets)
         kustodian_onchain_total += kust_onchain["total_idr"]
+        sumber_per_kontributor.append(kust_onchain["sumber_total"])
         kustodian_details.append({
             "kustodian_id": kust_id,
             "onchain_idr": round(kust_onchain["total_idr"]),
@@ -937,8 +948,15 @@ def compute_30_70_compliance(pakd_id, pakd_onchain_idr, conn=None, as_of=None):
 
     compliance = ratio_at_pakd <= 0.30
 
+    # D34/D35: hanya NILAI YANG DIKEMBALIKAN yang bercabang.
+    # kustodian_onchain_total tetap numerik dan perhitungan ratio serta
+    # compliance di atas tidak tersentuh.
+    total_tidak_terukur = any(
+        s in ("gagal", "tanpa_wallet") for s in sumber_per_kontributor)
+
     return {
-        "kustodian_onchain_idr": round(kustodian_onchain_total),
+        "kustodian_onchain_idr": (None if total_tidak_terukur
+                                  else round(kustodian_onchain_total)),
         "compliance_30_70": compliance,
         "ratio_at_pakd": round(ratio_at_pakd, 4),
         "ratio_at_ptp": round(ratio_at_ptp, 4),
@@ -2230,7 +2248,7 @@ def recalc_snapshot(pakd_id):
         # Recalculate deviasi (includes prorated custody share)
         _c3070_pre = compute_30_70_compliance(pakd_id, int(aset_onchain), conn=conn)
         _total_attr, deviasi = deviasi_with_custody(
-            aset_onchain, _c3070_pre.get("kustodian_onchain_idr", 0), aset_dilaporkan)
+            aset_onchain, (_c3070_pre.get("kustodian_onchain_idr") or 0), aset_dilaporkan)
         if aset_dilaporkan == 0:
             deviasi = 0.0 if _total_attr == 0 else 9999.9999
         deviasi_clamped = max(-9999.9999, min(9999.9999, deviasi))
@@ -2256,7 +2274,7 @@ def recalc_snapshot(pakd_id):
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (pakd_id, pakd_nama, int(aset_dilaporkan), int(aset_onchain),
              deviasi_clamped, status, harga_fallback, json.dumps(breakdown) if isinstance(breakdown, (list, dict)) else breakdown,
-             int(aset_onchain), c3070.get("kustodian_onchain_idr", 0),
+             int(aset_onchain), c3070.get("kustodian_onchain_idr"),
              c3070.get("compliance_30_70", False), c3070.get("ratio_at_pakd"), c3070.get("ratio_at_ptp"))
         )
         conn.commit()
@@ -2599,7 +2617,18 @@ def _get_kustodian_monitoring_data(kust_id, conn):
             "customer_at_pakd_idr": customer_at_pakd,
             "customer_at_ptp_idr": customer_at_ptp,
             "pakd_onchain_idr": float(snap.get("pakd_onchain_idr") or 0),
-            "kustodian_onchain_idr": float(snap_kust_onchain or 0),
+            # D34/D35: float(None) melempar TypeError, jadi cabangnya
+            # eksplisit. "or 0" dilepas karena ia meratakan NULL dan nol.
+            "kustodian_onchain_idr": (None if snap_kust_onchain is None
+                                      else float(snap_kust_onchain)),
+            # Presedensi mengikat: belum direkonsiliasi mendahului tidak
+            # terukur. PAKD tanpa baris snapshot juga punya
+            # snap_kust_onchain None, tapi sebabnya berbeda -- belum
+            # pernah diukur, bukan diukur lalu gagal.
+            "kustodian_onchain_status": (
+                "belum_direkonsiliasi" if not punya_snapshot
+                else "tidak_terukur" if snap_kust_onchain is None
+                else "terukur"),
             "ratio_at_pakd": float(snap.get("ratio_at_pakd") or 0),
             "compliance_30_70": compliance,
             "status": "COMPLIANT" if compliance else "VIOLATION",
@@ -2885,7 +2914,7 @@ def reconciliation():
             # Deviasi counts the PAKD's prorated custody share (reported totals
             # include AKD placed at the PTP, so the on-chain side must too).
             total_attributable, deviasi_pct = deviasi_with_custody(
-                aset_onchain_idr, compliance_data.get("kustodian_onchain_idr", 0), aset_dilaporkan)
+                aset_onchain_idr, (compliance_data.get("kustodian_onchain_idr") or 0), aset_dilaporkan)
             selisih = total_attributable - aset_dilaporkan if aset_dilaporkan > 0 else 0
 
             surplus = total_attributable >= aset_dilaporkan
@@ -2984,7 +3013,7 @@ def internal_refresh_all():
             dilaporkan = _get_aset_dilaporkan(pakd["id"], fallback=pakd.get("aset_dilaporkan", 0))
             compliance_data = compute_30_70_compliance(pakd["id"], int(total))
             _, deviasi = deviasi_with_custody(
-                total, compliance_data.get("kustodian_onchain_idr", 0), dilaporkan)
+                total, (compliance_data.get("kustodian_onchain_idr") or 0), dilaporkan)
             status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
@@ -3074,6 +3103,10 @@ def reconciliation_latest():
                 "network_breakdown":    network_breakdown,
                 "pakd_onchain_idr":     r[10],
                 "kustodian_onchain_idr": r[11],
+                # D34/D35: baris di sini selalu berasal dari snapshot,
+                # jadi "belum_direkonsiliasi" tidak berlaku.
+                "kustodian_onchain_status": ("tidak_terukur" if r[11] is None
+                                             else "terukur"),
                 "compliance_30_70":     compliance_30_70,
                 "ratio_at_pakd":        ratio_at_pakd,
                 "ratio_at_ptp":         ratio_at_ptp,
@@ -3960,7 +3993,7 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
             dilaporkan = _get_aset_dilaporkan(pakd["id"], fallback=pakd.get("aset_dilaporkan", 0))
             compliance_data = compute_30_70_compliance(pakd["id"], int(total))
             _, deviasi = deviasi_with_custody(
-                total, compliance_data.get("kustodian_onchain_idr", 0), dilaporkan)
+                total, (compliance_data.get("kustodian_onchain_idr") or 0), dilaporkan)
             status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
 
             hasil.append({
