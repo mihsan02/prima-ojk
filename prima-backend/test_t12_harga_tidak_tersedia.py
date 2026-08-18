@@ -32,6 +32,22 @@ def _harga_btc_gagal(network, fetch_fn):
     return {"ethereum": MOCK_ETH_PRICE, "solana": 1_500_000.0}[network]
 
 
+# D25: jalur BTC/SOL di get_total_balance_idr membaca harga lewat
+# get_price_with_provenance, bukan lagi get_cached_price. Mock di bawah
+# mencerminkan mock lama nilai per nilai; tanpanya panggilan sungguhan
+# lolos ke jaringan dan kegagalannya berasal dari proxy, bukan dari skenario.
+def _prov(nilai):
+    return {"nilai": nilai, "sumber": "cmc",
+            "as_of": "2026-08-19T00:00:00Z", "umur_detik": 0}
+
+
+def _prov_btc_gagal(network, fetch_fn):
+    """Cermin _harga_btc_gagal dalam bentuk provenance."""
+    if network == "bitcoin":
+        raise RuntimeError("BTC price fetch failed: dua tier kaskade habis")
+    return _prov({"ethereum": MOCK_ETH_PRICE, "solana": 1_500_000.0}[network])
+
+
 class TestHargaTidakTersedia(unittest.TestCase):
 
     def setUp(self):
@@ -44,6 +60,7 @@ class TestHargaTidakTersedia(unittest.TestCase):
         # berjalan dan jatuh ke tier hardcoded, yang kini menandai
         # eth_native sebagai harga tidak tersedia -- bukan yang diuji di sini.
         with patch("app.get_cached_price", side_effect=_harga_btc_gagal), \
+             patch("app.get_price_with_provenance", side_effect=_prov_btc_gagal), \
              patch("app.get_cached_balance", side_effect=lambda k, a, f: 1.0):
             return prima_app.get_total_balance_idr(
                 wallets,
@@ -90,6 +107,9 @@ class TestHargaTidakTersedia(unittest.TestCase):
         with patch("app.get_cached_price",
                    side_effect=lambda n, f: {"bitcoin": 1_400_000_000.0,
                                              "solana": 1_500_000.0}[n]), \
+             patch("app.get_price_with_provenance",
+                   side_effect=lambda n, f: _prov({"bitcoin": 1_400_000_000.0,
+                                                   "solana": 1_500_000.0}[n])), \
              patch("app.get_cached_balance", side_effect=lambda k, a, f: 1.0):
             hasil = prima_app.get_total_balance_idr(
                 [BTC_WALLET],
@@ -128,11 +148,21 @@ class TestSolNativeGagalSplBertahan(unittest.TestCase):
         return {"ethereum": MOCK_ETH_PRICE, "bitcoin": 1_400_000_000.0}[network]
 
     @staticmethod
+    def _prov_sol_native_gagal(network, fetch_fn):
+        """Cermin _harga_sol_native_gagal dalam bentuk provenance."""
+        if network == "solana":
+            raise RuntimeError("SOL price fetch failed: dua tier kaskade habis")
+        return _prov({"ethereum": MOCK_ETH_PRICE,
+                      "bitcoin": 1_400_000_000.0}[network])
+
+    @staticmethod
     def _saldo(cache_key, address, fetch_fn):
         return {"solana": 5.0, "sol_usdt_spl": 1_000.0, "sol_usdc_spl": 500.0}.get(cache_key, 0.0)
 
     def _hitung(self):
         with patch("app.get_cached_price", side_effect=self._harga_sol_native_gagal), \
+             patch("app.get_price_with_provenance",
+                   side_effect=self._prov_sol_native_gagal), \
              patch("app.get_cached_balance", side_effect=self._saldo), \
              patch("app.fetch_all_spl_balances", return_value=[]):
             return prima_app.get_total_balance_idr(

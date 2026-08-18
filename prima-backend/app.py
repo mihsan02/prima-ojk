@@ -91,7 +91,7 @@ from core.pricing import (  # noqa: E402
     PRICE_CACHE, PRICE_TTL, MAX_PRICE_CACHE, FALLBACK_STABLECOIN_IDR,
     CMC_ID_TO_CGKEY, _evict_stale_entries, get_cached_price,
     _refresh_price_cache_from_cmc, get_eth_price_idr,
-    get_eth_price_with_provenance,
+    get_eth_price_with_provenance, get_price_with_provenance,
     fetch_stablecoin_prices_idr, _get_stablecoin_prices_idr,
     fetch_btc_price_idr, fetch_sol_price_idr, _get_usd_idr_rate,
 )
@@ -1410,6 +1410,11 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
     # kepemilikannya memang kosong.
     harga_tidak_tersedia = set()
 
+    # D25: provenance tiap harga native dikumpulkan di sini dan ikut
+    # dilaporkan pada kembalian. Tanpa ini pemanggil tidak punya bahan
+    # untuk menilai kelengkapan data -- lihat core/completeness.py.
+    provenance_harga = {"ethereum": None, "bitcoin": None, "solana": None}
+
     if eth_price_idr is None:
         # D24: samakan ETH dengan BTC/SOL. Tier hardcoded pada kaskade
         # bukan harga pasar, jadi ia diperlakukan sebagai harga yang
@@ -1420,6 +1425,11 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         # menggambarkan nilai yang berbeda dari yang dipakai.
         try:
             prov_eth = get_eth_price_with_provenance()
+            # D25: provenance dilaporkan apa adanya, termasuk pada cabang
+            # hardcoded di bawah. Nilainya tetap ditolak (D24), tapi
+            # sebab penolakannya harus terbaca sebagai "hardcoded", bukan
+            # sebagai provenance yang tidak tersedia.
+            provenance_harga["ethereum"] = prov_eth
             if prov_eth["sumber"] == "hardcoded":
                 eth_price_idr = None
                 harga_tidak_tersedia.add("eth_native")
@@ -1431,14 +1441,18 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
 
     if btc_price_idr is None:
         try:
-            btc_price_idr = get_cached_price("bitcoin", fetch_btc_price_idr)
+            _prov_btc = get_price_with_provenance("bitcoin", fetch_btc_price_idr)
+            provenance_harga["bitcoin"] = _prov_btc
+            btc_price_idr = _prov_btc["nilai"]
         except Exception:
             btc_price_idr = None
             harga_tidak_tersedia.add("btc_native")
 
     if sol_price_idr is None:
         try:
-            sol_price_idr = get_cached_price("solana", fetch_sol_price_idr)
+            _prov_sol = get_price_with_provenance("solana", fetch_sol_price_idr)
+            provenance_harga["solana"] = _prov_sol
+            sol_price_idr = _prov_sol["nilai"]
         except Exception:
             sol_price_idr = None
             harga_tidak_tersedia.add("sol_native")
@@ -1847,6 +1861,11 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
         "eth_unvalued_count":       eth_unvalued_count_total,
         "eth_unvalued_contracts":   eth_unvalued_contracts_global,
         "breakdown":       breakdown,
+        # D25: "entries" adalah daftar yang sama dengan "breakdown".
+        # "breakdown" dipertahankan apa adanya karena frontend membacanya;
+        # "entries" adalah nama yang dibaca core/completeness.py.
+        "entries":         breakdown,
+        "provenance_harga": provenance_harga,
         # T1.2 (D3/D4): chain yang harganya gagal diambil. Kepemilikan di
         # chain ini TIDAK ikut total_idr dan tidak ada di breakdown.
         "harga_tidak_tersedia": sorted(harga_tidak_tersedia),
