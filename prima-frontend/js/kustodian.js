@@ -236,15 +236,32 @@ async function renderKustodianMonitoring(kustId) {
         <div style="margin-top:4px;color:${ocColor}"><span style="font-size:9px;color:var(--txt4);font-weight:600;text-transform:uppercase">${onchainLabel}</span><br>${formatIDR(oc)}</div>
       </td>`;
     };
-    ctbody.innerHTML = (data.pakd_compliance || []).map(p => `
+    ctbody.innerHTML = (data.pakd_compliance || []).map(p => {
+      // D33: baris tanpa snapshot bukan pelanggar. Ia tidak mendapat merah
+      // maupun hijau, dan rasionya tidak ditampilkan sebagai angka -- 0.0%
+      // hijau pada baris tanpa data adalah kebohongan.
+      const belumDirekonsiliasi = p.verdict_status === 'BELUM_DIREKONSILIASI';
+      const selRasio = belumDirekonsiliasi
+        ? '<td class="mono-val" style="color:var(--txt4)">—</td>'
+        : `<td class="mono-val" style="color:${p.ratio_at_pakd > 0.3 ? 'var(--red)' : 'var(--green)'};font-weight:600">${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%</td>`;
+      // D16: penanda DECLARED. Rasio dihitung dari nilai terlapor, tanpa
+      // satu pun angka on-chain.
+      const penandaDeclared = p.ratio_provenance === 'declared'
+        ? '<div style="font-size:9px;color:var(--txt4);font-weight:600;margin-top:3px" title="Rasio berasal dari laporan mandiri PAKD dan belum diverifikasi on-chain">DECLARED</div>'
+        : '';
+      const selVerdict = belumDirekonsiliasi
+        ? '<td><span style="color:var(--txt4);font-size:10px;font-weight:600;text-transform:uppercase">BELUM DIREKONSILIASI</span></td>'
+        : `<td>${p.verdict_status === 'COMPLIANT' ? '<span class="badge-compliant">✓ COMPLIANT</span>' : '<span class="badge-violation">✗ VIOLATION</span>'}${penandaDeclared}</td>`;
+      return `
       <tr>
         <td>${p.nama}<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt4)">${p.pakd_id}</div><div style="font-size:9px;color:var(--txt4);margin-top:2px" title="Waktu snapshot rekonsiliasi terakhir">snapshot: ${p.latest_snapshot_at ? p.latest_snapshot_at.replace('T', ' ').slice(0, 16) : '—'}</div></td>
         ${cmpCell(p.customer_at_pakd_idr, p.pakd_onchain_idr, 'on-chain PAKD')}
         ${cmpCell(p.customer_at_ptp_idr, p.kustodian_onchain_idr, 'on-chain kustodian (dedicated)')}
-        <td class="mono-val" style="color:${p.ratio_at_pakd > 0.3 ? 'var(--red)' : 'var(--green)'};font-weight:600">${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%</td>
-        <td>${p.compliance_30_70 ? '<span class="badge-compliant">✓ COMPLIANT</span>' : '<span class="badge-violation">✗ VIOLATION</span>'}</td>
+        ${selRasio}
+        ${selVerdict}
       </tr>
-    `).join('') || '<tr><td colspan="5" style="color:var(--txt4)">Tidak ada PAKD terhubung</td></tr>';
+    `;
+    }).join('') || '<tr><td colspan="5" style="color:var(--txt4)">Tidak ada PAKD terhubung</td></tr>';
 
     drawKustodianDonut(data.pakd_compliance || []);
     drawKustodianBubbleMap(data);
@@ -461,9 +478,9 @@ function formatIDRShort(n) {
 function exportKustodianCSV() {
   const data = _kustMonitoringData;
   if (!data) { alert('Pilih kustodian terlebih dahulu'); return; }
-  let csv = 'PAKD ID,Nama PAKD,AKD Konsumen di PAKD (Rp),On-Chain PAKD (Rp),AKD Konsumen di PTP (Rp),On-Chain Kustodian Total (Rp),Rasio di PAKD,Status\n';
+  let csv = 'PAKD ID,Nama PAKD,AKD Konsumen di PAKD (Rp),On-Chain PAKD (Rp),AKD Konsumen di PTP (Rp),On-Chain Kustodian Total (Rp),Rasio di PAKD,Status,Asal Rasio\n';
   (data.pakd_compliance || []).forEach(p => {
-    csv += `${p.pakd_id},"${p.nama}",${p.customer_at_pakd_idr},${p.pakd_onchain_idr || 0},${p.customer_at_ptp_idr},${p.kustodian_onchain_idr || 0},${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%,${p.status}\n`;
+    csv += `${p.pakd_id},"${p.nama}",${p.customer_at_pakd_idr},${p.pakd_onchain_idr || 0},${p.customer_at_ptp_idr},${p.kustodian_onchain_idr || 0},${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%,${p.verdict_status},${p.ratio_provenance || ''}\n`;
   });
   csv += '\nWallet Network,Address,Verified\n';
   (data.wallets || []).forEach(w => {
