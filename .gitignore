@@ -38,3 +38,8 @@ fix_stress.py
 patch_db.py
 prima-backend/migrate_to_supabase.py
 prima-backend/pakd_data.json.bak
+
+# Shell artefacts (born 15 Aug 2026, cause unknown)
+get_eth_balance
+raise
+return

@@ -49,7 +49,7 @@ GAGAL_TOTAL = {
         {"network": "ethereum", "address": "0xabc",
          "error": "Etherscan rate limit"},
     ],
-    "provenance_harga": {},
+    "provenance_harga": {"ethereum": None, "bitcoin": None, "solana": None},
 }
 
 
