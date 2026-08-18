@@ -9,8 +9,6 @@ ketiadaan fungsi. Asersi atas isi ditempatkan SESUDAH asersi kerugian,
 sehingga pra-perbaikan ia tidak pernah tercapai, dan pasca-perbaikan ia
 menjaga agar tambalan yang salah tidak lolos hijau.
 """
-import importlib
-
 
 WALLETS_ETH = [{"network": "ethereum", "address": "0xabc"}]
 
@@ -56,24 +54,20 @@ GAGAL_TOTAL = {
 
 
 def _bersihkan_cache():
-    """D22. _KUST_ONCHAIN_LKG wajib; dua cache lain dibersihkan bila ada.
+    """D22. Bersihkan LKG dan tiga cache yang bisa menyimpan hasil lama.
 
-    getattr dipakai karena lokasi BALANCE_CACHE dan PRICE_CACHE belum
-    diverifikasi lewat grep setelah ekstraksi T1.2. Referensi keras yang
-    salah akan melempar AttributeError dan menghasilkan merah yang
-    mengukur kesalahan test, bukan kerugian kode.
+    D30: getattr diganti referensi langsung setelah lokasinya diverifikasi
+    lewat grep -- BALANCE_CACHE dan JUPITER_PRICE_CACHE ada di app,
+    PRICE_CACHE ada di core.pricing. JUPITER_PRICE_CACHE ikut dibersihkan
+    karena harga token SPL yang tersisa dari test lain bisa menggeser
+    total dan membuat cabang yang diuji berpindah.
     """
     import app as app_mod
+    import core.pricing as pricing_mod
     app_mod._KUST_ONCHAIN_LKG.clear()
-    for nama_modul in ("app", "core.pricing", "core.acquisition"):
-        try:
-            modul = importlib.import_module(nama_modul)
-        except ImportError:
-            continue
-        for nama_cache in ("BALANCE_CACHE", "PRICE_CACHE"):
-            obj = getattr(modul, nama_cache, None)
-            if isinstance(obj, dict):
-                obj.clear()
+    app_mod.BALANCE_CACHE.clear()
+    app_mod.JUPITER_PRICE_CACHE.clear()
+    pricing_mod.PRICE_CACHE.clear()
 
 
 class TestD30KelengkapanKustodian:
@@ -170,7 +164,8 @@ class TestD30KelengkapanKustodian:
                  _patch.object(app_mod, "get_total_balance_idr",
                                return_value=saldo) as m, \
                  _patch.object(app_mod.time, "sleep"):
-                hasil = app_mod.compute_30_70_compliance("PAKD-001", 0)
+                hasil = app_mod.compute_30_70_compliance(
+                    "PAKD-001", 0, as_of="2026-08-18T04:00:00+00:00")
             assert m.call_count == 1, (
                 "premis batal: total positif seharusnya lewat cabang "
                 f"sukses. call_count={m.call_count}")
