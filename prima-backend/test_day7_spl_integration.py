@@ -41,13 +41,32 @@ def test_I2_usdc_spl_cache_key_called():
         assert "sol_usdc_spl" in keys, f"sol_usdc_spl not in {keys}"
 
 def test_I3_spl_contributes_to_total_idr():
-    with patch("app.get_cached_balance", side_effect=_sol_router):
+    # D43: fetch_all_spl_balances, _get_jupiter_verified_set,
+    # _get_jupiter_prices, dan _get_dexscreener_price semuanya live-reachable
+    # dari jalur "other SPL token" untuk SOL_WALLET (alamat mainnet
+    # sungguhan). get_cached_balance patch di bawah TIDAK menggerbangi
+    # keempatnya. Di-mock eksplisit di sini supaya test benar-benar
+    # deterministik, bukan bergantung holding on-chain hari ini.
+    prima_app.BALANCE_CACHE.pop(("spl_enum", SOL_WALLET["address"]), None)
+    SYNTH_MINT = "MOCKtoken1111111111111111111111111111111"
+    SYNTH_UI_AMOUNT = 10.0
+    SYNTH_JUPITER_PRICE_USD = 2.5
+    with patch("app.get_cached_balance", side_effect=_sol_router), \
+         patch("app.fetch_all_spl_balances",
+               return_value=[{"mint": SYNTH_MINT, "ui_amount": SYNTH_UI_AMOUNT}]), \
+         patch("app._get_jupiter_verified_set", return_value=set()), \
+         patch("app._get_jupiter_prices",
+               return_value={SYNTH_MINT: SYNTH_JUPITER_PRICE_USD}), \
+         patch("app._get_dexscreener_price", return_value=None) as mock_dex:
         result = prima_app.get_total_balance_idr([SOL_WALLET],
             sol_price_idr=MOCK_SOL_PRICE,
             eth_price_idr=MOCK_ETH_PRICE,
             usdt_price_idr=MOCK_USDT_PRICE,
             usdc_price_idr=MOCK_USDC_PRICE)
-    expected = 5.0*MOCK_SOL_PRICE + 1_000.0*MOCK_USDT_PRICE + 500.0*MOCK_USDC_PRICE
+        mock_dex.assert_not_called()
+    other_token_idr = SYNTH_UI_AMOUNT * SYNTH_JUPITER_PRICE_USD * MOCK_USDT_PRICE
+    expected = (5.0*MOCK_SOL_PRICE + 1_000.0*MOCK_USDT_PRICE
+                + 500.0*MOCK_USDC_PRICE + other_token_idr)
     assert result["total_idr"] == pytest.approx(expected, rel=1e-6)
 
 def test_I4_sol_spl_idr_fields_nonzero():
