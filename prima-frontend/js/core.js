@@ -950,7 +950,7 @@ async function loadSnapshot() {
         <td style="vertical-align:top;padding-top:18px"><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
         <td style="vertical-align:top;padding-top:18px">${render3070Badge(d)}</td>
         <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${formatIDR(d.aset_onchain_idr)}</td>
-        <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${d.has_kustodian ? formatIDR(d.kustodian_onchain_idr || 0) : '<span style="color:var(--txt4)">—</span>'}</td>
+        <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${d.has_kustodian ? (d.kustodian_onchain_status === 'terukur' ? formatIDR(d.kustodian_onchain_idr || 0) : '<span style="color:var(--txt4)">—</span>') : '<span style="color:var(--txt4)">—</span>'}</td>
         <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
         <td style="vertical-align:top;padding-top:18px">${deviDisplay(d)}</td>
         <td style="line-height:1.6;vertical-align:top;padding-top:14px">${renderBreakdown(d)}</td>

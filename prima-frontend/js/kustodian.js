@@ -227,8 +227,18 @@ async function renderKustodianMonitoring(kustId) {
       s.wallet_verified_count + ' / ' + s.wallet_total_count + ' (' + s.verification_rate_pct + '%)';
 
     // Tabel Status Penempatan AKD per PAKD (POJK 23/2025 Pasal 91)
-    const cmpCell = (reported, onchain, onchainLabel) => {
-      const rep = reported || 0, oc = onchain || 0;
+    const cmpCell = (reported, onchain, onchainLabel, status) => {
+      const rep = reported || 0;
+      // D34/D35: status hanya dilewatkan untuk kolom kustodian. Kolom
+      // tanpa status (PAKD on-chain) tidak berubah sama sekali.
+      const takTerukur = status !== undefined && status !== 'terukur';
+      if (takTerukur) {
+        return `<td class="mono-val">
+        <div><span style="font-size:9px;color:var(--txt4);font-weight:600;text-transform:uppercase">Dilaporkan</span><br>${formatIDR(rep)}</div>
+        <div style="margin-top:4px;color:var(--txt4)"><span style="font-size:9px;color:var(--txt4);font-weight:600;text-transform:uppercase">${onchainLabel}</span><br>—</div>
+      </td>`;
+      }
+      const oc = onchain || 0;
       // Red only on negative deviation (on-chain below what was reported)
       const ocColor = oc < rep ? 'var(--red)' : 'var(--txt2)';
       return `<td class="mono-val">
@@ -256,7 +266,7 @@ async function renderKustodianMonitoring(kustId) {
       <tr>
         <td>${p.nama}<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt4)">${p.pakd_id}</div><div style="font-size:9px;color:var(--txt4);margin-top:2px" title="Waktu snapshot rekonsiliasi terakhir">snapshot: ${p.latest_snapshot_at ? p.latest_snapshot_at.replace('T', ' ').slice(0, 16) : '—'}</div></td>
         ${cmpCell(p.customer_at_pakd_idr, p.pakd_onchain_idr, 'on-chain PAKD')}
-        ${cmpCell(p.customer_at_ptp_idr, p.kustodian_onchain_idr, 'on-chain kustodian (dedicated)')}
+        ${cmpCell(p.customer_at_ptp_idr, p.kustodian_onchain_idr, 'on-chain kustodian (dedicated)', p.kustodian_onchain_status)}
         ${selRasio}
         ${selVerdict}
       </tr>
@@ -294,12 +304,15 @@ async function renderKustodianMonitoring(kustId) {
 }
 
 function custodyDistribution(pakdCompliance) {
-  // SINGLE source of truth untuk donut DAN bubble map:
-  // distribusi custody ON-CHAIN per PAKD (porsi PAKD), fallback ke nilai
+  // Distribusi custody ON-CHAIN per PAKD (porsi PAKD), fallback ke nilai
   // dilaporkan bila belum ada saldo on-chain.
   let valueOf = p => p.kustodian_onchain_idr || 0;
   let centerLabel = 'Under Custody', note = '';
-  let total = pakdCompliance.reduce((sum, p) => sum + valueOf(p), 0);
+  // D34/D35: baris berstatus bukan "terukur" DIKELUARKAN dari total,
+  // bukan dihitung nol -- totalnya tidak boleh bergantung pada jaminan
+  // bahwa kunci numerik baris itu sudah None dari backend.
+  const terukur = pakdCompliance.filter(p => p.kustodian_onchain_status === 'terukur');
+  let total = terukur.reduce((sum, p) => sum + valueOf(p), 0);
   if (total === 0) {
     valueOf = p => p.customer_at_ptp_idr || 0;
     centerLabel = 'Total di PTP';
@@ -341,8 +354,14 @@ function drawKustodianDonut(pakdCompliance) {
   svg += '</svg>';
   let legend = '<div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;font-size:11px;width:100%">';
   pakdCompliance.forEach((p, i) => {
-    const pct = (valueOf(p) / total * 100).toFixed(1);
-    legend += '<div style="display:flex;align-items:center;gap:6px"><div style="width:9px;height:9px;border-radius:2px;flex-shrink:0;background:' + colors[i % colors.length] + '"></div><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + p.nama + '</span><span class="mono" style="font-weight:600">' + pct + '%</span></div>';
+    // D34/D35: dalam mode on-chain, baris bukan "terukur" tetap tampil
+    // dengan em dash -- menghilangkan barisnya akan menyembunyikan fakta
+    // bahwa custody-nya tidak diketahui. Dalam mode fallback (centerLabel
+    // "Total di PTP") persentase berasal dari nilai dilaporkan, yang
+    // tersedia untuk semua baris terlepas dari status on-chain.
+    const takTerukur = centerLabel !== 'Total di PTP' && p.kustodian_onchain_status !== 'terukur';
+    const pctDisplay = takTerukur ? '—' : (valueOf(p) / total * 100).toFixed(1) + '%';
+    legend += '<div style="display:flex;align-items:center;gap:6px"><div style="width:9px;height:9px;border-radius:2px;flex-shrink:0;background:' + colors[i % colors.length] + '"></div><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + p.nama + '</span><span class="mono" style="font-weight:600">' + pctDisplay + '</span></div>';
   });
   legend += '</div>';
   wrap.innerHTML = svg + legend + note;
@@ -480,7 +499,10 @@ function exportKustodianCSV() {
   if (!data) { alert('Pilih kustodian terlebih dahulu'); return; }
   let csv = 'PAKD ID,Nama PAKD,AKD Konsumen di PAKD (Rp),On-Chain PAKD (Rp),AKD Konsumen di PTP (Rp),On-Chain Kustodian Total (Rp),Rasio di PAKD,Status,Asal Rasio\n';
   (data.pakd_compliance || []).forEach(p => {
-    csv += `${p.pakd_id},"${p.nama}",${p.customer_at_pakd_idr},${p.pakd_onchain_idr || 0},${p.customer_at_ptp_idr},${p.kustodian_onchain_idr || 0},${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%,${p.verdict_status},${p.ratio_provenance || ''}\n`;
+    // D34/D35: kolom kustodian on-chain kosong, bukan 0, untuk baris
+    // yang statusnya bukan "terukur".
+    const kustOnchainCsv = p.kustodian_onchain_status === 'terukur' ? (p.kustodian_onchain_idr || 0) : '';
+    csv += `${p.pakd_id},"${p.nama}",${p.customer_at_pakd_idr},${p.pakd_onchain_idr || 0},${p.customer_at_ptp_idr},${kustOnchainCsv},${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%,${p.verdict_status},${p.ratio_provenance || ''}\n`;
   });
   csv += '\nWallet Network,Address,Verified\n';
   (data.wallets || []).forEach(w => {
