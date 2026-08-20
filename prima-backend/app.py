@@ -96,6 +96,7 @@ from core.pricing import (  # noqa: E402
     fetch_btc_price_idr, fetch_sol_price_idr, _get_usd_idr_rate,
 )
 from core.completeness import hitung_kelengkapan  # noqa: E402
+from core.verdict import tetapkan_verdict_ternary, tetapkan_verdict_surplus  # noqa: E402
 
 DATA_FILE          = os.path.join(os.path.dirname(__file__), "pakd_data.json")
 AUDIT_FILE         = os.path.join(os.path.dirname(__file__), "audit_log.json")
@@ -2924,17 +2925,13 @@ def reconciliation():
                 aset_onchain_idr, (compliance_data.get("kustodian_onchain_idr") or 0), aset_dilaporkan)
             selisih = total_attributable - aset_dilaporkan if aset_dilaporkan > 0 else 0
 
-            surplus = total_attributable >= aset_dilaporkan
-            if surplus:
-                status_rec = "Aman"
-            else:
-                deficit_pct = abs(deviasi_pct)
-                if deficit_pct < 0.01:
-                    status_rec = "Aman"
-                elif deficit_pct <= 10:
-                    status_rec = "Deviasi"
-                else:
-                    status_rec = "Kritis"
+            _as_of = datetime.now(timezone.utc).isoformat()
+            _kelengkapan = hitung_kelengkapan(
+                balance_result["entries"], balance_result["provenance_harga"], _as_of)
+            _verdict = tetapkan_verdict_surplus(
+                _kelengkapan["status"], total_attributable, aset_dilaporkan, deviasi_pct)
+            surplus = _verdict["surplus"]
+            status_rec = _verdict["status"]
 
 
             hasil.append({
@@ -3021,12 +3018,16 @@ def internal_refresh_all():
             compliance_data = compute_30_70_compliance(pakd["id"], int(total))
             _, deviasi = deviasi_with_custody(
                 total, (compliance_data.get("kustodian_onchain_idr") or 0), dilaporkan)
-            status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
+            _as_of = datetime.now(timezone.utc).isoformat()
+            _kelengkapan = hitung_kelengkapan(
+                result_bal["entries"], result_bal["provenance_harga"], _as_of)
+            _verdict = tetapkan_verdict_ternary(_kelengkapan["status"], deviasi)
+            status = _verdict["status"]
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
                 "aset_dilaporkan_idr": dilaporkan,
                 "aset_onchain_idr": total,
-                "deviasi_pct": round(deviasi, 2),
+                "deviasi_pct": _verdict["deviasi_pct"],
                 "status": status,
                 "breakdown": breakdown,
                 "pakd_onchain_idr": int(total),
@@ -4001,13 +4002,17 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
             compliance_data = compute_30_70_compliance(pakd["id"], int(total))
             _, deviasi = deviasi_with_custody(
                 total, (compliance_data.get("kustodian_onchain_idr") or 0), dilaporkan)
-            status = "Aman" if deviasi >= 0 or abs(deviasi) <= 5 else ("Deviasi" if abs(deviasi) <= 20 else "Kritis")
+            _as_of = datetime.now(timezone.utc).isoformat()
+            _kelengkapan = hitung_kelengkapan(
+                result_bal["entries"], result_bal["provenance_harga"], _as_of)
+            _verdict = tetapkan_verdict_ternary(_kelengkapan["status"], deviasi)
+            status = _verdict["status"]
 
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
                 "aset_dilaporkan_idr": dilaporkan,
                 "aset_onchain_idr": total,
-                "deviasi_pct": round(deviasi, 2),
+                "deviasi_pct": _verdict["deviasi_pct"],
                 "status": status,
                 "breakdown": breakdown,
                 "pakd_onchain_idr": int(total),
