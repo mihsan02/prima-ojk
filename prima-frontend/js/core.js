@@ -474,14 +474,27 @@ function render3070Badge(d) {
   return '<span class="badge-violation">✗ VIOLATION</span>' + (pct ? '<div style="font-size:9px;color:var(--red);margin-top:2px">' + pct + '</div>' : '');
 }
 
+const FETCH_STATUS_LABEL = {sukses: 'Sukses', partial: 'Partial', gagal: 'Gagal'};
+
 function renderWalletsCell(d) {
   if (!d.wallets || !d.wallets.length) return '';
+  // T2.3 (D6): d.breakdown adalah hasil fetch per-wallet (punya fetch_status);
+  // d.wallets adalah konfigurasi mentah. Dipetakan sekali di sini, bukan
+  // per-wallet di dalam .map(), supaya lookup-nya O(1) per wallet.
+  const breakdownByKey = {};
+  (d.breakdown || []).forEach(e => { breakdownByKey[e.address + '|' + e.network] = e; });
   return d.wallets.map(w => {
     const canVerify = PROOF_SUPPORTED.has(w.network) && !w.verified;
     const action = canVerify
       ? `<button class="verify-mini-btn" onclick="openVerifyModal('${escapeAttr(w.address)}','${w.network}','${escapeAttr(d.id)}')">Verify</button>`
       : '';
-    return `<div class="wallet-mini-row" data-addr="${escapeAttr(w.address)}" data-net="${w.network}">${chainTagHtml(w.network)}<span class="wallet-addr" title="${escapeAttr(w.address)}">${shortAddr(w.address)}</span>${verifyBadgeHtml(w)}${action}</div>`;
+    // Tanpa entry padanan (PAKD belum pernah direkonsiliasi), tidak ada
+    // badge status yang dirender -- bukan default ke salah satu nilai.
+    const matchedEntry = breakdownByKey[w.address + '|' + w.network];
+    const fetchStatusBadge = matchedEntry
+      ? `<span class="fetch-status-badge ${matchedEntry.fetch_status}">${FETCH_STATUS_LABEL[matchedEntry.fetch_status] || matchedEntry.fetch_status}</span>`
+      : '';
+    return `<div class="wallet-mini-row" data-addr="${escapeAttr(w.address)}" data-net="${w.network}">${chainTagHtml(w.network)}<span class="wallet-addr" title="${escapeAttr(w.address)}">${shortAddr(w.address)}</span>${verifyBadgeHtml(w)}${fetchStatusBadge}${action}</div>`;
   }).join('');
 }
 

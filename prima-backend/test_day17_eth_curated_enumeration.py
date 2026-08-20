@@ -101,6 +101,31 @@ def test_coingecko_exception_does_not_crash_recon():
     assert result == {}, f"Expected empty dict on exception, got {result}"
 
 
+def test_coingecko_exception_yields_partial_fetch_status():
+    """
+    T2.3 (D6): _get_coingecko_eth_token_prices itself is defensively wrapped
+    and never raises in practice (see its docstring). Patching it directly
+    to raise proves _proc_eth's outer curated try/except still degrades to
+    "partial" for ANY exception surfacing from that block -- not just the
+    subset _get_coingecko_eth_token_prices happens to swallow internally.
+    """
+    def eth_router(k, a, f):
+        return 2.5 if k == "ethereum" else 0.0
+
+    with patch("app.get_cached_balance", side_effect=eth_router), \
+         patch("app.fetch_curated_erc20_balances", return_value=[
+             {"symbol": "WBTC", "contract": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+              "balance": 1.0, "decimals": 8},
+         ]), \
+         patch("app._get_coingecko_eth_token_prices", side_effect=Exception("CoinGecko down")):
+        result = app.get_total_balance_idr(
+            [{"network": "ethereum", "address": MOCK_ADDRESS, "verified": False}],
+            eth_price_idr=40_000_000, usdt_price_idr=16_350, usdc_price_idr=16_340)
+
+    entry = next(e for e in result["breakdown"] if e["address"] == MOCK_ADDRESS)
+    assert entry["fetch_status"] == "partial", f"Expected partial, got {entry['fetch_status']}"
+
+
 def test_chunked_batching_handles_50_contracts():
     """50 contracts must be chunked into 2 batches (25 + 25), 2 separate calls."""
     contracts = [f"0x{i:040x}" for i in range(50)]

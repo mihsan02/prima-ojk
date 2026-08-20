@@ -1574,7 +1574,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 "sol_usdc_balance": None, "sol_usdc_idr": None,
                 "sol_other_token_idr": None, "sol_unvalued_count": None, "sol_unvalued_mints": None,
                 "eth_other_token_idr": None, "eth_unvalued_count": None, "eth_unvalued_contracts": None,
-                "verified": verified, "error": None,
+                "verified": verified, "error": None, "fetch_status": "sukses",
             }
             _tw = time.perf_counter()
             try:
@@ -1637,12 +1637,14 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                         entry["eth_unvalued_count"]     = 0
                         entry["eth_unvalued_contracts"] = []
                 except Exception as curated_err:
+                    entry["fetch_status"] = "partial"
                     if os.environ.get("PRIMA_DEBUG"):
                         print(f"[ETH_CURATED] {address[:8]} error: {curated_err}", flush=True)
                     entry["eth_other_token_idr"]    = 0
                     entry["eth_unvalued_count"]     = 0
                     entry["eth_unvalued_contracts"] = []
             except Exception as e:
+                entry["fetch_status"] = "gagal"
                 entry["error"] = f"ETH fetch error: {e}"
             _t += time.perf_counter() - _tw
             _entries.append(entry)
@@ -1667,7 +1669,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 "sol_usdc_balance": None, "sol_usdc_idr": None,
                 "sol_other_token_idr": None, "sol_unvalued_count": None, "sol_unvalued_mints": None,
                 "eth_other_token_idr": None, "eth_unvalued_count": None, "eth_unvalued_contracts": None,
-                "verified": verified, "error": None,
+                "verified": verified, "error": None, "fetch_status": "sukses",
             }
             _tw = time.perf_counter()
             try:
@@ -1676,6 +1678,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 entry["balance_idr"]    = bal * btc_price_idr
                 _btc_total             += entry["balance_idr"]
             except Exception as e:
+                entry["fetch_status"] = "gagal"
                 entry["error"] = f"BTC fetch error: {e}"
             _t += time.perf_counter() - _tw
             _entries.append(entry)
@@ -1699,7 +1702,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 "sol_usdc_balance": None, "sol_usdc_idr": None,
                 "sol_other_token_idr": None, "sol_unvalued_count": None, "sol_unvalued_mints": None,
                 "eth_other_token_idr": None, "eth_unvalued_count": None, "eth_unvalued_contracts": None,
-                "verified": verified, "error": None,
+                "verified": verified, "error": None, "fetch_status": "sukses",
             }
             _tw = time.perf_counter()
             # Early append: on harvest timeout the caller keeps this dict with
@@ -1736,6 +1739,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                         all_holdings = fetch_all_spl_balances(address)
                         BALANCE_CACHE[_spl_key] = (_now, all_holdings)
                 except Exception as enum_err:
+                    entry["fetch_status"] = "partial"
                     all_holdings = []
                     if os.environ.get("PRIMA_DEBUG"):
                         print(f"[SPL_ENUM] fetch_all_spl_balances({address}) failed: {type(enum_err).__name__}: {enum_err}", flush=True)
@@ -1770,6 +1774,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                             else:
                                 unvalued_mints_local.append(mint)
                     except Exception as price_err:
+                        entry["fetch_status"] = "partial"
                         print(f"[SPL_PRICE] token pricing for {address[:8]} failed, "
                               f"keeping native+tier1 only: {type(price_err).__name__}: {price_err}", flush=True)
                         unvalued_mints_local = [h["mint"] for h in all_holdings if h["mint"] not in tier1_mints]
@@ -1792,6 +1797,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
                 _sol_unvalued_count += len(unvalued_mints_local)
                 _sol_unvalued_mints.extend(unvalued_mints_local)
             except Exception as e:
+                entry["fetch_status"] = "gagal"
                 entry["error"] = f"SOL fetch error: {e}"
             _t += time.perf_counter() - _tw
         return {"entries": _entries, "sol_total": _sol_total, "sol_native": _sol_native,
@@ -1885,6 +1891,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             "balance_native": 0.0, "native_unit": wallet.get("network", "").upper(),
             "balance_idr": 0.0, "verified": wallet.get("verified", False),
             "error": f"Network '{wallet.get('network')}' belum didukung",
+            "fetch_status": "gagal",
             "eth_native_idr": None, "usdt_balance": None, "usdt_idr": None,
             "usdc_balance": None, "usdc_idr": None,
             "sol_native_idr": None, "sol_usdt_balance": None, "sol_usdt_idr": None,

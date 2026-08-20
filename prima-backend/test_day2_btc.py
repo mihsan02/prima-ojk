@@ -60,7 +60,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None):
         network  = wallet.get("network", "ethereum")
         address  = wallet.get("address", "")
         verified = wallet.get("verified", False)
-        entry = {"network": network, "address": address, "balance_native": 0.0, "native_unit": "", "balance_idr": 0.0, "verified": verified, "error": None}
+        entry = {"network": network, "address": address, "balance_native": 0.0, "native_unit": "", "balance_idr": 0.0, "verified": verified, "error": None, "fetch_status": "sukses"}
         if network == "ethereum":
             entry["native_unit"] = "ETH"
             try:
@@ -78,6 +78,7 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None):
                 entry["balance_idr"]    = bal * btc_price_idr
                 btc_total_idr          += entry["balance_idr"]
             except Exception as e:
+                entry["fetch_status"] = "gagal"
                 entry["error"] = f"BTC fetch error: {e}"
         else:
             entry["native_unit"] = "SOL"
@@ -134,6 +135,19 @@ class TestGetTotalBalanceIdr(unittest.TestCase):
             result = get_total_balance_idr(wallets, eth_price_idr=0.0, btc_price_idr=1_600_000_000)
         self.assertAlmostEqual(result["total_idr"], 1_600_000_000.0)
         self.assertAlmostEqual(result["btc_balance_idr"], 1_600_000_000.0)
+        # T2.3 (D6): status fetch per-wallet.
+        self.assertEqual(result["breakdown"][0]["fetch_status"], "sukses")
+
+    def test_btc_fetch_error_sets_fetch_status_gagal(self):
+        """T2.3 (D6): BTC tidak pernah "partial" -- satu try/except, gagal
+        kalau except tereksekusi (baris yang mengisi entry["error"])."""
+        wallets = [{"network": "bitcoin", "address": "bc1q", "verified": True, "verified_at": None}]
+        broken_resp = MagicMock()
+        broken_resp.raise_for_status.side_effect = Exception("BTC RPC down")
+        with patch("requests.get", return_value=broken_resp):
+            result = get_total_balance_idr(wallets, eth_price_idr=0.0, btc_price_idr=1_600_000_000)
+        self.assertIsNotNone(result["breakdown"][0]["error"])
+        self.assertEqual(result["breakdown"][0]["fetch_status"], "gagal")
 
     def test_eth_plus_btc_total(self):
         BALANCE_CACHE.clear()
