@@ -2932,6 +2932,11 @@ def reconciliation():
                 _kelengkapan["status"], total_attributable, aset_dilaporkan, deviasi_pct)
             surplus = _verdict["surplus"]
             status_rec = _verdict["status"]
+            _kelengkapan_status_out = _kelengkapan["status"]
+            _sumber_gagal_out = _kelengkapan["sumber_gagal"]
+            _aset_onchain_idr_final = (
+                aset_onchain_idr if _kelengkapan_status_out == "LENGKAP" else None)
+            _subtotal_diketahui_idr = aset_onchain_idr
 
 
             hasil.append({
@@ -2958,6 +2963,10 @@ def reconciliation():
                 "aset_dilaporkan_idr": aset_dilaporkan,
                 "deviasi_pct":         round(deviasi_pct, 2),
                 "surplus":             surplus,
+                "kelengkapan_status":     _kelengkapan_status_out,
+                "sumber_gagal":           _sumber_gagal_out,
+                "aset_onchain_idr_final": _aset_onchain_idr_final,
+                "subtotal_diketahui_idr": _subtotal_diketahui_idr,
                 "status":              status_rec,
                 "breakdown":           balance_result["breakdown"],
                 "pakd_onchain_idr":           round(aset_onchain_idr),
@@ -3023,12 +3032,21 @@ def internal_refresh_all():
                 result_bal["entries"], result_bal["provenance_harga"], _as_of)
             _verdict = tetapkan_verdict_ternary(_kelengkapan["status"], deviasi)
             status = _verdict["status"]
+            _kelengkapan_status_out = _kelengkapan["status"]
+            _sumber_gagal_out = _kelengkapan["sumber_gagal"]
+            _aset_onchain_idr_final = (
+                total if _kelengkapan_status_out == "LENGKAP" else None)
+            _subtotal_diketahui_idr = total
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
                 "aset_dilaporkan_idr": dilaporkan,
                 "aset_onchain_idr": total,
                 "deviasi_pct": _verdict["deviasi_pct"],
                 "status": status,
+                "kelengkapan_status":     _kelengkapan_status_out,
+                "sumber_gagal":           _sumber_gagal_out,
+                "aset_onchain_idr_final": _aset_onchain_idr_final,
+                "subtotal_diketahui_idr": _subtotal_diketahui_idr,
                 "breakdown": breakdown,
                 "pakd_onchain_idr": int(total),
                 "kustodian_onchain_idr": compliance_data["kustodian_onchain_idr"],
@@ -4007,6 +4025,11 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
                 result_bal["entries"], result_bal["provenance_harga"], _as_of)
             _verdict = tetapkan_verdict_ternary(_kelengkapan["status"], deviasi)
             status = _verdict["status"]
+            _kelengkapan_status_out = _kelengkapan["status"]
+            _sumber_gagal_out = _kelengkapan["sumber_gagal"]
+            _aset_onchain_idr_final = (
+                total if _kelengkapan_status_out == "LENGKAP" else None)
+            _subtotal_diketahui_idr = total
 
             hasil.append({
                 "id": pakd["id"], "nama": pakd["nama"],
@@ -4014,6 +4037,10 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
                 "aset_onchain_idr": total,
                 "deviasi_pct": _verdict["deviasi_pct"],
                 "status": status,
+                "kelengkapan_status":     _kelengkapan_status_out,
+                "sumber_gagal":           _sumber_gagal_out,
+                "aset_onchain_idr_final": _aset_onchain_idr_final,
+                "subtotal_diketahui_idr": _subtotal_diketahui_idr,
                 "breakdown": breakdown,
                 "pakd_onchain_idr": int(total),
                 "kustodian_onchain_idr": compliance_data["kustodian_onchain_idr"],
