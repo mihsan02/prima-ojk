@@ -155,3 +155,28 @@ def test_two_gate_filter_rejects_non_strict_listed_token():
     assert result["sol_other_token_idr"] == 0
     assert result["sol_unvalued_count"]  == 1
     assert unknown_mint in result["sol_unvalued_mints"]
+
+
+def test_spl_enum_failure_degrades_to_partial_native_still_succeeds():
+    """
+    T2.3 (D6): fetch_all_spl_balances failing (RPC error) must not crash
+    the wallet -- native SOL still succeeds via the separate get_cached_balance
+    mock, and the entry degrades to fetch_status "partial", not "gagal".
+    """
+    mock_post = MagicMock()
+    mock_post.side_effect = Exception("Solana RPC unreachable")
+
+    with patch("app.requests.post", mock_post), \
+         patch("app.get_cached_balance", side_effect=lambda key, addr, fn: 5.0 if key == "solana" else 0.0):
+
+        wallets = [{"network": "solana", "address": "FakeOwnerAddress", "verified": True}]
+        result  = app.get_total_balance_idr(
+            wallets,
+            eth_price_idr=0, btc_price_idr=0, sol_price_idr=2_850_000.0,
+            usdt_price_idr=16_500.0, usdc_price_idr=16_500.0,
+        )
+
+    entry = result["breakdown"][0]
+    assert entry["error"] is None
+    assert entry["fetch_status"] == "partial"
+    assert result["sol_balance_idr"] > 0

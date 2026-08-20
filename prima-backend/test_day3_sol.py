@@ -67,6 +67,8 @@ def test_total_balance_single_sol_wallet(mock_price, mock_balance, mock_spl_enum
     assert result["total_idr"]       == pytest.approx(28_500_000.0)
     assert result["eth_balance_idr"] == 0.0
     assert result["btc_balance_idr"] == 0.0
+    # T2.3 (D6): status fetch per-wallet.
+    assert result["breakdown"][0]["fetch_status"] == "sukses"
 
     wallets = [{"network": "solana", "address": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", "verified": False}]
     result = get_total_balance_idr(wallets, eth_price_idr=0, btc_price_idr=0, sol_price_idr=2_850_000.0)
@@ -134,3 +136,5 @@ def test_sol_rpc_error_isolated(mock_price, mock_balance):
     assert result["total_idr"]       == 0.0
     assert result["sol_balance_idr"] == 0.0
     assert "SOL fetch error" in result["breakdown"][0]["error"]
+    # T2.3 (D6): status fetch per-wallet.
+    assert result["breakdown"][0]["fetch_status"] == "gagal"

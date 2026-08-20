@@ -12,6 +12,7 @@ Etherscan.
 import unittest
 from unittest.mock import MagicMock, patch
 
+import app
 from core.acquisition import get_eth_balance
 
 ADDR = "0x0681d8db095565fe8a346fa0277bffde9c0edbbf"
@@ -87,6 +88,22 @@ class TestEthBalanceFailSafe(unittest.TestCase):
         with patch("core.acquisition.requests.get",
                    return_value=_resp({"status": "1", "result": str(2 * 10**18)})):
             self.assertEqual(get_eth_balance(ADDR), 2.0)
+
+    # ── T2.3 (D6): fetch_status "gagal" murni di level get_total_balance_idr
+    # saat native ETH gagal via exception (bukan lewat get_eth_balance saja) ──
+    def test_d_total_balance_idr_fetch_status_gagal_saat_native_exception(self):
+        """get_total_balance_idr harus menandai entry fetch_status "gagal"
+        saat get_eth_balance melempar, bukan cuma mengisi entry["error"]."""
+        app.BALANCE_CACHE.pop(("ethereum", ADDR), None)
+        with patch("core.acquisition.requests.get",
+                   side_effect=ConnectionError("connection reset by peer")):
+            result = app.get_total_balance_idr(
+                [{"network": "ethereum", "address": ADDR, "verified": False}],
+                eth_price_idr=40_000_000, usdt_price_idr=16_350, usdc_price_idr=16_340)
+
+        entry = result["breakdown"][0]
+        self.assertIsNotNone(entry["error"])
+        self.assertEqual(entry["fetch_status"], "gagal")
 
 
 if __name__ == "__main__":
