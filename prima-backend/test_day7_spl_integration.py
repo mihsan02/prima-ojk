@@ -1,7 +1,32 @@
 """
 test_day7_spl_integration.py — Day 7 (2 Mei 2026)
 SPL USDT+USDC integration tests for get_total_balance_idr.
-All tests fully mocked — no live network calls.
+
+KOREKSI 20 Agustus 2026, sesi kesebelas: "All tests fully mocked" TIDAK
+BENAR. Diverifikasi dengan menjalankan tiap tes terisolasi
+(--durations=0). Enam dari delapan menembus jaringan live saat berdiri
+sendiri -- durasi 12-27 detik per tes, konsisten dengan panggilan RPC
+Solana dan API harga sungguhan, bukan mock:
+
+    I1, I2, I4, I6, I7, I8  -- LIVE. Hanya me-mock get_cached_balance,
+        tidak menggerbangi fetch_all_spl_balances /
+        _get_jupiter_verified_set / _get_jupiter_prices /
+        _get_dexscreener_price seperti yang dilakukan I3 (lihat
+        catatan D43 di dalam test_I3).
+    I3   -- fully mocked, sesuai desain (D43).
+    I5   -- fully mocked secara kebetulan: ETH_WALLET tidak pernah
+        memasuki cabang enumerasi SPL, bukan karena di-mock eksplisit.
+
+TEMUAN KEDUA, di luar cakupan klaim docstring: I4, I6, I7, I8 tampak
+cepat (<2 detik) ketika dijalankan dalam satu sesi pytest bersama
+I1-I3, tapi melambat ke kelas 12-27 detik ketika dijalankan terisolasi.
+Penyebabnya BALANCE_CACHE, dict modul-level, tidak dibersihkan antar
+tes kecuali oleh satu `pop()` eksplisit di dalam test_I3 sendiri
+(baris terpisah, hanya menggerbangi tes itu). Tes-tes lain diam-diam
+menumpang hasil cache yang ditinggalkan tes sebelumnya dalam urutan
+file yang sama. Ini bug independen dari klaim "fully mocked": hasil
+tes bergantung pada urutan eksekusi, bukan cuma pada isolasi jaringan.
+Belum ditambal di sini -- lihat defect terpisah di register.
 """
 import sys, os, pytest
 sys.path.insert(0, os.path.dirname(__file__))

@@ -143,6 +143,12 @@ MOCK_SOL_BALANCE_RESULT = {
         }
     ],
 }
+MOCK_SOL_BALANCE_RESULT["entries"] = MOCK_SOL_BALANCE_RESULT["breakdown"]
+MOCK_SOL_BALANCE_RESULT["provenance_harga"] = {
+    "solana": {"sumber": "cmc", "umur_detik": 0},
+    "ethereum": None,
+    "bitcoin": None,
+}
 
 # ETH wallet with ERC-20 holdings.
 # eth_balance_idr must equal eth_native_idr + eth_usdt_idr + eth_usdc_idr
@@ -179,6 +185,12 @@ MOCK_ETH_BALANCE_RESULT = {
             "error":            None,
         }
     ],
+}
+MOCK_ETH_BALANCE_RESULT["entries"] = MOCK_ETH_BALANCE_RESULT["breakdown"]
+MOCK_ETH_BALANCE_RESULT["provenance_harga"] = {
+    "ethereum": {"sumber": "cmc", "umur_detik": 0},
+    "solana": None,
+    "bitcoin": None,
 }
 
 # Stress test mock: minimal SOL-only PAKD
