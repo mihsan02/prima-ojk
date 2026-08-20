@@ -27,10 +27,14 @@ function formatIDR(n) {
 function statusClass(s) {
   if (s === 'Aman') return 'aman';
   if (s === 'Deviasi') return 'deviasi';
+  if (s === 'Data Tidak Lengkap') return 'tidak-lengkap';
   return 'kritis';
 }
 
 function deviDisplay(d) {
+  if (d.status === 'Data Tidak Lengkap' || d.deviasi_pct === null || d.deviasi_pct === undefined) {
+    return '<span style="color:var(--txt3);font-family:\'JetBrains Mono\',monospace;font-size:12px;font-weight:600">\u2014</span>';
+  }
   const pct = d.deviasi_pct;
   if (d.surplus) {
     return `<span style="color:var(--green);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600">+${pct.toFixed(2)}%</span>`;
@@ -80,7 +84,11 @@ async function loadData() {
           <span class="pakd-id">${escapeHtml(d.id)} · Berizin</span>
         </td>
         <td style="vertical-align:top;padding-top:18px"><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
-        <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${formatIDR(d.aset_onchain_idr)}</td>
+        <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${
+          d.status === 'Data Tidak Lengkap'
+            ? '<span style="color:var(--txt3)">\u2014</span>'
+            : formatIDR(d.aset_onchain_idr_final ?? d.aset_onchain_idr)
+        }</td>
         <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
         <td style="vertical-align:top;padding-top:18px">${deviDisplay(d)}</td>
         <td style="vertical-align:top;padding-top:14px">${renderWalletBadges(d)}</td>
@@ -962,7 +970,11 @@ async function loadSnapshot() {
         </td>
         <td style="vertical-align:top;padding-top:18px"><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
         <td style="vertical-align:top;padding-top:18px">${render3070Badge(d)}</td>
-        <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${formatIDR(d.aset_onchain_idr)}</td>
+        <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${
+          d.status === 'Data Tidak Lengkap'
+            ? '<span style="color:var(--txt3)">\u2014</span>'
+            : formatIDR(d.aset_onchain_idr_final ?? d.aset_onchain_idr)
+        }</td>
         <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${d.has_kustodian ? (d.kustodian_onchain_status === 'terukur' ? formatIDR(d.kustodian_onchain_idr || 0) : '<span style="color:var(--txt4)">—</span>') : '<span style="color:var(--txt4)">—</span>'}</td>
         <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
         <td style="vertical-align:top;padding-top:18px">${deviDisplay(d)}</td>
