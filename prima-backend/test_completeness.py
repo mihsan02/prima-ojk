@@ -151,3 +151,24 @@ def test_R5_saldo_nol_tidak_butuh_harga():
     entries = [_w("ethereum", "0xeth", native=0.0)]
     hasil = hitung_kelengkapan(entries, prov, AS_OF)
     assert hasil["status"] == "LENGKAP", hasil
+
+
+def test_H1_partial_fetch_status_tanpa_error_dihitung_gagal():
+    """Cacat 1: fetch_status partial dengan error None masih harus
+    menghasilkan SEBAGIAN. _saldo_gagal saat ini hanya membaca
+    e.get("error"), buta terhadap fetch_status. Bentuk entry mengikuti
+    jalur partial nyata di app.py (mis. 1640, 1742, 1777): balance_native
+    tetap tersetel, error tetap None, hanya fetch_status yang berubah."""
+    entries = [
+        {
+            "network": "ethereum", "address": "0xeth",
+            "balance_native": 1.0, "error": None,
+            "fetch_status": "partial",
+        },
+        _w("bitcoin", "bc1btc"),
+        _w("solana", "SoLsol"),
+    ]
+    hasil = hitung_kelengkapan(entries, _prov_sehat(), AS_OF)
+    assert hasil["status"] == "SEBAGIAN"
+    assert any(sg["jenis"] == "saldo" and sg["network"] == "ethereum"
+               for sg in hasil["sumber_gagal"])

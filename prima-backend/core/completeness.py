@@ -1,6 +1,16 @@
 from core.pricing import kelengkapan_dari_provenance
 
 
+def _saldo_gagal(e):
+    return e.get("error") is not None or e.get("fetch_status") == "partial"
+
+
+def _sebab_saldo(e):
+    if e.get("fetch_status") == "partial":
+        return e.get("error") or "sebagian aset gagal dinilai"
+    return e.get("error")
+
+
 def hitung_kelengkapan(
     entries: list[dict],
     provenance_harga: dict[str, dict | None],
@@ -11,7 +21,7 @@ def hitung_kelengkapan(
             return True
         return kelengkapan_dari_provenance(prov) == "SEBAGIAN"
 
-    gagal_saldo = [e for e in entries if e.get("error") is not None]
+    gagal_saldo = [e for e in entries if _saldo_gagal(e)]
     jaringan_terdampak = {
         e.get("network") for e in entries
         if (e.get("balance_native") or 0) > 0
@@ -27,7 +37,7 @@ def hitung_kelengkapan(
             "jenis": "saldo",
             "network": e.get("network"),
             "address": e.get("address"),
-            "sebab": e.get("error"),
+            "sebab": _sebab_saldo(e),
         })
     for net in gagal_harga:
         prov = provenance_harga.get(net)
