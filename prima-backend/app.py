@@ -414,7 +414,7 @@ def _save_snapshots_batch(hasil_list, harga_fallback):
         cur = conn.cursor()
         rows = [
             (h["id"], h["nama"], int(h["aset_dilaporkan_idr"]), int(h["aset_onchain_idr"]),
-             max(-9999.9999, min(9999.9999, float(h["deviasi_pct"]))), h["status"], harga_fallback, json.dumps(h["breakdown"]),
+             (None if h["deviasi_pct"] is None else max(-9999.9999, min(9999.9999, float(h["deviasi_pct"])))), h["status"], harga_fallback, json.dumps(h["breakdown"]),
              h.get("pakd_onchain_idr"), h.get("kustodian_onchain_idr"),
              h.get("compliance_30_70"), h.get("ratio_at_pakd"), h.get("ratio_at_ptp"))
             for h in hasil_list
