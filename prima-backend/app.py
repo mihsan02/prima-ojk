@@ -78,6 +78,18 @@ SOLANA_RPC_URL = os.environ.get(
 
 ETHERSCAN_API_KEY  = os.environ.get("ETHERSCAN_API_KEY", "")
 
+# T2.5: flag demo, konjungsi wajib -- FLASK_ENV kosong di Render berarti
+# disjungsi bersenjata secara default di produksi. Dibaca sekali ke
+# konstanta modul saat boot, tidak per-request.
+_demo_mode = os.environ.get("DEMO_MODE", "").strip().lower() == "true"
+_flask_env = os.environ.get("FLASK_ENV", "")
+DEMO_FORCE_PROVIDER_FAILURE = []
+if _demo_mode and _flask_env != "production":
+    DEMO_FORCE_PROVIDER_FAILURE = [
+        p.strip() for p in os.environ.get("DEMO_FORCE_PROVIDER_FAILURE", "").split(",")
+        if p.strip()
+    ]
+
 # T1.1 (D1): get_eth_balance dipindah ke core/acquisition.py. Di-import
 # sebagai nama global supaya pemanggil lama tetap bekerja tanpa diubah.
 from core.acquisition import (  # noqa: E402
@@ -1579,6 +1591,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             }
             _tw = time.perf_counter()
             try:
+                if "ethereum" in DEMO_FORCE_PROVIDER_FAILURE:
+                    write_audit("DEMO_FAILURE_TRIGGERED", "Simulated ethereum provider failure (DEMO_MODE)")
+                    raise RuntimeError("DEMO_FORCE_PROVIDER_FAILURE: ethereum")
                 eth_bal = get_cached_balance("ethereum", address, lambda a=address: get_eth_balance(a))
                 # D24: tanpa penjaga ini, eth_price_idr None melempar
                 # TypeError yang tertangkap blok except di bawah dan
@@ -1674,6 +1689,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             }
             _tw = time.perf_counter()
             try:
+                if "bitcoin" in DEMO_FORCE_PROVIDER_FAILURE:
+                    write_audit("DEMO_FAILURE_TRIGGERED", "Simulated bitcoin provider failure (DEMO_MODE)")
+                    raise RuntimeError("DEMO_FORCE_PROVIDER_FAILURE: bitcoin")
                 bal = get_cached_balance("bitcoin", address, lambda a=address: fetch_btc_balance(a))
                 entry["balance_native"] = round(bal, 8)
                 entry["balance_idr"]    = bal * btc_price_idr
@@ -1710,6 +1728,9 @@ def get_total_balance_idr(wallets, eth_price_idr=None, btc_price_idr=None, sol_p
             # whatever has been committed into it so far.
             _entries.append(entry)
             try:
+                if "solana" in DEMO_FORCE_PROVIDER_FAILURE:
+                    write_audit("DEMO_FAILURE_TRIGGERED", "Simulated solana provider failure (DEMO_MODE)")
+                    raise RuntimeError("DEMO_FORCE_PROVIDER_FAILURE: solana")
                 sol_bal = get_cached_balance("solana", address, lambda a=address: fetch_sol_balance(a))
                 # T1.2 (D3/D4) Opsi A: harga SOL native tidak tersedia berarti
                 # native TIDAK dinilai. SPL di bawah tetap dinilai karena harga
