@@ -115,7 +115,12 @@ from core.completeness import hitung_kelengkapan  # noqa: E402
 from core.verdict import tetapkan_verdict_ternary, tetapkan_verdict_surplus  # noqa: E402
 
 DATA_FILE          = os.path.join(os.path.dirname(__file__), "pakd_data.json")
-AUDIT_FILE         = os.path.join(os.path.dirname(__file__), "audit_log.json")
+# T3.1: write_audit, verify_chain, VERSI_PERHITUNGAN pindah ke audit.py.
+# AUDIT_FILE TETAP di sini (bukan impor) -- test_audit_access.py mem-patch
+# app.AUDIT_FILE langsung, dan write_audit membaca lewat deferred import
+# supaya patch itu benar-benar terlihat, bukan ikatan beku dari re-export.
+AUDIT_FILE = os.path.join(os.path.dirname(__file__), "audit_log.json")
+from audit import write_audit, verify_chain, VERSI_PERHITUNGAN  # noqa: E402,F401
 
 # ---------------------------------------------------------------------------
 # ERC-20 contract constants (Day 4)
@@ -600,57 +605,7 @@ def _current_actor():
     }
 
 
-def write_audit(action, detail, actor=None):
-    display_time  = datetime.now().strftime("%d %b %Y, %H:%M")
-    timestamp_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    if actor is None:
-        actor = _current_actor()
-    actor_email = (actor or {}).get("email") or None
-    actor_role  = (actor or {}).get("role") or None
-
-    # Primary: Supabase (persistent)
-    conn = _get_db_conn()
-    if conn:
-        try:
-            cur = conn.cursor()
-            try:
-                cur.execute(
-                    "INSERT INTO audit_log (waktu, aksi, detail, created_at, actor_email, actor_role) "
-                    "VALUES (%s, %s, %s, %s, %s, %s)",
-                    (display_time, action, detail, timestamp_utc, actor_email, actor_role)
-                )
-            except Exception:
-                # Kolom actor belum ada (migrasi sprint5 belum dijalankan) → insert legacy
-                conn.rollback()
-                cur.execute(
-                    "INSERT INTO audit_log (waktu, aksi, detail, created_at) VALUES (%s, %s, %s, %s)",
-                    (display_time, action, detail, timestamp_utc)
-                )
-            conn.commit()
-            cur.close()
-        except Exception as e:
-            print(f"[AUDIT_DB] write failed: {type(e).__name__}: {e}", flush=True)
-        finally:
-            _return_db_conn(conn)
-
-    # Fallback: file (ephemeral)
-    try:
-        logs = []
-        if os.path.exists(AUDIT_FILE):
-            with open(AUDIT_FILE, "r") as f:
-                logs = json.load(f)
-        logs.insert(0, {"waktu": display_time, "aksi": action, "detail": detail,
-                        "aktor": actor_email, "aktor_role": actor_role})
-        logs = logs[:50]
-        dir_ = os.path.dirname(AUDIT_FILE) or "."
-        fd, tmp_path = tempfile.mkstemp(dir=dir_, suffix=".tmp")
-        with os.fdopen(fd, "w") as f:
-            json.dump(logs, f, indent=2)
-        os.replace(tmp_path, AUDIT_FILE)
-    except Exception as e:
-        print(f"[AUDIT_FILE] write failed: {type(e).__name__}: {e}", flush=True)
-
-
+# T3.1: write_audit dipindah ke audit.py (diimpor di atas). Lihat audit.py untuk implementasi rantai hash.
 _ACCESS_LOG_SEEN  = {}    # {(user_id, resource): last_logged_epoch}
 ACCESS_LOG_WINDOW = 300   # detik — akses berulang oleh user yang sama dalam window ini tidak dicatat ulang
 
@@ -2115,7 +2070,7 @@ def frontend_js(filename):
 
 @app.route("/api/status")
 def status():
-    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": "1.9-pasal50-pasal91",
+    return jsonify({"status": "ok", "sistem": "PRIMA", "versi": VERSI_PERHITUNGAN,
                     "commit": os.environ.get("RENDER_GIT_COMMIT", "unknown")[:7]})
 
 def require_admin_token(f):
