@@ -3687,6 +3687,47 @@ def input_manual():
         return _error_response("Input manual gagal", detail=e, status_code=500)
 
 
+@app.route("/api/audit/verify")
+@require_role('super_admin')
+def audit_verify():
+    """T3.2: verifikasi integritas rantai hash audit_log.
+    utuh=True + jumlah_event (baris yang ikut rantai, event_hash bukan
+    NULL) pada rantai bersih. Kalau ada baris yang diedit manual setelah
+    ditulis, utuh=False dan id_baris_rusak menunjuk baris pertama yang
+    gagal verifikasi. jumlah_total_baris menghitung semua baris termasuk
+    351 baris legacy pra-T3.1 yang di luar cakupan rantai (lihat
+    audit.verify_chain untuk kebijakan itu).
+    """
+    conn = _get_db_conn()
+    if not conn:
+        return _error_response("Tidak bisa terhubung ke database", status_code=503)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, waktu, aksi, detail, created_at, actor_email, actor_role, "
+            "source_ip, request_id, versi_perhitungan, previous_event_hash, event_hash "
+            "FROM audit_log ORDER BY id ASC"
+        )
+        cols = ["id", "waktu", "aksi", "detail", "created_at", "actor_email", "actor_role",
+                "source_ip", "request_id", "versi_perhitungan", "previous_event_hash", "event_hash"]
+        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+        cur.close()
+    except Exception as e:
+        _return_db_conn(conn)
+        return _error_response("Gagal membaca audit_log", detail=e, status_code=500)
+    _return_db_conn(conn)
+
+    utuh, id_rusak = verify_chain(rows)
+    jumlah_event = sum(1 for r in rows if r.get("event_hash") is not None)
+
+    return jsonify({
+        "utuh": utuh,
+        "jumlah_event": jumlah_event,
+        "jumlah_total_baris": len(rows),
+        "id_baris_rusak": id_rusak,
+    })
+
+
 @app.route("/api/audit-log")
 @require_auth
 def audit_log():
