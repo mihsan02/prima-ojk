@@ -79,16 +79,20 @@ SOLANA_RPC_URL = os.environ.get(
 ETHERSCAN_API_KEY  = os.environ.get("ETHERSCAN_API_KEY", "")
 
 # T2.5: flag demo, konjungsi wajib -- FLASK_ENV kosong di Render berarti
-# disjungsi bersenjata secara default di produksi. Dibaca sekali ke
-# konstanta modul saat boot, tidak per-request.
-_demo_mode = os.environ.get("DEMO_MODE", "").strip().lower() == "true"
-_flask_env = os.environ.get("FLASK_ENV", "")
-DEMO_FORCE_PROVIDER_FAILURE = []
-if _demo_mode and _flask_env != "production":
-    DEMO_FORCE_PROVIDER_FAILURE = [
-        p.strip() for p in os.environ.get("DEMO_FORCE_PROVIDER_FAILURE", "").split(",")
-        if p.strip()
-    ]
+# disjungsi bersenjata secara default di produksi. Diekstrak jadi fungsi
+# supaya test bisa memanggilnya ulang tanpa importlib.reload(app).
+def _resolve_demo_force_provider_failure():
+    demo_mode = os.environ.get("DEMO_MODE", "").strip().lower() == "true"
+    flask_env = os.environ.get("FLASK_ENV", "")
+    if demo_mode and flask_env != "production":
+        return [
+            p.strip() for p in os.environ.get("DEMO_FORCE_PROVIDER_FAILURE", "").split(",")
+            if p.strip()
+        ]
+    return []
+
+# Dibaca sekali ke konstanta modul saat boot, tidak per-request.
+DEMO_FORCE_PROVIDER_FAILURE = _resolve_demo_force_provider_failure()
 
 # T1.1 (D1): get_eth_balance dipindah ke core/acquisition.py. Di-import
 # sebagai nama global supaya pemanggil lama tetap bekerja tanpa diubah.
