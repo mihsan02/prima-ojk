@@ -2997,7 +2997,7 @@ def reconciliation():
                 "eth_unvalued_count":     balance_result.get("eth_unvalued_count", 0),
                 "eth_unvalued_contracts": balance_result.get("eth_unvalued_contracts", []),
                 "aset_dilaporkan_idr": aset_dilaporkan,
-                "deviasi_pct":         round(deviasi_pct, 2),
+                "deviasi_pct":         _verdict["deviasi_pct"],
                 "surplus":             surplus,
                 "kelengkapan_status":     _kelengkapan_status_out,
                 "sumber_gagal":           _sumber_gagal_out,
@@ -3193,7 +3193,7 @@ def reconciliation_latest():
                 _subtotal = r[19] if r[19] is not None else 0
                 _dilaporkan = r[2]
                 _dev_ind = ((_subtotal - _dilaporkan) / _dilaporkan) * 100
-                if _dev_ind >= 0 or abs(_dev_ind) <= 5:
+                if _dev_ind >= -0.0001:
                     _status_ind = "Aman"
                 elif abs(_dev_ind) <= 20:
                     _status_ind = "Deviasi"
@@ -3282,7 +3282,7 @@ def reconciliation_history():
                 _subtotal_val = _subtotal_h if _subtotal_h is not None else 0
                 _dilaporkan_h = r[4]
                 _dev_ind_h = ((_subtotal_val - _dilaporkan_h) / _dilaporkan_h) * 100
-                if _dev_ind_h >= 0 or abs(_dev_ind_h) <= 5:
+                if _dev_ind_h >= -0.0001:
                     _status_ind_h = "Aman"
                 elif abs(_dev_ind_h) <= 20:
                     _status_ind_h = "Deviasi"
