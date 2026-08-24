@@ -83,10 +83,16 @@ async function loadData() {
           <span class="pakd-name">${escapeHtml(d.nama)}</span>
           <span class="pakd-id">${escapeHtml(d.id)} · Berizin</span>
         </td>
-        <td style="vertical-align:top;padding-top:18px"><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
+        <td style="vertical-align:top;padding-top:18px">${
+          d.status_indikatif
+            ? ('<span class="status-badge ' + statusClass(d.status_indikatif) + '">' + escapeHtml(d.status_indikatif) + '*</span><br><span style="color:var(--txt4);font-size:11px">Data Tidak Lengkap</span>')
+            : ('<span class="status-badge ' + statusClass(d.status) + '">' + d.status + '</span>')
+        }</td>
         <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${
           d.status === 'Data Tidak Lengkap'
-            ? '<span style="color:var(--txt3)">\u2014</span>'
+            ? (d.subtotal_diketahui_idr != null
+                ? formatIDR(d.subtotal_diketahui_idr) + '<br><span style="color:var(--txt4);font-size:11px">parsial, cek status wallet</span>'
+                : '<span style="color:var(--txt3)">\u2014</span>')
             : formatIDR(d.aset_onchain_idr_final ?? d.aset_onchain_idr)
         }</td>
         <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
@@ -968,11 +974,17 @@ async function loadSnapshot() {
           <span class="pakd-id">${escapeHtml(d.id)} · Berizin</span>
           ${renderWalletsCell(d)}
         </td>
-        <td style="vertical-align:top;padding-top:18px"><span class="status-badge ${statusClass(d.status)}">${d.status}</span></td>
+        <td style="vertical-align:top;padding-top:18px">${
+          d.status_indikatif
+            ? ('<span class="status-badge ' + statusClass(d.status_indikatif) + '">' + escapeHtml(d.status_indikatif) + '*</span><br><span style="color:var(--txt4);font-size:11px">Data Tidak Lengkap</span>')
+            : ('<span class="status-badge ' + statusClass(d.status) + '">' + d.status + '</span>')
+        }</td>
         <td style="vertical-align:top;padding-top:18px">${render3070Badge(d)}</td>
         <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${
           d.status === 'Data Tidak Lengkap'
-            ? '<span style="color:var(--txt3)">\u2014</span>'
+            ? (d.subtotal_diketahui_idr != null
+                ? formatIDR(d.subtotal_diketahui_idr) + '<br><span style="color:var(--txt4);font-size:11px">parsial, cek status wallet</span>'
+                : '<span style="color:var(--txt3)">\u2014</span>')
             : formatIDR(d.aset_onchain_idr_final ?? d.aset_onchain_idr)
         }</td>
         <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${d.has_kustodian ? (d.kustodian_onchain_status === 'terukur' ? formatIDR(d.kustodian_onchain_idr || 0) : '<span style="color:var(--txt4)">—</span>') : '<span style="color:var(--txt4)">—</span>'}</td>

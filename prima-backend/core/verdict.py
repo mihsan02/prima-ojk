@@ -8,9 +8,14 @@ diam-diam mengubah kebijakan supervisi salah satu jalur. Dicatat
 sebagai D49, belum ditambal.
 
 recalc_snapshot (situs 1, app.py ~2264) TIDAK memanggil modul ini.
-provenance_harga tidak persisten di reconciliation_snapshots, jadi
-kelengkapan tidak bisa dinilai dari data tersimpan. Keputusan
-Opsi A, didokumentasikan sebagai batasan diketahui.
+Sejak T2.4 Bagian A2, kelengkapan_status/sumber_gagal/provenance_harga/
+aset_onchain_idr_final/subtotal_diketahui_idr PERSISTEN di
+reconciliation_snapshots untuk tiga situs verdict (app.py 2929, 3022,
+4006). recalc_snapshot tetap menulis NULL untuk kelima kolom itu --
+bukan gap persistensi lagi, melainkan keterbatasan struktural: fungsi
+ini menghitung ulang dari snapshot lama tanpa fetch on-chain baru,
+sehingga tidak pernah punya kelengkapan baru untuk dilaporkan.
+Keputusan Opsi A, didokumentasikan sebagai batasan diketahui.
 """
 
 
