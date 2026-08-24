@@ -418,39 +418,68 @@ def _return_db_conn(conn):
                 pass
 
 
+def _row_for_snapshot(h, harga_fallback):
+    return (h["id"], h["nama"], int(h["aset_dilaporkan_idr"]), int(h["aset_onchain_idr"]),
+            (None if h["deviasi_pct"] is None else max(-9999.9999, min(9999.9999, float(h["deviasi_pct"])))), h["status"], harga_fallback, json.dumps(h["breakdown"]),
+            h.get("pakd_onchain_idr"), h.get("kustodian_onchain_idr"),
+            h.get("compliance_30_70"), h.get("ratio_at_pakd"), h.get("ratio_at_ptp"),
+            h.get("kelengkapan_status"),
+            json.dumps(h["sumber_gagal"]) if h.get("sumber_gagal") is not None else None,
+            json.dumps(h["provenance_harga"]) if h.get("provenance_harga") is not None else None,
+            h.get("aset_onchain_idr_final"), h.get("subtotal_diketahui_idr"))
+
+
+_SNAPSHOT_INSERT_SQL = """INSERT INTO reconciliation_snapshots
+       (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
+        deviasi_persen, status, harga_fallback, network_breakdown,
+        pakd_onchain_idr, kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp,
+        kelengkapan_status, sumber_gagal, provenance_harga,
+        aset_onchain_idr_final, subtotal_diketahui_idr)
+       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+
+
 def _save_snapshots_batch(hasil_list, harga_fallback):
+    """D53 (Opsi C): coba batch dulu (jalur cepat, satu round-trip).
+    Kalau gagal, fallback per-baris -- commit tiap baris sukses, rollback
+    SETELAH baris gagal (wajib: transaksi Postgres aborted tanpa rollback
+    akan menjatuhkan baris berikutnya juga meski datanya benar).
+    Mengembalikan {"saved": [pakd_id,...], "failed": [{"pakd_id","error"},...]}
+    supaya kegagalan terlihat eksplisit, bukan cuma print ke log Render.
+    """
     conn = _get_db_conn()
     if not conn:
-        return
+        return {"saved": [], "failed": [
+            {"pakd_id": h["id"], "error": "no_db_connection"} for h in hasil_list
+        ]}
+    result = {"saved": [], "failed": []}
     try:
         cur = conn.cursor()
-        rows = [
-            (h["id"], h["nama"], int(h["aset_dilaporkan_idr"]), int(h["aset_onchain_idr"]),
-             (None if h["deviasi_pct"] is None else max(-9999.9999, min(9999.9999, float(h["deviasi_pct"])))), h["status"], harga_fallback, json.dumps(h["breakdown"]),
-             h.get("pakd_onchain_idr"), h.get("kustodian_onchain_idr"),
-             h.get("compliance_30_70"), h.get("ratio_at_pakd"), h.get("ratio_at_ptp"),
-             h.get("kelengkapan_status"),
-             json.dumps(h["sumber_gagal"]) if h.get("sumber_gagal") is not None else None,
-             json.dumps(h["provenance_harga"]) if h.get("provenance_harga") is not None else None,
-             h.get("aset_onchain_idr_final"), h.get("subtotal_diketahui_idr"))
-            for h in hasil_list
-        ]
-        cur.executemany(
-            """INSERT INTO reconciliation_snapshots
-               (pakd_id, pakd_nama, aset_dilaporkan_idr, aset_onchain_idr,
-                deviasi_persen, status, harga_fallback, network_breakdown,
-                pakd_onchain_idr, kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp,
-                kelengkapan_status, sumber_gagal, provenance_harga,
-                aset_onchain_idr_final, subtotal_diketahui_idr)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-            rows
-        )
-        conn.commit()
-        print(f"[BATCH_SAVE] saved {len(rows)} snapshots", flush=True)
-    except Exception as _e:
-        print(f'[BATCH_SAVE] ERROR: {type(_e).__name__}: {_e}', flush=True)
+        rows = [_row_for_snapshot(h, harga_fallback) for h in hasil_list]
+        try:
+            cur.executemany(_SNAPSHOT_INSERT_SQL, rows)
+            conn.commit()
+            result["saved"] = [h["id"] for h in hasil_list]
+            print(f"[BATCH_SAVE] saved {len(rows)} snapshots", flush=True)
+        except Exception as _batch_e:
+            print(f'[BATCH_SAVE] batch failed, falling back per-row: '
+                  f'{type(_batch_e).__name__}: {_batch_e}', flush=True)
+            for h, row in zip(hasil_list, rows):
+                try:
+                    cur.execute(_SNAPSHOT_INSERT_SQL, row)
+                    conn.commit()
+                    result["saved"].append(h["id"])
+                except Exception as _row_e:
+                    conn.rollback()
+                    result["failed"].append({
+                        "pakd_id": h["id"],
+                        "error": f"{type(_row_e).__name__}: {_row_e}",
+                    })
+                    print(f'[BATCH_SAVE] ERROR pakd_id={h["id"]}: '
+                          f'{type(_row_e).__name__}: {_row_e}', flush=True)
     finally:
         _return_db_conn(conn)
+    return result
+
 
 def load_pakd():
     conn = _get_db_conn()
