@@ -3049,12 +3049,16 @@ def internal_refresh_all():
             breakdown = result_bal["breakdown"]
             dilaporkan = _get_aset_dilaporkan(pakd["id"], fallback=pakd.get("aset_dilaporkan", 0))
             compliance_data = compute_30_70_compliance(pakd["id"], int(total))
-            _, deviasi = deviasi_with_custody(
+            total_attributable, deviasi = deviasi_with_custody(
                 total, (compliance_data.get("kustodian_onchain_idr") or 0), dilaporkan)
             _as_of = datetime.now(timezone.utc).isoformat()
             _kelengkapan = hitung_kelengkapan(
                 result_bal["entries"], result_bal["provenance_harga"], _as_of)
-            _verdict = tetapkan_verdict_ternary(_kelengkapan["status"], deviasi)
+            # D49: disatukan ke ambang surplus/defisit (0.01%/10%), lebih ketat
+            # dari ternary lama (5%/20%) -- keputusan mentor 24 Agustus 2026.
+            # Lihat core/verdict.py untuk detail keputusan dan alasan.
+            _verdict = tetapkan_verdict_surplus(
+                _kelengkapan["status"], total_attributable, dilaporkan, deviasi)
             status = _verdict["status"]
             _kelengkapan_status_out = _kelengkapan["status"]
             _sumber_gagal_out = _kelengkapan["sumber_gagal"]
@@ -4135,12 +4139,16 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
             breakdown = result_bal["breakdown"]
             dilaporkan = _get_aset_dilaporkan(pakd["id"], fallback=pakd.get("aset_dilaporkan", 0))
             compliance_data = compute_30_70_compliance(pakd["id"], int(total))
-            _, deviasi = deviasi_with_custody(
+            total_attributable, deviasi = deviasi_with_custody(
                 total, (compliance_data.get("kustodian_onchain_idr") or 0), dilaporkan)
             _as_of = datetime.now(timezone.utc).isoformat()
             _kelengkapan = hitung_kelengkapan(
                 result_bal["entries"], result_bal["provenance_harga"], _as_of)
-            _verdict = tetapkan_verdict_ternary(_kelengkapan["status"], deviasi)
+            # D49: disatukan ke ambang surplus/defisit (0.01%/10%), lebih ketat
+            # dari ternary lama (5%/20%) -- keputusan mentor 24 Agustus 2026.
+            # Lihat core/verdict.py untuk detail keputusan dan alasan.
+            _verdict = tetapkan_verdict_surplus(
+                _kelengkapan["status"], total_attributable, dilaporkan, deviasi)
             status = _verdict["status"]
             _kelengkapan_status_out = _kelengkapan["status"]
             _sumber_gagal_out = _kelengkapan["sumber_gagal"]
