@@ -505,10 +505,10 @@ function renderWalletsCell(d) {
     // Tanpa entry padanan (PAKD belum pernah direkonsiliasi), tidak ada
     // badge status yang dirender -- bukan default ke salah satu nilai.
     const matchedEntry = breakdownByKey[w.address + '|' + w.network];
-    const fetchStatusBadge = matchedEntry
+    const fetchStatusBadge = (matchedEntry && matchedEntry.fetch_status)
       ? `<span class="fetch-status-badge ${matchedEntry.fetch_status}">${FETCH_STATUS_LABEL[matchedEntry.fetch_status] || matchedEntry.fetch_status}</span>`
       : '';
-    return `<div class="wallet-mini-row" data-addr="${escapeAttr(w.address)}" data-net="${w.network}">${chainTagHtml(w.network)}<span class="wallet-addr" title="${escapeAttr(w.address)}">${shortAddr(w.address)}</span>${verifyBadgeHtml(w)}${fetchStatusBadge}${action}</div>`;
+    return `<div class="wallet-mini-row" data-addr="${escapeAttr(w.address)}" data-net="${w.network}">${chainTagHtml(w.network)}<span class="wallet-addr" title="${escapeAttr(w.address)}">${shortAddr(w.address)}</span>${fetchStatusBadge}${verifyBadgeHtml(w)}${action}</div>`;
   }).join('');
 }
 
