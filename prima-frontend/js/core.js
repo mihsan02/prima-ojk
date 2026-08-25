@@ -1,4 +1,5 @@
 function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
     return String(str)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -154,7 +155,7 @@ function renderP91Cards(cid, perPakd) {
     var eqCls = eqVal >= 0 ? 'green' : 'red';
     var eqStr = (eqVal < 0 ? '−' : '') + formatIDR(Math.abs(eqVal));
     return '<div class="entity-card-st ' + cls + '">' +
-      '<div class="entity-card-st-name ' + cls + '">' + icon + ' ' + p.nama + '</div>' +
+      '<div class="entity-card-st-name ' + cls + '">' + icon + ' ' + escapeHtml(p.nama) + '</div>' +
       '<div class="entity-card-st-row"><span class="entity-card-st-lbl">AKD hilang</span><span class="entity-card-st-val red">−' + formatIDR(p.loss_idr) + '</span></div>' +
       '<div class="entity-card-st-row"><span class="entity-card-st-lbl">Sisa ekuitas</span><span class="entity-card-st-val ' + eqCls + '">' + eqStr + '</span></div>' +
       '</div>';
@@ -184,7 +185,7 @@ async function loadStressTest() {
     else if (failedP91sv.length > 0) parts.push(failedP91sv.map(function(p){return p.nama;}).join(', ') + ' tidak mampu mengkompensasi kehilangan total AKD konsumen');
     if (parts.length > 0) {
       bannerEl.style.display = 'flex';
-      bannerTextEl.innerHTML = '<strong>Perhatian pengawas:</strong> ' + parts.join('. ') + '. Tindak lanjut diperlukan.';
+      bannerTextEl.innerHTML = '<strong>Perhatian pengawas:</strong> ' + escapeHtml(parts.join('. ')) + '. Tindak lanjut diperlukan.';
     } else {
       bannerEl.style.display = 'none';
     }
@@ -475,7 +476,7 @@ function verifyBadgeHtml(wallet) {
   if (wallet.verified) {
     const ts = formatVerifyTimestamp(wallet.verified_at);
     const title = wallet.verified_at ? `Diverifikasi ${wallet.verified_at}` : 'Verified';
-    return `<span class="verify-badge verified" title="${title}">✓ Verified${ts ? ' ' + ts : ''}</span>`;
+    return `<span class="verify-badge verified" title="${escapeAttr(title)}">✓ Verified${ts ? ' ' + ts : ''}</span>`;
   }
   if (!PROOF_SUPPORTED.has(wallet.network)) {
     return `<span class="verify-badge unsupported" title="Proof of ownership untuk network ini belum diimplementasikan">N/A</span>`;
@@ -484,6 +485,7 @@ function verifyBadgeHtml(wallet) {
 }
 
 function escapeAttr(s) {
+  if (s === null || s === undefined) return "";
   return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
@@ -888,7 +890,7 @@ async function triggerManualRefresh() {
             clearInterval(poll);
             resolve(job.status);
           } else {
-            tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Rekonsiliasi ' + label + '... (' + attempts * 2 + 's)</td></tr>';
+            tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Rekonsiliasi ' + escapeHtml(label) + '... (' + attempts * 2 + 's)</td></tr>';
           }
           if (attempts >= 75) { clearInterval(poll); resolve('timeout'); }
         } catch(e) { clearInterval(poll); resolve('error'); }
@@ -898,7 +900,7 @@ async function triggerManualRefresh() {
   try {
     for (let i = 0; i < pakdList.length; i++) {
       const pakd = pakdList[i];
-      tbody.innerHTML = '<tr class="loading-row"><td colspan="7">(' + (i+1) + '/' + pakdList.length + ') Mengirim job untuk ' + pakd.nama + '...</td></tr>';
+      tbody.innerHTML = '<tr class="loading-row"><td colspan="7">(' + (i+1) + '/' + pakdList.length + ') Mengirim job untuk ' + escapeHtml(pakd.nama) + '...</td></tr>';
       const res = await apiFetch('/api/reconciliation/refresh?pakd_id=' + encodeURIComponent(pakd.id), {method: 'POST'});
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const {job_id} = await res.json();
@@ -912,7 +914,7 @@ async function triggerManualRefresh() {
     await loadSnapshot();
     if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
   } catch(e) {
-    tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Gagal menghubungi server: ' + e.message + '</td></tr>';
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Gagal menghubungi server: ' + escapeHtml(e.message) + '</td></tr>';
     if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
   }
 }
@@ -1346,6 +1348,6 @@ function renderChips(containerId, items, showPass) {
         if (val != null) {
             valStr = ' <span style="opacity:0.75">Rp ' + Math.round(val).toLocaleString('id-ID') + '</span>';
         }
-        return '<span style="background:' + bg + ';color:' + col + ';padding:3px 10px;border-radius:12px;font-size:11px;margin:2px;display:inline-block">' + prefix + label + valStr + '</span>';
+        return '<span style="background:' + bg + ';color:' + col + ';padding:3px 10px;border-radius:12px;font-size:11px;margin:2px;display:inline-block">' + prefix + escapeHtml(label) + valStr + '</span>';
     }).join('');
 }
