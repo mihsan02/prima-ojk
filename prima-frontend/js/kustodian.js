@@ -147,8 +147,8 @@ async function loadKustodian() {
     }
     tbody.innerHTML = _kustodianData.map(k => `
       <tr style="cursor:pointer" onclick="showKustodianDetail('${k.id}')">
-        <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px">${k.id}</span></td>
-        <td>${k.nama}</td>
+        <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px">${escapeHtml(k.id)}</span></td>
+        <td>${escapeHtml(k.nama)}</td>
         <td>${(k.pakd_ids||[]).length} PAKD</td>
         <td>${(k.wallets||[]).length}</td>
         <td style="text-align:right">
@@ -163,7 +163,7 @@ async function loadKustodian() {
     `).join('');
     applyRoleUI();
   } catch (e) {
-    tbody.innerHTML = '<tr><td colspan="5">Error: ' + e.message + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">Error: ' + escapeHtml(e.message) + '</td></tr>';
   }
 }
 
@@ -193,7 +193,7 @@ function _populateKustodianSelector(selectedId) {
   const canSelect = user && (user.role === 'super_admin' || user.role === 'pengawas');
   if (!canSelect || _kustodianData.length < 2) { sel.style.display = 'none'; return; }
   sel.innerHTML = _kustodianData.map(k =>
-    `<option value="${k.id}" ${k.id === selectedId ? 'selected' : ''}>${k.nama} (${k.id})</option>`
+    `<option value="${k.id}" ${k.id === selectedId ? 'selected' : ''}>${escapeHtml(k.nama)} (${escapeHtml(k.id)})</option>`
   ).join('');
   sel.style.display = '';
 }
@@ -264,7 +264,7 @@ async function renderKustodianMonitoring(kustId) {
         : `<td>${p.verdict_status === 'COMPLIANT' ? '<span class="badge-compliant">✓ COMPLIANT</span>' : '<span class="badge-violation">✗ VIOLATION</span>'}${penandaDeclared}</td>`;
       return `
       <tr>
-        <td>${p.nama}<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt4)">${p.pakd_id}</div><div style="font-size:9px;color:var(--txt4);margin-top:2px" title="Waktu snapshot rekonsiliasi terakhir">snapshot: ${p.latest_snapshot_at ? p.latest_snapshot_at.replace('T', ' ').slice(0, 16) : '—'}</div></td>
+        <td>${escapeHtml(p.nama)}<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt4)">${escapeHtml(p.pakd_id)}</div><div style="font-size:9px;color:var(--txt4);margin-top:2px" title="Waktu snapshot rekonsiliasi terakhir">snapshot: ${p.latest_snapshot_at ? p.latest_snapshot_at.replace('T', ' ').slice(0, 16) : '—'}</div></td>
         ${cmpCell(p.customer_at_pakd_idr, p.pakd_onchain_idr, 'on-chain PAKD')}
         ${cmpCell(p.customer_at_ptp_idr, p.kustodian_onchain_idr, 'on-chain kustodian (dedicated)', p.kustodian_onchain_status)}
         ${selRasio}
@@ -281,9 +281,9 @@ async function renderKustodianMonitoring(kustId) {
     wtbody.innerHTML = (data.wallets || []).map((w, i) => `
       <tr>
         <td><span style="font-size:11px;background:var(--bg2);padding:2px 8px;border-radius:4px;font-weight:600;text-transform:uppercase">${w.network}</span></td>
-        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;word-break:break-all">${w.address}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;word-break:break-all">${escapeHtml(w.address)}</td>
         <td>${w.pakd_id
-          ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px">' + w.pakd_id + '</span>'
+          ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px">' + escapeHtml(w.pakd_id) + '</span>'
           : '<span style="color:var(--amber);font-size:11px">Unassigned</span>'}
           <button onclick="assignKustWallet(${i})" class="crud-action" title="Tetapkan PAKD"
               style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px">🔗</button></td>
@@ -299,7 +299,7 @@ async function renderKustodianMonitoring(kustId) {
     applyRoleUI();
   } catch (e) {
     console.error('[KUSTODIAN] monitoring render failed:', e);
-    ctbody.innerHTML = '<tr><td colspan="5" style="color:var(--red)">Error: ' + e.message + '</td></tr>';
+    ctbody.innerHTML = '<tr><td colspan="5" style="color:var(--red)">Error: ' + escapeHtml(e.message) + '</td></tr>';
   }
 }
 
@@ -361,7 +361,7 @@ function drawKustodianDonut(pakdCompliance) {
     // tersedia untuk semua baris terlepas dari status on-chain.
     const takTerukur = centerLabel !== 'Total di PTP' && p.kustodian_onchain_status !== 'terukur';
     const pctDisplay = takTerukur ? '—' : (valueOf(p) / total * 100).toFixed(1) + '%';
-    legend += '<div style="display:flex;align-items:center;gap:6px"><div style="width:9px;height:9px;border-radius:2px;flex-shrink:0;background:' + colors[i % colors.length] + '"></div><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + p.nama + '</span><span class="mono" style="font-weight:600">' + pctDisplay + '</span></div>';
+    legend += '<div style="display:flex;align-items:center;gap:6px"><div style="width:9px;height:9px;border-radius:2px;flex-shrink:0;background:' + colors[i % colors.length] + '"></div><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(p.nama) + '</span><span class="mono" style="font-weight:600">' + pctDisplay + '</span></div>';
   });
   legend += '</div>';
   wrap.innerHTML = svg + legend + note;
@@ -603,9 +603,9 @@ async function loadEreportingEntities() {
     const list = await resp.json();
     if (!list.length) { select.innerHTML = '<option value="">Belum ada data</option>'; return; }
     select.innerHTML = '<option value="">Pilih entitas...</option>' +
-      list.map(e => `<option value="${e.id}">${e.id} — ${e.nama}</option>`).join('');
+      list.map(e => `<option value="${escapeAttr(e.id)}">${escapeHtml(e.id)} — ${escapeHtml(e.nama)}</option>`).join('');
   } catch (e) {
-    select.innerHTML = '<option value="">Error: ' + e.message + '</option>';
+    select.innerHTML = '<option value="">Error: ' + escapeHtml(e.message) + '</option>';
   }
 }
 
