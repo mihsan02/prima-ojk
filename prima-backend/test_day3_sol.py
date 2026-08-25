@@ -6,6 +6,7 @@ Run: python -m pytest test_day3_sol.py -v
 """
 import pytest
 from unittest.mock import patch, MagicMock
+from core.pricing import PRICE_CACHE
 from app import (
     fetch_sol_balance,
     fetch_sol_price_idr,
@@ -46,8 +47,10 @@ def test_fetch_sol_balance_zero(mock_post):
     assert result == 0.0
 
 
-@patch("app.requests.get")
-def test_fetch_sol_price_idr(mock_get):
+@patch("core.pricing._refresh_price_cache_from_cmc", return_value=False)
+@patch("core.pricing.requests.get")
+def test_fetch_sol_price_idr(mock_get, mock_cmc):
+    PRICE_CACHE.clear()
     mock_get.return_value = make_coingecko_sol_response(2_850_000)
     price = fetch_sol_price_idr()
     assert price == pytest.approx(2_850_000.0)
