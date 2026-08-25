@@ -170,9 +170,12 @@ def verify_chain(rows):
     chained_rows = [r for r in rows if r.get("event_hash") is not None]
     expected_previous = None
     for r in chained_rows:
+        created_at = r["created_at"]
+        if hasattr(created_at, "strftime"):
+            created_at = created_at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         event_dict = {
             "waktu": r["waktu"], "aksi": r["aksi"], "detail": r["detail"],
-            "created_at": r["created_at"], "actor_email": r["actor_email"],
+            "created_at": created_at, "actor_email": r["actor_email"],
             "actor_role": r["actor_role"], "source_ip": r["source_ip"],
             "request_id": r["request_id"], "versi_perhitungan": r["versi_perhitungan"],
         }

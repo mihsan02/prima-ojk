@@ -211,3 +211,30 @@ class TestT26D60VerdictIndikatif:
         assert resp.status_code == 200
         entry = next(e for e in resp.json["data"] if e.get("pakd_id", e.get("id")) == PAKD_ID)
         assert entry["status_indikatif"] == "Aman"
+
+    def test_verify_chain_survives_datetime_roundtrip(self):
+        """Baris dari DB nyata datang dengan created_at sebagai objek datetime
+        (psycopg2), bukan string ISO seperti saat write_audit menghitungnya.
+        verify_chain harus merekonstruksi representasi yang sama sebelum
+        hash ulang, atau utuh=False palsu pada data yang tidak dimanipulasi."""
+        from datetime import datetime, timezone
+        from audit import _compute_event_hash, verify_chain, GENESIS_HASH
+
+        created_at_str = "2026-08-25T08:21:14Z"
+        event_dict = {
+            "waktu": "25 Aug 2026, 15:21", "aksi": "test", "detail": "x",
+            "created_at": created_at_str, "actor_email": None,
+            "actor_role": None, "source_ip": None,
+            "request_id": "abc123", "versi_perhitungan": "1.9-pasal50-pasal91",
+        }
+        event_hash = _compute_event_hash(GENESIS_HASH, event_dict)
+
+        row = dict(event_dict)
+        row["id"] = 1
+        row["previous_event_hash"] = GENESIS_HASH
+        row["event_hash"] = event_hash
+        row["created_at"] = datetime(2026, 8, 25, 8, 21, 14, tzinfo=timezone.utc)
+
+        utuh, id_rusak = verify_chain([row])
+        assert utuh is True
+        assert id_rusak is None
