@@ -33,6 +33,12 @@ function statusClass(s) {
 
 function deviDisplay(d) {
   if (d.status === 'Data Tidak Lengkap' || d.deviasi_pct === null || d.deviasi_pct === undefined) {
+    if (d.deviasi_pct_indikatif !== null && d.deviasi_pct_indikatif !== undefined) {
+      const pctInd = d.deviasi_pct_indikatif;
+      const colorInd = pctInd >= 0 ? 'var(--green)' : (d.status_indikatif === 'Deviasi' ? 'var(--amber)' : 'var(--red)');
+      const sign = pctInd >= 0 ? '+' : '';
+      return `<span style="color:${colorInd};font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600" title="Indikatif, data belum lengkap">${sign}${pctInd.toFixed(2)}%*</span>`;
+    }
     return '<span style="color:var(--txt3);font-family:\'JetBrains Mono\',monospace;font-size:12px;font-weight:600">\u2014</span>';
   }
   const pct = d.deviasi_pct;
