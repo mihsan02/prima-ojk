@@ -84,7 +84,7 @@ async function loadData() {
     const defisits = data.filter(d => !d.surplus).map(d => Math.abs(d.deviasi_pct));
     document.getElementById('kpi-max-dev').textContent = defisits.length ? Math.max(...defisits).toFixed(2) + '%' : '0%';
     tbody.innerHTML = data.map((d, i) => `
-      <tr style="background:${d.status==='Kritis'?'rgba(192,57,43,0.03)':d.status==='Deviasi'?'rgba(194,124,26,0.03)':''};cursor:pointer" onclick="toggleDetail('det-${d.id}')">
+      <tr style="background:${d.status==='Kritis'?'rgba(192,57,43,0.03)':d.status==='Deviasi'?'rgba(194,124,26,0.03)':''};cursor:pointer" onclick="toggleDetail(${escapeAttr(JSON.stringify('det-' + d.id))})">
         <td class="num-row" style="vertical-align:top;padding-top:18px">${String(i+1).padStart(2,'0')}</td>
         <td style="vertical-align:top;padding-top:14px;min-width:220px">
           <span class="pakd-name">${escapeHtml(d.nama)}</span>
@@ -119,11 +119,11 @@ async function loadData() {
               onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'"
               onmouseout="this.style.background='none';this.style.color='#64748b'"
               title="Hapus PAKD">🗑️</button>
-            <span id="icon-det-${d.id}" style="color:#94a3b8;font-size:11px;margin-left:2px">▼</span>
+            <span id="icon-det-${escapeAttr(d.id)}" style="color:#94a3b8;font-size:11px;margin-left:2px">▼</span>
           </div>
         </td>
       </tr>
-      <tr id="det-${d.id}" class="detail-expand-row" style="display:none">
+      <tr id="det-${escapeAttr(d.id)}" class="detail-expand-row" style="display:none">
         <td colspan="8" style="padding:0">
           <div class="det-inner-grid">
             <div>
