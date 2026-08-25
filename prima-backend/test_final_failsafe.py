@@ -141,6 +141,7 @@ def _mock_conn_history(row):
 def _row_latest(aset_dilaporkan, subtotal_diketahui, kelengkapan_status):
     import datetime as _dt
     now = _dt.datetime.now(_dt.timezone.utc)
+    _surplus = (subtotal_diketahui >= aset_dilaporkan) if kelengkapan_status == "LENGKAP" else None
     return (
         PAKD_ID, "Alpha Kripto Nusantara", aset_dilaporkan, subtotal_diketahui,
         None, "Data Tidak Lengkap", False, [],
@@ -149,12 +150,14 @@ def _row_latest(aset_dilaporkan, subtotal_diketahui, kelengkapan_status):
         kelengkapan_status, [], {},
         (subtotal_diketahui if kelengkapan_status == "LENGKAP" else None),
         subtotal_diketahui,
+        _surplus,
     )
 
 
 def _row_history(aset_dilaporkan, subtotal_diketahui, kelengkapan_status):
     import datetime as _dt
     now = _dt.datetime.now(_dt.timezone.utc)
+    _surplus = (subtotal_diketahui >= aset_dilaporkan) if kelengkapan_status == "LENGKAP" else None
     return (
         1, now, PAKD_ID, "Alpha Kripto Nusantara",
         aset_dilaporkan, subtotal_diketahui,
@@ -162,6 +165,7 @@ def _row_history(aset_dilaporkan, subtotal_diketahui, kelengkapan_status):
         kelengkapan_status, [],
         (subtotal_diketahui if kelengkapan_status == "LENGKAP" else None),
         subtotal_diketahui,
+        _surplus,
     )
 
 

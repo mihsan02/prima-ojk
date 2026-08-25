@@ -435,7 +435,7 @@ def _row_for_snapshot(h, harga_fallback):
             h.get("kelengkapan_status"),
             json.dumps(h["sumber_gagal"]) if h.get("sumber_gagal") is not None else None,
             json.dumps(h["provenance_harga"]) if h.get("provenance_harga") is not None else None,
-            h.get("aset_onchain_idr_final"), h.get("subtotal_diketahui_idr"))
+            h.get("aset_onchain_idr_final"), h.get("subtotal_diketahui_idr"), h.get("surplus"))
 
 
 _SNAPSHOT_INSERT_SQL = """INSERT INTO reconciliation_snapshots
@@ -443,8 +443,8 @@ _SNAPSHOT_INSERT_SQL = """INSERT INTO reconciliation_snapshots
         deviasi_persen, status, harga_fallback, network_breakdown,
         pakd_onchain_idr, kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp,
         kelengkapan_status, sumber_gagal, provenance_harga,
-        aset_onchain_idr_final, subtotal_diketahui_idr)
-       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+        aset_onchain_idr_final, subtotal_diketahui_idr, surplus)
+       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
 
 
 def _save_snapshots_batch(hasil_list, harga_fallback):
@@ -2301,13 +2301,13 @@ def recalc_snapshot(pakd_id):
                 deviasi_persen, status, harga_fallback, network_breakdown,
                 pakd_onchain_idr, kustodian_onchain_idr, compliance_30_70, ratio_at_pakd, ratio_at_ptp,
                 kelengkapan_status, sumber_gagal, provenance_harga,
-                aset_onchain_idr_final, subtotal_diketahui_idr)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                aset_onchain_idr_final, subtotal_diketahui_idr, surplus)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (pakd_id, pakd_nama, int(aset_dilaporkan), int(aset_onchain),
              deviasi_clamped, status, harga_fallback, json.dumps(breakdown) if isinstance(breakdown, (list, dict)) else breakdown,
              int(aset_onchain), c3070.get("kustodian_onchain_idr"),
              c3070.get("compliance_30_70", False), c3070.get("ratio_at_pakd"), c3070.get("ratio_at_ptp"),
-             None, None, None, None, None)
+             None, None, None, None, None, surplus)
         )
         conn.commit()
         cur.close()
@@ -3071,6 +3071,7 @@ def internal_refresh_all():
                 "aset_onchain_idr": total,
                 "deviasi_pct": _verdict["deviasi_pct"],
                 "status": status,
+                "surplus": _verdict["surplus"],
                 "kelengkapan_status":     _kelengkapan_status_out,
                 "sumber_gagal":           _sumber_gagal_out,
                 "aset_onchain_idr_final": _aset_onchain_idr_final,
@@ -3106,7 +3107,7 @@ def reconciliation_latest():
                     s.deviasi_persen, s.status, s.harga_fallback, s.network_breakdown, s.captured_at, s.created_at,
                     s.pakd_onchain_idr, s.kustodian_onchain_idr, s.compliance_30_70, s.ratio_at_pakd, s.ratio_at_ptp,
                     s.kelengkapan_status, s.sumber_gagal, s.provenance_harga,
-                    s.aset_onchain_idr_final, s.subtotal_diketahui_idr"""
+                    s.aset_onchain_idr_final, s.subtotal_diketahui_idr, s.surplus"""
         if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
             cur.execute(f"""
                 SELECT DISTINCT ON (s.pakd_id) {_snap_cols}
@@ -3172,6 +3173,7 @@ def reconciliation_latest():
                 "provenance_harga":       r[17],
                 "aset_onchain_idr_final": r[18],
                 "subtotal_diketahui_idr": r[19],
+                "surplus":                r[20],
             })
             # Item 2 (Opsi 1, kompromi sesi 23 Agu 2026): verdict indikatif dari
             # data yang diketahui, TANPA porsi kustodian (D49 rumus resmi pakai
@@ -3230,7 +3232,7 @@ def reconciliation_history():
                           aset_dilaporkan_idr, aset_onchain_idr,
                           deviasi_persen, status, harga_fallback, network_breakdown,
                           kelengkapan_status, sumber_gagal,
-                          aset_onchain_idr_final, subtotal_diketahui_idr
+                          aset_onchain_idr_final, subtotal_diketahui_idr, surplus
                    FROM reconciliation_snapshots
                    WHERE pakd_id = %s
                    ORDER BY captured_at DESC LIMIT %s""",
@@ -3242,7 +3244,7 @@ def reconciliation_history():
                           aset_dilaporkan_idr, aset_onchain_idr,
                           deviasi_persen, status, harga_fallback, network_breakdown,
                           kelengkapan_status, sumber_gagal,
-                          aset_onchain_idr_final, subtotal_diketahui_idr
+                          aset_onchain_idr_final, subtotal_diketahui_idr, surplus
                    FROM reconciliation_snapshots
                    ORDER BY captured_at DESC LIMIT %s""",
                 (limit,)
@@ -3267,6 +3269,7 @@ def reconciliation_history():
                 "sumber_gagal":           r[11],
                 "aset_onchain_idr_final": r[12],
                 "subtotal_diketahui_idr": _subtotal_h,
+                "surplus":                r[14],
             }
             # Item 2 (Opsi 1): sama seperti /api/reconciliation/latest, indikatif
             # sederhana tanpa porsi kustodian, worst-case-safe.
@@ -4162,6 +4165,7 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
                 "aset_onchain_idr": total,
                 "deviasi_pct": _verdict["deviasi_pct"],
                 "status": status,
+                "surplus": _verdict["surplus"],
                 "kelengkapan_status":     _kelengkapan_status_out,
                 "sumber_gagal":           _sumber_gagal_out,
                 "aset_onchain_idr_final": _aset_onchain_idr_final,
