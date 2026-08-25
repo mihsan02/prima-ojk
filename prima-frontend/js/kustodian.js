@@ -146,16 +146,16 @@ async function loadKustodian() {
       return;
     }
     tbody.innerHTML = _kustodianData.map(k => `
-      <tr style="cursor:pointer" onclick="showKustodianDetail('${k.id}')">
+      <tr style="cursor:pointer" onclick="showKustodianDetail(${escapeAttr(JSON.stringify(k.id))})">
         <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px">${escapeHtml(k.id)}</span></td>
         <td>${escapeHtml(k.nama)}</td>
         <td>${(k.pakd_ids||[]).length} PAKD</td>
         <td>${(k.wallets||[]).length}</td>
         <td style="text-align:right">
-          <button onclick="event.stopPropagation();editKustodian('${k.id}')"
+          <button onclick="event.stopPropagation();editKustodian(${escapeAttr(JSON.stringify(k.id))})"
               style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px"
               title="Edit Kustodian" class="crud-action">✏️</button>
-          <button onclick="event.stopPropagation();deleteKustodian('${k.id}','${k.nama}')"
+          <button onclick="event.stopPropagation();deleteKustodian(${escapeAttr(JSON.stringify(k.id))},${escapeAttr(JSON.stringify(k.nama))})"
               style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px"
               title="Hapus Kustodian" class="crud-action">🗑️</button>
         </td>
@@ -193,7 +193,7 @@ function _populateKustodianSelector(selectedId) {
   const canSelect = user && (user.role === 'super_admin' || user.role === 'pengawas');
   if (!canSelect || _kustodianData.length < 2) { sel.style.display = 'none'; return; }
   sel.innerHTML = _kustodianData.map(k =>
-    `<option value="${k.id}" ${k.id === selectedId ? 'selected' : ''}>${escapeHtml(k.nama)} (${escapeHtml(k.id)})</option>`
+    `<option value="${escapeAttr(k.id)}" ${k.id === selectedId ? 'selected' : ''}>${escapeHtml(k.nama)} (${escapeHtml(k.id)})</option>`
   ).join('');
   sel.style.display = '';
 }
