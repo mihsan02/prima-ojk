@@ -322,6 +322,13 @@ function custodyDistribution(pakdCompliance) {
   return {valueOf, centerLabel, note, total};
 }
 
+function csvCell(v) {
+  if (v === null || v === undefined) return '""';
+  var x = String(v);
+  if (/^[=+\-@\t\r]/.test(x)) x = "'" + x;
+  return '"' + x.replace(/"/g, '""') + '"';
+}
+
 function drawKustodianDonut(pakdCompliance) {
   const wrap = document.getElementById('kust-donut-wrap');
   if (!wrap) return;
@@ -502,11 +509,11 @@ function exportKustodianCSV() {
     // D34/D35: kolom kustodian on-chain kosong, bukan 0, untuk baris
     // yang statusnya bukan "terukur".
     const kustOnchainCsv = p.kustodian_onchain_status === 'terukur' ? (p.kustodian_onchain_idr || 0) : '';
-    csv += `${p.pakd_id},"${p.nama}",${p.customer_at_pakd_idr},${p.pakd_onchain_idr || 0},${p.customer_at_ptp_idr},${kustOnchainCsv},${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%,${p.verdict_status},${p.ratio_provenance || ''}\n`;
+    csv += `${csvCell(p.pakd_id)},${csvCell(p.nama)},${p.customer_at_pakd_idr},${p.pakd_onchain_idr || 0},${p.customer_at_ptp_idr},${kustOnchainCsv},${((p.ratio_at_pakd || 0) * 100).toFixed(1)}%,${csvCell(p.verdict_status)},${csvCell(p.ratio_provenance || '')}\n`;
   });
   csv += '\nWallet Network,Address,Verified\n';
   (data.wallets || []).forEach(w => {
-    csv += `${w.network},${w.address},${w.verified}\n`;
+    csv += `${csvCell(w.network)},${csvCell(w.address)},${w.verified}\n`;
   });
   const blob = new Blob([csv], {type: 'text/csv'});
   const url = URL.createObjectURL(blob);
