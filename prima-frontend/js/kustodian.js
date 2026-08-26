@@ -504,7 +504,7 @@ function formatIDRShort(n) {
 function exportKustodianCSV() {
   const data = _kustMonitoringData;
   if (!data) { alert('Pilih kustodian terlebih dahulu'); return; }
-  let csv = 'PAKD ID,Nama PAKD,AKD Konsumen di PAKD (Rp),On-Chain PAKD (Rp),AKD Konsumen di PTP (Rp),On-Chain Kustodian Total (Rp),Rasio di PAKD,Status,Asal Rasio\n';
+  let csv = 'sep=,\nPAKD ID,Nama PAKD,AKD Konsumen di PAKD (Rp),On-Chain PAKD (Rp),AKD Konsumen di PTP (Rp),On-Chain Kustodian Total (Rp),Rasio di PAKD,Status,Asal Rasio\n';
   (data.pakd_compliance || []).forEach(p => {
     // D34/D35: kolom kustodian on-chain kosong, bukan 0, untuk baris
     // yang statusnya bukan "terukur".
