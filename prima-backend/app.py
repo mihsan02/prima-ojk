@@ -3234,7 +3234,7 @@ def reconciliation_history():
                           kelengkapan_status, sumber_gagal,
                           aset_onchain_idr_final, subtotal_diketahui_idr, surplus
                    FROM reconciliation_snapshots
-                   WHERE pakd_id = %s
+                   WHERE pakd_id = %s AND pakd_id IN (SELECT id FROM pakd)
                    ORDER BY captured_at DESC LIMIT %s""",
                 (pakd_id, limit)
             )
@@ -3246,6 +3246,7 @@ def reconciliation_history():
                           kelengkapan_status, sumber_gagal,
                           aset_onchain_idr_final, subtotal_diketahui_idr, surplus
                    FROM reconciliation_snapshots
+                   WHERE pakd_id IN (SELECT id FROM pakd)
                    ORDER BY captured_at DESC LIMIT %s""",
                 (limit,)
             )
