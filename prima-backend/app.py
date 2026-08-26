@@ -4254,10 +4254,49 @@ def ping():
         "uptime_seconds": round(time.time() - _SERVER_START_TIME),
     }, status_code
 
+# T3.6: reaping job yang macet di status "running" karena restart/redeploy
+# di tengah eksekusi. GUNICORN_TIMEOUT sesuai render.yaml (--timeout 120).
+# Ambang 3x timeout memberi margin dari request lambat yang wajar. Dihitung
+# dari created_at (tabel tidak punya updated_at) -- asumsi jeda pending ke
+# running sub-detik, valid karena _REFRESH_EXECUTOR.submit() dipanggil
+# langsung setelah INSERT job.
+GUNICORN_TIMEOUT = 120
+JOB_STALE_THRESHOLD_SECONDS = GUNICORN_TIMEOUT * 3  # 360s
+
+def _reap_orphan_jobs():
+    """Dipanggil sekali saat boot (lihat _run_seeds). Job yang masih 'running'
+    dari proses sebelumnya (mati karena restart/crash) tidak akan pernah
+    diupdate lagi karena proses yang menjalankannya sudah tidak ada -- reaper
+    ini menandainya 'failed' agar UI tidak menampilkan running selamanya."""
+    conn = _get_db_conn()
+    if not conn:
+        print("[JOBS] _reap_orphan_jobs: no DB connection, skipping", flush=True)
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """UPDATE reconciliation_jobs
+               SET status = 'failed',
+                   result = '{"detail": "interrupted_by_restart"}'::jsonb
+               WHERE status = 'running'
+                 AND created_at < now() - (%s || ' seconds')::interval""",
+            (JOB_STALE_THRESHOLD_SECONDS,)
+        )
+        reaped = cur.rowcount
+        conn.commit()
+        cur.close()
+        if reaped:
+            print(f"[JOBS] _reap_orphan_jobs: {reaped} job ditandai failed (interrupted_by_restart)", flush=True)
+    except Exception as e:
+        print(f"[JOBS] _reap_orphan_jobs failed: {e}", flush=True)
+    finally:
+        _return_db_conn(conn)
+
 def _run_seeds():
     if os.environ.get("DATABASE_URL") and not app.config.get("TESTING"):
         init_data()
         init_kustodian_data()
+        _reap_orphan_jobs()
 
 _run_seeds()
 
