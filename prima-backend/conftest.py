@@ -8,6 +8,19 @@ os.environ.setdefault('SUPABASE_JWT_SECRET', 'prima-test-jwt-secret-for-pytest-1
 
 from app import app as flask_app
 
+# T3.5: isolasi test dari pakd_data.json lokal (di-gitignore, tidak ada di
+# checkout bersih). Tanpa ini, load_pakd() fallback membaca file kosong/tidak
+# ada di CI, menyebabkan StopIteration di test yang mencari PAKD_ID tetap
+# (test_d49_verdict_consistency.py, test_final_failsafe.py). Lihat D80.
+import tempfile
+import json as _json
+import app as _app_mod
+
+_tmp_dir = tempfile.mkdtemp()
+_app_mod.DATA_FILE = os.path.join(_tmp_dir, "pakd_data.json")
+with open(_app_mod.DATA_FILE, "w") as _f:
+    _json.dump([dict(p) for p in _app_mod.PAKD_DEFAULT], _f)
+
 _TEST_SUPER_ADMIN_PROFILE = {
     'role': 'super_admin',
     'entity_type': None,
