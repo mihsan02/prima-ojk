@@ -12,6 +12,32 @@ import logging
 
 import openpyxl
 
+# T3.7: batas ukuran/dimensi upload e-reporting. MAX_CONTENT_LENGTH (Flask,
+# di app.py) menolak file oversized sebelum sampai ke sini; guard ini
+# menolak sheet dengan baris berlebihan SEBELUM materialisasi penuh lewat
+# _parse_sheet2/_parse_lbnp/_parse_lra, walau read_only=True sudah
+# mengurangi memory footprint saat load_workbook().
+MAX_SHEET_ROWS = 100_000
+MAX_SHEET_COLS = 1_000
+
+def _check_sheet_dimensions(wb, errors):
+    """Return True kalau semua sheet dalam batas aman, False + errors diisi
+    kalau ada yang melebihi -- caller wajib berhenti sebelum parsing penuh."""
+    for name in wb.sheetnames:
+        ws = wb[name]
+        if ws.max_row and ws.max_row > MAX_SHEET_ROWS:
+            errors.append(
+                f"Sheet '{name}' punya {ws.max_row} baris, melebihi batas {MAX_SHEET_ROWS}"
+            )
+            return False
+        if ws.max_column and ws.max_column > MAX_SHEET_COLS:
+            errors.append(
+                f"Sheet '{name}' punya {ws.max_column} kolom, melebihi batas {MAX_SHEET_COLS}"
+            )
+            return False
+    return True
+
+
 logger = logging.getLogger(__name__)
 
 # --- Sheet "LSTAKDKP": Rekapitulasi Aset Keuangan Digital Konsumen dan
@@ -182,9 +208,18 @@ def parse_pakd_ereporting(filepath: str) -> dict:
         errors.append(f"Gagal menghitung hash file: {e}")
 
     try:
-        wb = openpyxl.load_workbook(filepath, data_only=True)
+        wb = openpyxl.load_workbook(filepath, data_only=True, read_only=True)
     except Exception as e:
         errors.append(f"Gagal membuka file XLSX: {e}")
+        return {
+            "file_hash": file_hash,
+            "aset_breakdown": aset_breakdown,
+            "balance_sheet": balance_sheet,
+            "rekening_administratif": rekening_administratif,
+            "errors": errors,
+        }
+
+    if not _check_sheet_dimensions(wb, errors):
         return {
             "file_hash": file_hash,
             "aset_breakdown": aset_breakdown,
@@ -262,9 +297,12 @@ def parse_kustodian_wallet_report(filepath: str) -> dict:
         errors.append(f"Gagal menghitung hash file: {e}")
 
     try:
-        wb = openpyxl.load_workbook(filepath, data_only=True)
+        wb = openpyxl.load_workbook(filepath, data_only=True, read_only=True)
     except Exception as e:
         errors.append(f"Gagal membuka file XLSX: {e}")
+        return {"file_hash": file_hash, "wallets": wallets, "errors": errors}
+
+    if not _check_sheet_dimensions(wb, errors):
         return {"file_hash": file_hash, "wallets": wallets, "errors": errors}
 
     if KUSTODIAN_SHEET_NAME not in wb.sheetnames:

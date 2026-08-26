@@ -22,6 +22,10 @@ import nacl.exceptions
 from ereporting_parser import parse_pakd_ereporting, parse_kustodian_wallet_report
 
 app = Flask(__name__)
+# T3.7: batas ukuran upload (keputusan mentor 26 Agustus 2026: 20 MB).
+# Flask menolak request melebihi batas ini dengan 413 sebelum body masuk
+# memori penuh -- lihat errorhandler(413) di bawah untuk format response.
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 
 # Auth module - import lazy to avoid circular at module level
 # (auth.py imports _get_db_conn from app, so we import auth after app is defined)
@@ -37,6 +41,13 @@ def _error_response(message, detail=None, status_code=400):
     if detail is not None:
         body["detail"] = str(detail)
     return jsonify(body), status_code
+
+@app.errorhandler(413)
+def _handle_file_too_large(e):
+    """T3.7: format konsisten untuk file upload melebihi MAX_CONTENT_LENGTH."""
+    return _error_response(
+        "File terlalu besar, maksimal 20 MB", status_code=413
+    )
 
 def _safe_uuid(val):
     """Return val if it's a valid UUID string, else None (for UUID columns)."""
