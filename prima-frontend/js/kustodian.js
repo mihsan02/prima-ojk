@@ -1180,6 +1180,7 @@ function openAddModal() {
   const idField = document.getElementById('edit-pakd-id');
   idField.value = '';
   idField.removeAttribute('readonly');
+  idField.removeAttribute('disabled');
   idField.style.opacity = '1';
   document.getElementById('edit-pakd-nama').value = '';
   document.getElementById('edit-pakd-aset').value = '';
