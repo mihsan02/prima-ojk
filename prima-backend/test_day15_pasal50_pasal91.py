@@ -100,7 +100,7 @@ def _stress_patches():
 def client():
     import os
     prima_app.app.config["TESTING"] = True
-    with prima_app.app.test_client() as c:
+    with patch('app._get_db_conn', return_value=None), prima_app.app.test_client() as c:
         original_open = c.open
         def patched_open(*args, **kwargs):
             headers = dict(kwargs.get('headers') or {})

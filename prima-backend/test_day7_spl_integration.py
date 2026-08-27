@@ -132,6 +132,7 @@ def test_I7_reconciliation_exposes_sol_spl_fields():
     with patch("app.load_pakd", return_value=mock_pakd), \
          patch("app.get_cached_balance", side_effect=_sol_router), \
          patch("app.write_audit"), \
+         patch("app._get_db_conn", return_value=None), \
          patch("auth.get_current_user", return_value={"id": "test", "role": "super_admin", "display_name": "Test", "entity_id": None, "entity_type": None}):
         resp = prima_app.app.test_client().get("/api/reconciliation")
     assert resp.status_code == 200
