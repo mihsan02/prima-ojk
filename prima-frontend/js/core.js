@@ -29,6 +29,7 @@ function statusClass(s) {
   if (s === 'Aman') return 'aman';
   if (s === 'Deviasi') return 'deviasi';
   if (s === 'Data Tidak Lengkap') return 'tidak-lengkap';
+  if (s === 'Surplus Tidak Wajar') return 'surplus-tw';
   return 'kritis';
 }
 
