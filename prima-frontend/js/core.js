@@ -1121,17 +1121,19 @@ async function loadDetailPakd() {
 
 function renderDetailKpi(rows) {
   if (!rows.length) return;
-  const devs = rows.map(r => parseFloat(r.deviasi_persen) || 0);
-  const avg = devs.reduce((a,b) => a+b, 0) / devs.length;
-  const maxDev = Math.max(...devs.map(Math.abs));
+  const validDevs = rows
+    .filter(r => r.status !== 'Data Tidak Lengkap' && r.deviasi_persen !== null && r.deviasi_persen !== undefined)
+    .map(r => parseFloat(r.deviasi_persen));
+  const avg = validDevs.length ? validDevs.reduce((a,b) => a+b, 0) / validDevs.length : null;
+  const maxDev = validDevs.length ? Math.max(...validDevs.map(Math.abs)) : null;
   const last = rows[0];
   document.getElementById('d-total').textContent = rows.length;
-  document.getElementById('d-avg-dev').textContent = avg.toFixed(2) + '%';
-  document.getElementById('d-max-dev').textContent = maxDev.toFixed(2) + '%';
+  document.getElementById('d-avg-dev').textContent = avg === null ? '\u2014' : avg.toFixed(2) + '%';
+  document.getElementById('d-max-dev').textContent = maxDev === null ? '\u2014' : maxDev.toFixed(2) + '%';
   document.getElementById('d-last-status').textContent = last.status;
   const lastCard = document.getElementById('d-last-card');
   const lastVal = document.getElementById('d-last-status');
-  const colorMap = {Aman:'green', Deviasi:'amber', Kritis:'red'};
+  const colorMap = {Aman:'green', Deviasi:'amber', Kritis:'red', 'Surplus Tidak Wajar':'amber', 'Data Tidak Lengkap':'gray'};
   const c = colorMap[last.status] || 'green';
   lastCard.className = 'kpi-card ' + c;
   lastVal.className = 'kpi-value ' + c;
@@ -1294,16 +1296,27 @@ function renderDetailTable(rows) {
   const tbody = document.getElementById('detail-history-tbody');
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="no-data-state">Tidak ada data</td></tr>'; return; }
   tbody.innerHTML = rows.map((r, idx) => {
-    const dev = parseFloat(r.deviasi_persen) || 0;
-    const devColor = r.status === 'Aman' ? 'var(--green)' : r.status === 'Deviasi' ? 'var(--amber)' : 'var(--red)';
-    const badgeClass = r.status === 'Aman' ? 'aman' : r.status === 'Deviasi' ? 'deviasi' : 'kritis';
+    const isIncomplete = r.status === 'Data Tidak Lengkap' || r.deviasi_persen === null || r.deviasi_persen === undefined;
+    const hasIndikatif = isIncomplete && r.status_indikatif != null && r.deviasi_pct_indikatif != null;
+    const dev = isIncomplete ? (hasIndikatif ? r.deviasi_pct_indikatif : null) : parseFloat(r.deviasi_persen);
+    const displayStatus = isIncomplete ? (hasIndikatif ? r.status_indikatif : r.status) : r.status;
+    const devColor = isIncomplete
+      ? (hasIndikatif ? (dev >= 0 ? 'var(--green)' : r.status_indikatif === 'Deviasi' ? 'var(--amber)' : 'var(--red)') : 'var(--txt3)')
+      : (r.status === 'Aman' ? 'var(--green)' : r.status === 'Deviasi' ? 'var(--amber)' : r.status === 'Surplus Tidak Wajar' ? 'var(--amber)' : 'var(--red)');
+    const devDisplay = dev === null ? '<span style="color:var(--txt3)">\u2014</span>' : (dev >= 0 && isIncomplete ? '+' : '') + dev.toFixed(2) + (isIncomplete ? '%*' : '%');
+    const badgeClass = isIncomplete
+      ? (hasIndikatif ? (r.status_indikatif === 'Aman' ? 'aman' : r.status_indikatif === 'Deviasi' ? 'deviasi' : 'kritis') : 'tidak-lengkap')
+      : (r.status === 'Aman' ? 'aman' : r.status === 'Deviasi' ? 'deviasi' : r.status === 'Surplus Tidak Wajar' ? 'surplus-tw' : 'kritis');
+    const statusLabel = isIncomplete
+      ? (hasIndikatif ? displayStatus + '*</span><br><span style="color:var(--txt4);font-size:10px">Data Tidak Lengkap</span>' : displayStatus + '</span>')
+      : displayStatus + '</span>';
     const hasBreakdown = r.network_breakdown && r.network_breakdown.length > 0;
     const mainRow = '<tr>' +
       '<td class="mono" style="font-size:11px">' + new Date(r.captured_at).toLocaleString('id-ID') + '</td>' +
       '<td class="mono">Rp ' + (r.aset_onchain_idr||0).toLocaleString('id-ID') + '</td>' +
       '<td class="mono">Rp ' + (r.aset_dilaporkan_idr||0).toLocaleString('id-ID') + '</td>' +
-      '<td class="mono" style="color:' + devColor + ';font-weight:600">' + dev.toFixed(2) + '%</td>' +
-      '<td><span class="status-badge ' + badgeClass + '">' + r.status + '</span></td>' +
+      '<td class="mono" style="color:' + devColor + ';font-weight:600">' + devDisplay + '</td>' +
+      '<td><span class="status-badge ' + badgeClass + '">' + statusLabel + '</td>' +
       '<td style="color:' + (r.harga_fallback ? 'var(--amber)' : 'var(--green)') + ';font-size:11px">' + (r.harga_fallback ? 'Ya' : 'Tidak') + '</td>' +
       '<td>' + (hasBreakdown ? '<button onclick="toggleBreakdown(' + idx + ')" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:var(--bg);cursor:pointer;color:var(--blue)" id="btn-breakdown-' + idx + '">Lihat</button>' : '-') + '</td>' +
     '</tr>';
