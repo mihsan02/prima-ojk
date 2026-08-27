@@ -65,7 +65,10 @@ def tetapkan_verdict_surplus(kelengkapan_status: str, total_attributable: float,
         return {"status": "Data Tidak Lengkap", "deviasi_pct": None, "surplus": None}
     surplus = total_attributable >= aset_dilaporkan
     if surplus:
-        status = "Aman"
+        surplus_pct = ((total_attributable - aset_dilaporkan) / aset_dilaporkan * 100
+                        if aset_dilaporkan > 0 else None)
+        status = ("Aman" if surplus_pct is None or surplus_pct <= 10
+                   else "Surplus Tidak Wajar")
     else:
         deficit_pct = abs(deviasi_pct)
         status = ("Aman" if deficit_pct < 0.01

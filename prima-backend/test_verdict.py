@@ -29,8 +29,18 @@ def test_ternary_tidak_tersedia_ditahan():
 
 
 def test_surplus_lengkap_aman_karena_surplus():
-    r = tetapkan_verdict_surplus("LENGKAP", 100, 90, 11.11)
+    r = tetapkan_verdict_surplus("LENGKAP", 105, 100, 5.0)
     assert r["status"] == "Aman"
+    assert r["surplus"] is True
+
+def test_surplus_lengkap_aman_batas_atas():
+    r = tetapkan_verdict_surplus("LENGKAP", 110, 100, 10.0)
+    assert r["status"] == "Aman"
+    assert r["surplus"] is True
+
+def test_surplus_lengkap_tidak_wajar():
+    r = tetapkan_verdict_surplus("LENGKAP", 500000, 10500, 4661.9)
+    assert r["status"] == "Surplus Tidak Wajar"
     assert r["surplus"] is True
 
 
