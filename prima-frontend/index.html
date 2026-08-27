@@ -542,19 +542,22 @@ tr:hover td{background:var(--bg2)}
     <div>
       <div class="section-header">
         <div class="section-title"><div class="section-title-bar"></div>Daftar Pedagang Aset Keuangan Digital</div>
-        <button onclick="openAddModal()" class="crud-action" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><span style="font-size:16px;line-height:1">+</span>&nbsp;Tambah PAKD</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button onclick="toggleAllWalletBreakdowns()" id="expand-all-btn" data-state="closed" class="crud-action" style="background:none;border:1px solid var(--border);color:var(--txt2);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer">&#9656; Expand semua</button>
+          <button onclick="openAddModal()" class="crud-action" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><span style="font-size:16px;line-height:1">+</span>&nbsp;Tambah PAKD</button>
+        </div>
       </div>
       <div class="panel">
         <table>
           <thead>
             <tr>
-              <th>#</th><th>Nama PAKD</th><th>Status</th><th>Status Penempatan AKD</th>
-              <th>Aset On-Chain PAKD (IDR)</th><th>On-Chain Kustodian (IDR)</th><th>Aset Dilaporkan (IDR)</th>
-              <th>Deviasi</th><th>Wallet</th><th>Aksi</th>
+              <th>#</th><th>Nama PAKD</th><th>Status</th><th>Aset Dilaporkan (IDR)</th>
+              <th>Aset On-Chain PAKD (IDR)</th><th>On-Chain Kustodian (IDR)</th>
+              <th>Komposisi Aset Keuangan Digital</th><th>Aksi</th>
             </tr>
           </thead>
           <tbody id="pakd-tbody">
-            <tr class="loading-row"><td colspan="10">Mengambil data dari blockchain...</td></tr>
+            <tr class="loading-row"><td colspan="8">Mengambil data dari blockchain...</td></tr>
           </tbody>
         </table>
       </div>

@@ -52,7 +52,7 @@ function deviDisplay(d) {
 
 async function loadData() {
   const tbody = document.getElementById('pakd-tbody');
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="10">Mengambil data dari blockchain...</td></tr>';
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="8">Mengambil data dari blockchain...</td></tr>';
   try {
     const res = await apiFetch('/api/reconciliation');
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -520,6 +520,29 @@ function renderWalletsCell(d) {
   }).join('');
 }
 
+function renderWalletToggle(d) {
+  const count = (d.wallets || []).length;
+  if (!count) return '';
+  return `<button class="wallet-toggle-btn" data-label="${count} wallet" onclick="toggleWalletBreakdown(this)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:10px;color:var(--txt3);cursor:pointer;margin-top:4px">&#9656; ${count} wallet</button>
+    <div class="wallet-breakdown-panel" style="display:none;margin-top:4px">${renderWalletsCell(d)}</div>`;
+}
+
+function toggleWalletBreakdown(btn) {
+  const panel = btn.nextElementSibling;
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  btn.innerHTML = (open ? '&#9662; ' : '&#9656; ') + btn.dataset.label;
+}
+
+function toggleAllWalletBreakdowns() {
+  const btn = document.getElementById('expand-all-btn');
+  const shouldOpen = btn.dataset.state !== 'open';
+  document.querySelectorAll('.wallet-breakdown-panel').forEach(p => { p.style.display = shouldOpen ? 'block' : 'none'; });
+  document.querySelectorAll('.wallet-toggle-btn').forEach(b => { b.innerHTML = (shouldOpen ? '&#9662; ' : '&#9656; ') + b.dataset.label; });
+  btn.dataset.state = shouldOpen ? 'open' : 'closed';
+  btn.innerHTML = shouldOpen ? '&#9662; Collapse semua' : '&#9656; Expand semua';
+}
+
 let modalState = { address: null, network: null, pakdId: null, challenge: null };
 let modalOpenSeq = 0; // guards against stale in-flight challenge responses after close/reopen
 
@@ -874,7 +897,7 @@ async function triggerManualRefresh() {
   if (btn) { btn.disabled = true; btn.textContent = 'Memuat...'; }
   const pakdList = (_pakdCache && _pakdCache.length) ? _pakdCache.map(d => ({id: d.id, nama: d.nama})) : [];
   if (!pakdList.length) {
-    tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Data PAKD belum dimuat. Muat ulang halaman.</td></tr>';
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="8">Data PAKD belum dimuat. Muat ulang halaman.</td></tr>';
     if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
     return;
   }
@@ -890,7 +913,7 @@ async function triggerManualRefresh() {
             clearInterval(poll);
             resolve(job.status);
           } else {
-            tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Rekonsiliasi ' + escapeHtml(label) + '... (' + attempts * 2 + 's)</td></tr>';
+            tbody.innerHTML = '<tr class="loading-row"><td colspan="8">Rekonsiliasi ' + escapeHtml(label) + '... (' + attempts * 2 + 's)</td></tr>';
           }
           if (attempts >= 75) { clearInterval(poll); resolve('timeout'); }
         } catch(e) { clearInterval(poll); resolve('error'); }
@@ -900,7 +923,7 @@ async function triggerManualRefresh() {
   try {
     for (let i = 0; i < pakdList.length; i++) {
       const pakd = pakdList[i];
-      tbody.innerHTML = '<tr class="loading-row"><td colspan="7">(' + (i+1) + '/' + pakdList.length + ') Mengirim job untuk ' + escapeHtml(pakd.nama) + '...</td></tr>';
+      tbody.innerHTML = '<tr class="loading-row"><td colspan="8">(' + (i+1) + '/' + pakdList.length + ') Mengirim job untuk ' + escapeHtml(pakd.nama) + '...</td></tr>';
       const res = await apiFetch('/api/reconciliation/refresh?pakd_id=' + encodeURIComponent(pakd.id), {method: 'POST'});
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const {job_id} = await res.json();
@@ -914,7 +937,7 @@ async function triggerManualRefresh() {
     await loadSnapshot();
     if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
   } catch(e) {
-    tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Gagal menghubungi server: ' + escapeHtml(e.message) + '</td></tr>';
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="8">Gagal menghubungi server: ' + escapeHtml(e.message) + '</td></tr>';
     if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
   }
 }
@@ -922,7 +945,7 @@ async function triggerManualRefresh() {
 
 async function loadSnapshot() {
   const tbody = document.getElementById('pakd-tbody');
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Memuat data snapshot...</td></tr>';
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="8">Memuat data snapshot...</td></tr>';
   try {
     const res = await apiFetch('/api/reconciliation/latest');
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -979,15 +1002,15 @@ async function loadSnapshot() {
         <td class="num-row" style="vertical-align:top;padding-top:18px">${String(i+1).padStart(2,'0')}</td>
         <td style="vertical-align:top;padding-top:14px;min-width:280px">
           <span class="pakd-name">${escapeHtml(d.nama)}</span>
-          <span class="pakd-id">${escapeHtml(d.id)} · Berizin</span>
-          ${renderWalletsCell(d)}
+          <span class="pakd-id">${escapeHtml(d.id)} · Berizin</span><br>
+          ${renderWalletToggle(d)}
         </td>
-        <td style="vertical-align:top;padding-top:18px">${
+        <td style="vertical-align:top;padding-top:18px"><span style="font-size:9px;color:var(--txt4);text-transform:uppercase;letter-spacing:0.03em">AKD Onchain</span><br>${
           d.status_indikatif
             ? ('<span class="status-badge ' + statusClass(d.status_indikatif) + '">' + escapeHtml(d.status_indikatif) + '*</span><br><span style="color:var(--txt4);font-size:11px">Data Tidak Lengkap</span>')
             : ('<span class="status-badge ' + statusClass(d.status) + '">' + d.status + '</span>')
-        }</td>
-        <td style="vertical-align:top;padding-top:18px">${render3070Badge(d)}</td>
+        }<br>${deviDisplay(d)}<br><span style="font-size:9px;color:var(--txt4);text-transform:uppercase;letter-spacing:0.03em">Porsi AKD pada Kustodian</span><br>${render3070Badge(d)}</td>
+        <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
         <td class="mono-val" style="color:var(--txt1);vertical-align:top;padding-top:18px">${
           d.status === 'Data Tidak Lengkap'
             ? (d.subtotal_diketahui_idr != null
@@ -996,8 +1019,6 @@ async function loadSnapshot() {
             : formatIDR(d.aset_onchain_idr_final ?? d.aset_onchain_idr)
         }</td>
         <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${d.has_kustodian ? (d.kustodian_onchain_status === 'terukur' ? formatIDR(d.kustodian_onchain_idr || 0) : '<span style="color:var(--txt4)">—</span>') : '<span style="color:var(--txt4)">—</span>'}</td>
-        <td class="mono-val" style="color:var(--txt2);vertical-align:top;padding-top:18px">${formatIDR(d.aset_dilaporkan_idr)}</td>
-        <td style="vertical-align:top;padding-top:18px">${deviDisplay(d)}</td>
         <td style="line-height:1.6;vertical-align:top;padding-top:14px">${renderBreakdown(d)}</td>
         <td style="vertical-align:top;padding-top:16px">
           <div style="display:flex;gap:6px">
@@ -1017,7 +1038,7 @@ async function loadSnapshot() {
     applyRoleUI();
   } catch(e) {
     console.warn('Snapshot gagal, fallback ke live fetch:', e);
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#e74c3c">Gagal memuat snapshot. Refresh halaman.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#e74c3c">Gagal memuat snapshot. Refresh halaman.</td></tr>';
   }
 }
 
