@@ -126,6 +126,33 @@ from core.completeness import hitung_kelengkapan  # noqa: E402
 from core.verdict import tetapkan_verdict_ternary, tetapkan_verdict_surplus  # noqa: E402
 
 DATA_FILE          = os.path.join(os.path.dirname(__file__), "pakd_data.json")
+
+
+class DataSourceUnavailable(RuntimeError):
+    """D80: Postgres adalah sumber kebenaran. Naikkan error ini alih-alih
+    mengembalikan list kosong, supaya kegagalan basis data tidak terbaca
+    sebagai 'tidak ada PAKD yang perlu diawasi'."""
+
+
+def _file_fallback_allowed():
+    """File fallback hanya sah bila tidak ada basis data yang dikonfigurasi.
+    FLASK_ENV kosong di Render (lihat baris 92), jadi jangan pakai itu sebagai
+    penjaga -- gagalnya fail-open. DATABASE_URL yang ada berarti produksi."""
+    if os.environ.get("PRIMA_ALLOW_FILE_FALLBACK") != "1":
+        return False
+    return not os.environ.get("DATABASE_URL")
+
+
+@app.errorhandler(DataSourceUnavailable)
+def _handle_datasource_unavailable(e):
+    print(f"[DATASOURCE] unavailable: {e}", flush=True)
+    return jsonify({
+        "error": "sumber_data_tidak_tersedia",
+        "message": ("Basis data regulator tidak dapat dihubungi. Data tidak "
+                    "ditampilkan untuk mencegah kesimpulan pengawasan yang salah."),
+        "retry_after": 30,
+    }), 503
+
 # T3.1: write_audit, verify_chain, VERSI_PERHITUNGAN pindah ke audit.py.
 # AUDIT_FILE TETAP di sini (bukan impor) -- test_audit_access.py mem-patch
 # app.AUDIT_FILE langsung, dan write_audit membaca lewat deferred import
@@ -542,16 +569,19 @@ def load_pakd():
                 return result
         except Exception as e:
             print(f"[DB] load_pakd failed: {e}", flush=True)
-    try:
-        if os.path.exists(DATA_FILE):
-            with open(DATA_FILE, "r") as f:
-                data = json.load(f)
-            if data:
-                return [_migrate_record(p) for p in data]
-    except Exception as e:
-        print(f"[AUDIT] failed: {type(e).__name__}: {e}", flush=True)
-    print("[DB] load_pakd: all sources failed, returning empty list", flush=True)
-    return []
+    if _file_fallback_allowed():
+        try:
+            if os.path.exists(DATA_FILE):
+                with open(DATA_FILE, "r") as f:
+                    data = json.load(f)
+                if data:
+                    return [_migrate_record(p) for p in data]
+        except Exception as e:
+            print(f"[DB] load_pakd file fallback failed: {type(e).__name__}: {e}", flush=True)
+        print("[DB] load_pakd: all sources failed, returning empty list", flush=True)
+        return []
+    raise DataSourceUnavailable(
+        "load_pakd: basis data tidak dapat dihubungi dan file fallback nonaktif")
 
 
 def save_pakd(data):
@@ -587,6 +617,11 @@ def save_pakd(data):
             return
         except Exception as e:
             print(f"[DB] save_pakd failed: {e}", flush=True)
+            if not _file_fallback_allowed():
+                raise DataSourceUnavailable(f"save_pakd: {e}") from e
+    if not _file_fallback_allowed():
+        raise DataSourceUnavailable(
+            "save_pakd: tidak ada koneksi basis data dan file fallback nonaktif")
     dir_ = os.path.dirname(DATA_FILE) or "."
     fd, tmp_path = tempfile.mkstemp(dir=dir_, suffix=".tmp")
     try:

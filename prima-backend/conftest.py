@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 os.environ.setdefault('ADMIN_TOKEN', 'test-token-prima')
 os.environ.setdefault('SUPABASE_JWT_SECRET', 'prima-test-jwt-secret-for-pytest-1234')
+os.environ.setdefault('PRIMA_ALLOW_FILE_FALLBACK', '1')
 
 from app import app as flask_app
 
