@@ -2327,17 +2327,21 @@ def recalc_snapshot(pakd_id):
         if aset_dilaporkan == 0:
             deviasi = 0.0 if _total_attr == 0 else 9999.9999
         deviasi_clamped = max(-9999.9999, min(9999.9999, deviasi))
-        surplus = _total_attr >= aset_dilaporkan
-        if surplus:
-            status = "Aman"
-        else:
-            deficit_pct = abs(deviasi_clamped)
-            if deficit_pct < 0.01:
-                status = "Aman"
-            elif deficit_pct <= 10:
-                status = "Deviasi"
-            else:
-                status = "Kritis"
+        # D70: dulu duplikasi inline, hilang cabang "Surplus Tidak Wajar"
+        # untuk surplus_pct > 10%. Sekarang panggil fungsi kanonik yang sama
+        # dipakai internal_refresh_all/_run_refresh_job (core/verdict.py).
+        # kelengkapan_status="LENGKAP" hardcode: recalc_snapshot tidak fetch
+        # on-chain baru / tidak panggil hitung_kelengkapan() (Opsi A, lihat
+        # docstring atas), jadi gating tidak pernah menahan verdict di sini --
+        # perilaku sama persis dengan sebelum patch ini.
+        _verdict = tetapkan_verdict_surplus(
+            kelengkapan_status="LENGKAP",
+            total_attributable=_total_attr,
+            aset_dilaporkan=aset_dilaporkan,
+            deviasi_pct=deviasi_clamped,
+        )
+        surplus = _verdict["surplus"]
+        status = _verdict["status"]
         # Insert new snapshot with 30/70 compliance (computed above for deviasi)
         c3070 = _c3070_pre
 
