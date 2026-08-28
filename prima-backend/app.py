@@ -64,7 +64,6 @@ REKON_COOLDOWN   = 60
 LAMPORTS_PER_SOL   = 1_000_000_000
 BALANCE_CACHE      = {}
 REFRESH_LOCK       = {"running": False, "started_at": None}
-JOBS               = {}  # {job_id: {"status": "pending|running|done|failed", "result": None, "created_at": float}}
 BALANCE_TTL        = 300  # bumped: cache outlives request duration
 _SERVER_START_TIME = time.time()
 
@@ -4163,12 +4162,6 @@ from concurrent.futures import ThreadPoolExecutor as _TPE
 
 _REFRESH_EXECUTOR = _TPE(max_workers=3)
 
-def _cleanup_old_jobs():
-    now = time.time()
-    for jid in list(JOBS.keys()):
-        if now - JOBS[jid]["created_at"] > 600:
-            del JOBS[jid]
-
 def _run_refresh_job(job_id, pakd_id_filter=None):
     def _job_update(status, result=None):
         conn = _get_db_conn()
@@ -4246,15 +4239,48 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
 @app.route("/api/reconciliation/refresh", methods=["POST"])
 @require_role('super_admin')
 def reconciliation_refresh():
-    _cleanup_old_jobs()
+    import psycopg2  # konvensi file ini: import lokal per fungsi, bukan modul-level
     pakd_id_filter = request.args.get("pakd_id") or None
     job_id = str(uuid.uuid4())
     conn = _get_db_conn()
     if conn:
         try:
             cur = conn.cursor()
-            cur.execute("INSERT INTO reconciliation_jobs (job_id, status) VALUES (%s, %s)", (job_id, "pending"))
-            conn.commit()
+            # Fast-path: cek job aktif dulu, hindari exception di kasus umum.
+            # Jaminan sebenarnya ada di index parsial uq_reconciliation_jobs_active
+            # (dibuat lewat /tmp/add_job_dedup_index.py, lihat catatan sesi --
+            # migrate_to_supabase.py adalah skrip run-once, bukan tempat DDL baru).
+            cur.execute(
+                "SELECT job_id FROM reconciliation_jobs WHERE status IN ('pending','running') LIMIT 1"
+            )
+            existing = cur.fetchone()
+            if existing:
+                cur.close()
+                return jsonify({
+                    "job_id": existing[0],
+                    "status": "sudah_berjalan",
+                    "message": "Job rekonsiliasi lain sedang berjalan",
+                }), 409
+            try:
+                cur.execute(
+                    "INSERT INTO reconciliation_jobs (job_id, status) VALUES (%s, %s)",
+                    (job_id, "pending")
+                )
+                conn.commit()
+            except psycopg2.errors.UniqueViolation:
+                conn.rollback()
+                cur.close()
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT job_id FROM reconciliation_jobs WHERE status IN ('pending','running') LIMIT 1"
+                )
+                winner = cur.fetchone()
+                cur.close()
+                return jsonify({
+                    "job_id": winner[0] if winner else None,
+                    "status": "sudah_berjalan",
+                    "message": "Job rekonsiliasi lain sedang berjalan (race terdeteksi di index)",
+                }), 409
             cur.close()
         except Exception as e:
             print(f"[JOBS] insert failed: {e}", flush=True)
