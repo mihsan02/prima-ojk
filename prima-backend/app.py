@@ -3074,6 +3074,8 @@ def reconciliation():
             resp["_timings"] = _timings
         return jsonify(resp)
 
+    except DataSourceUnavailable:
+        raise
     except Exception as e:
         return _error_response("Rekonsiliasi gagal", detail=e, status_code=500)
 
@@ -3137,6 +3139,8 @@ def internal_refresh_all():
         _save_snapshots_batch(hasil, eth_fallback)
         return jsonify({"status": "ok", "pakd_refreshed": len(hasil),
                         "timestamp": _time.time()})
+    except DataSourceUnavailable:
+        raise
     except Exception as e:
         return _error_response("Internal refresh gagal", detail=e, status_code=500)
     finally:
@@ -3741,6 +3745,8 @@ def input_manual():
         save_pakd(pakd_list)
         write_audit("INPUT MANUAL", f"{nama} ({pakd_id}) ditambahkan oleh OJK")
         return jsonify({"success": True, "message": f"{nama} berhasil ditambahkan", "data": new_entry})
+    except DataSourceUnavailable:
+        raise
     except Exception as e:
         return _error_response("Input manual gagal", detail=e, status_code=500)
 
@@ -4231,6 +4237,9 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
         _, eth_fallback = get_eth_price_idr()
         _save_snapshots_batch(hasil, eth_fallback)
         _job_update("done", {"pakd_refreshed": len(hasil), "timestamp": time.time()})
+    except DataSourceUnavailable as e:
+        print(f"[JOBS] job {job_id} gagal: basis data tidak tersedia: {e}", flush=True)
+        _job_update("failed", {"detail": str(e), "error_type": "DataSourceUnavailable"})
     except Exception as e:
         _job_update("failed", {"detail": str(e)})
 
