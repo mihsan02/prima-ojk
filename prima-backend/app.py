@@ -527,7 +527,10 @@ def _save_snapshots_batch(hasil_list, harga_fallback):
     return result
 
 
-def load_pakd():
+def load_pakd(exclude_test_entities=True):
+    _TEST_ENTITY_IDS = {'PAKD-DEMO-001', 'PAKD-OJK-001', 'PAKD-OJK-002', 'PAKD-OJK-003', 'PAKD-OJK-004'}
+    if app.config.get('TESTING'):
+        exclude_test_entities = False
     conn = _get_db_conn()
     if conn:
         try:
@@ -557,6 +560,8 @@ def load_pakd():
                 })
             result = []
             for row in pakd_rows:
+                if exclude_test_entities and row[0] in _TEST_ENTITY_IDS:
+                    continue
                 result.append({
                     "id": row[0], "nama": row[1],
                     "aset_dilaporkan": row[2] or 0,
@@ -574,7 +579,10 @@ def load_pakd():
                 with open(DATA_FILE, "r") as f:
                     data = json.load(f)
                 if data:
-                    return [_migrate_record(p) for p in data]
+                    migrated = [_migrate_record(p) for p in data]
+                    if exclude_test_entities:
+                        migrated = [p for p in migrated if p["id"] not in _TEST_ENTITY_IDS]
+                    return migrated
         except Exception as e:
             print(f"[DB] load_pakd file fallback failed: {type(e).__name__}: {e}", flush=True)
         print("[DB] load_pakd: all sources failed, returning empty list", flush=True)
@@ -2251,11 +2259,6 @@ def get_pakd():
     pakd_list = load_pakd()
     if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
         pakd_list = [p for p in pakd_list if p['id'] == user['entity_id']]
-    else:
-        # Sembunyikan entitas fixture/uji dari tampilan admin/pengawas.
-        # Data tetap ada di DB untuk kebutuhan testing dan self-view entitas terkait.
-        _TEST_ENTITY_IDS = {'PAKD-DEMO-001', 'PAKD-OJK-001', 'PAKD-OJK-002', 'PAKD-OJK-003', 'PAKD-OJK-004'}
-        pakd_list = [p for p in pakd_list if p['id'] not in _TEST_ENTITY_IDS]
     return jsonify(pakd_list)
 
 @app.route("/api/pakd", methods=["POST"])
@@ -2264,7 +2267,7 @@ def create_pakd():
     body = request.get_json(force=True)
     if not body.get("id") or not body.get("nama"):
         return _error_response("id dan nama wajib diisi")
-    data = load_pakd()
+    data = load_pakd(exclude_test_entities=False)
     if any(p["id"] == body["id"] for p in data):
         return _error_response(f"PAKD {body['id']} sudah ada", status_code=409)
     incoming_wallets = body.get("wallets", [])
@@ -2377,7 +2380,7 @@ def recalc_snapshot(pakd_id):
 @require_super_admin_or_token
 def update_pakd(pakd_id):
     body = request.get_json(force=True)
-    data = load_pakd()
+    data = load_pakd(exclude_test_entities=False)
     for i, p in enumerate(data):
         if p["id"] == pakd_id:
             data[i]["nama"] = body.get("nama", p["nama"])
@@ -2399,7 +2402,7 @@ def update_pakd(pakd_id):
 @app.route("/api/pakd/<pakd_id>", methods=["DELETE"])
 @require_super_admin_or_token
 def delete_pakd(pakd_id):
-    data = load_pakd()
+    data = load_pakd(exclude_test_entities=False)
     new_data = [p for p in data if p["id"] != pakd_id]
     if len(new_data) == len(data):
         return _error_response(f"PAKD {pakd_id} tidak ditemukan", status_code=404)
@@ -3175,12 +3178,14 @@ def reconciliation_latest():
                 ORDER BY s.pakd_id, s.captured_at DESC
             """, (user['entity_id'],))
         else:
+            _TEST_ENTITY_IDS = ('PAKD-DEMO-001', 'PAKD-OJK-001', 'PAKD-OJK-002', 'PAKD-OJK-003', 'PAKD-OJK-004')
             cur.execute(f"""
                 SELECT DISTINCT ON (s.pakd_id) {_snap_cols}
                 FROM reconciliation_snapshots s
                 INNER JOIN pakd p ON p.id = s.pakd_id
+                WHERE s.pakd_id NOT IN %s
                 ORDER BY s.pakd_id, s.captured_at DESC
-            """)
+            """, (_TEST_ENTITY_IDS,))
         rows = cur.fetchall()
         # Build set of pakd_ids that have linked kustodian
         pakd_ids = [r[0] for r in rows]
@@ -3297,6 +3302,7 @@ def reconciliation_history():
                 (pakd_id, limit)
             )
         else:
+            _TEST_ENTITY_IDS = ('PAKD-DEMO-001', 'PAKD-OJK-001', 'PAKD-OJK-002', 'PAKD-OJK-003', 'PAKD-OJK-004')
             cur.execute(
                 """SELECT id, captured_at, pakd_id, pakd_nama,
                           aset_dilaporkan_idr, aset_onchain_idr,
@@ -3304,9 +3310,9 @@ def reconciliation_history():
                           kelengkapan_status, sumber_gagal,
                           aset_onchain_idr_final, subtotal_diketahui_idr, surplus
                    FROM reconciliation_snapshots
-                   WHERE pakd_id IN (SELECT id FROM pakd)
+                   WHERE pakd_id IN (SELECT id FROM pakd) AND pakd_id NOT IN %s
                    ORDER BY captured_at DESC LIMIT %s""",
-                (limit,)
+                (_TEST_ENTITY_IDS, limit)
             )
         rows = cur.fetchall()
         hasil = []
@@ -4033,7 +4039,7 @@ def wallet_verify():
 
     del CHALLENGE_STORE[address.lower()]
 
-    pakd_list    = load_pakd()
+    pakd_list    = load_pakd(exclude_test_entities=False)
     wallet_found = False
     matched_pakd = None
     for pakd in pakd_list:
@@ -4138,8 +4144,10 @@ def export_csv():
                 (pakd_id,)
             )
         else:
+            _TEST_ENTITY_IDS = ('PAKD-DEMO-001', 'PAKD-OJK-001', 'PAKD-OJK-002', 'PAKD-OJK-003', 'PAKD-OJK-004')
             cur.execute(
-                "SELECT pakd_id, pakd_nama, created_at, aset_dilaporkan_idr, aset_onchain_idr, deviasi_persen, status, harga_fallback, network_breakdown FROM reconciliation_snapshots ORDER BY created_at DESC LIMIT 500"
+                "SELECT pakd_id, pakd_nama, created_at, aset_dilaporkan_idr, aset_onchain_idr, deviasi_persen, status, harga_fallback, network_breakdown FROM reconciliation_snapshots WHERE pakd_id NOT IN %s ORDER BY created_at DESC LIMIT 500",
+                (_TEST_ENTITY_IDS,)
             )
         rows = cur.fetchall()
         col_names = [desc[0] for desc in cur.description]
