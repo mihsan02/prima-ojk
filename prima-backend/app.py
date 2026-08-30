@@ -2251,6 +2251,11 @@ def get_pakd():
     pakd_list = load_pakd()
     if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
         pakd_list = [p for p in pakd_list if p['id'] == user['entity_id']]
+    else:
+        # Sembunyikan entitas fixture/uji dari tampilan admin/pengawas.
+        # Data tetap ada di DB untuk kebutuhan testing dan self-view entitas terkait.
+        _TEST_ENTITY_IDS = {'PAKD-DEMO-001', 'PAKD-OJK-001', 'PAKD-OJK-002', 'PAKD-OJK-003', 'PAKD-OJK-004'}
+        pakd_list = [p for p in pakd_list if p['id'] not in _TEST_ENTITY_IDS]
     return jsonify(pakd_list)
 
 @app.route("/api/pakd", methods=["POST"])
@@ -4077,6 +4082,7 @@ def export_csv_overview():
                     deviasi_persen, status, harga_fallback,
                     pakd_onchain_idr, kustodian_onchain_idr,
                     compliance_30_70, ratio_at_pakd, ratio_at_ptp"""
+        _TEST_ENTITY_IDS = ('PAKD-DEMO-001', 'PAKD-OJK-001', 'PAKD-OJK-002', 'PAKD-OJK-003', 'PAKD-OJK-004')
         if user['role'] in ('pakd', 'kustodian') and user.get('entity_id'):
             cur.execute(f"""
                 SELECT DISTINCT ON (pakd_id) {_csv_cols}
@@ -4088,8 +4094,9 @@ def export_csv_overview():
             cur.execute(f"""
                 SELECT DISTINCT ON (pakd_id) {_csv_cols}
                 FROM reconciliation_snapshots
+                WHERE pakd_id NOT IN %s
                 ORDER BY pakd_id, created_at DESC
-            """)
+            """, (_TEST_ENTITY_IDS,))
         rows = cur.fetchall()
         col_names = [desc[0] for desc in cur.description]
         cur.close()
