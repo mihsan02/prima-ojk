@@ -78,7 +78,8 @@ class TestD49InternalRefreshAll:
              patch.object(app_mod, "_get_db_conn", return_value=None), \
              patch.object(app_mod, "get_total_balance_idr", return_value=br), \
              patch.object(app_mod, "_get_aset_dilaporkan", return_value=100_000_000), \
-             patch.object(app_mod, "_save_snapshots_batch") as mock_save, \
+             patch.object(app_mod, "_save_snapshots_batch",
+                          return_value={"saved": [PAKD_ID], "failed": []}) as mock_save, \
              patch.object(app_mod, "get_eth_price_idr", return_value=(1.0, False)):
             resp = client.post("/api/internal/refresh-all",
                                headers={"X-Internal-Token": "test-internal-token-d49"})
@@ -100,7 +101,8 @@ class TestD49InternalRefreshAll:
              patch.object(app_mod, "_get_db_conn", return_value=None), \
              patch.object(app_mod, "get_total_balance_idr", return_value=br), \
              patch.object(app_mod, "_get_aset_dilaporkan", return_value=100_000_000), \
-             patch.object(app_mod, "_save_snapshots_batch") as mock_save, \
+             patch.object(app_mod, "_save_snapshots_batch",
+                          return_value={"saved": [PAKD_ID], "failed": []}) as mock_save, \
              patch.object(app_mod, "get_eth_price_idr", return_value=(1.0, False)):
             resp = client.post("/api/internal/refresh-all",
                                headers={"X-Internal-Token": "test-internal-token-d49"})
@@ -124,7 +126,8 @@ class TestD49RunRefreshJob:
         with patch.object(app_mod, "_get_db_conn", return_value=None), \
              patch.object(app_mod, "get_total_balance_idr", return_value=br), \
              patch.object(app_mod, "_get_aset_dilaporkan", return_value=100_000_000), \
-             patch.object(app_mod, "_save_snapshots_batch") as mock_save, \
+             patch.object(app_mod, "_save_snapshots_batch",
+                          return_value={"saved": [PAKD_ID], "failed": []}) as mock_save, \
              patch.object(app_mod, "get_eth_price_idr", return_value=(1.0, False)):
             app_mod._run_refresh_job("test-job-d49", pakd_id_filter=PAKD_ID)
 
@@ -142,7 +145,8 @@ class TestD49RunRefreshJob:
         with patch.object(app_mod, "_get_db_conn", return_value=None), \
              patch.object(app_mod, "get_total_balance_idr", return_value=br), \
              patch.object(app_mod, "_get_aset_dilaporkan", return_value=100_000_000), \
-             patch.object(app_mod, "_save_snapshots_batch") as mock_save, \
+             patch.object(app_mod, "_save_snapshots_batch",
+                          return_value={"saved": [PAKD_ID], "failed": []}) as mock_save, \
              patch.object(app_mod, "get_eth_price_idr", return_value=(1.0, False)):
             app_mod._run_refresh_job("test-job-d49", pakd_id_filter=PAKD_ID)
 

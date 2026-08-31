@@ -3061,7 +3061,9 @@ def reconciliation():
         _timings["pricing_eth_fallback"] = round(time.perf_counter() - _t0, 3)
         # Save snapshot to Supabase (non-blocking)
         _t0 = time.perf_counter()
-        _save_snapshots_batch(hasil, eth_fallback)
+        _snap_result = _save_snapshots_batch(hasil, eth_fallback)
+        if _snap_result["failed"]:
+            print(f"[D83] /api/reconciliation: {len(_snap_result['failed'])} snapshot gagal disimpan: {_snap_result['failed']}", flush=True)
         _timings["db_write"] = round(time.perf_counter() - _t0, 3)
         _timings["total"] = round(time.perf_counter() - _t_total, 3)
         resp = {
@@ -3135,8 +3137,12 @@ def internal_refresh_all():
                 "ratio_at_ptp": compliance_data["ratio_at_ptp"],
             })
         _, eth_fallback = get_eth_price_idr()
-        _save_snapshots_batch(hasil, eth_fallback)
-        return jsonify({"status": "ok", "pakd_refreshed": len(hasil),
+        _snap_result = _save_snapshots_batch(hasil, eth_fallback)
+        if _snap_result["failed"]:
+            print(f"[D83] internal_refresh_all: {len(_snap_result['failed'])} snapshot gagal disimpan: {_snap_result['failed']}", flush=True)
+            write_audit("SNAPSHOT_SAVE_FAILED", f"{len(_snap_result['failed'])} PAKD gagal simpan snapshot: {[f['pakd_id'] for f in _snap_result['failed']]}")
+        return jsonify({"status": "ok", "pakd_refreshed": len(_snap_result["saved"]),
+                        "pakd_gagal": _snap_result["failed"],
                         "timestamp": _time.time()})
     except DataSourceUnavailable:
         raise
@@ -4228,8 +4234,15 @@ def _run_refresh_job(job_id, pakd_id_filter=None):
                 "ratio_at_ptp": compliance_data["ratio_at_ptp"],
             })
         _, eth_fallback = get_eth_price_idr()
-        _save_snapshots_batch(hasil, eth_fallback)
-        _job_update("done", {"pakd_refreshed": len(hasil), "timestamp": time.time()})
+        _snap_result = _save_snapshots_batch(hasil, eth_fallback)
+        if _snap_result["failed"]:
+            _job_update("failed", {
+                "pakd_refreshed": len(_snap_result["saved"]),
+                "pakd_gagal": _snap_result["failed"],
+                "timestamp": time.time(),
+            })
+        else:
+            _job_update("done", {"pakd_refreshed": len(_snap_result["saved"]), "timestamp": time.time()})
     except DataSourceUnavailable as e:
         print(f"[JOBS] job {job_id} gagal: basis data tidak tersedia: {e}", flush=True)
         _job_update("failed", {"detail": str(e), "error_type": "DataSourceUnavailable"})
