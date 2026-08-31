@@ -1270,6 +1270,9 @@ function getWalletsFromModal() {
 }
 
 async function saveEditModal() {
+  const btn = document.querySelector('#edit-modal button[onclick="saveEditModal()"]');
+  if (btn && btn.disabled) return;
+  if (btn) btn.disabled = true;
   const nama = document.getElementById('edit-pakd-nama').value.trim();
   const aset = parseInt(document.getElementById('edit-pakd-aset').value) || 0;
   const wallets = getWalletsFromModal();
@@ -1296,8 +1299,11 @@ async function saveEditModal() {
       });
     }
     if (resp.status === 401) { AUTH.clear(); showLogin(); return; }
-    if (!resp.ok) throw new Error(await resp.text());
-    const saveBtn = document.querySelector('#edit-modal button[onclick="saveEditModal()"]');
+    if (!resp.ok) {
+      let errMsg;
+      try { errMsg = (await resp.json()).message; } catch { errMsg = await resp.text(); }
+      throw new Error(errMsg);
+    }
     const _savedPakdId = _editPakdId;
     closeEditModal();
     const tbody = document.getElementById('pakd-tbody');
@@ -1308,6 +1314,8 @@ async function saveEditModal() {
     loadSnapshot();
   } catch(e) {
     alert('Gagal menyimpan: ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 

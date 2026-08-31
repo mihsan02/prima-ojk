@@ -356,6 +356,9 @@ function resetForm() {
 }
 
 async function submitManual() {
+  const btn = document.querySelector('button[onclick="submitManual()"]');
+  if (btn && btn.disabled) return;
+  if (btn) btn.disabled = true;
   const nama = document.getElementById('f-nama').value.trim();
   const id   = document.getElementById('f-id').value.trim();
   const aset = parseInt(document.getElementById('f-aset').value) || 0;
