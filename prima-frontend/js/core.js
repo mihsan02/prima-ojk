@@ -895,6 +895,32 @@ function toggleDetail(id) {
   var icon = document.getElementById('icon-' + id);
   if (icon) icon.textContent = isOpen ? '▼' : '▲';
 }
+// D82: diekstrak dari triggerManualRefresh() supaya bisa dipakai ulang oleh
+// saveEditModal() (kustodian.js) saat PAKD baru dibuat -- PAKD baru tidak
+// pernah punya baris di reconciliation_snapshots, jadi butuh job fetch asli
+// (bukan recalc-snapshot yang cuma reproses data lama), dan job ini yang
+// benar-benar menuliskannya. onProgress(detik) dipanggil tiap 2 detik sambil
+// menunggu; pemanggil yang menentukan bagaimana progres itu dirender.
+async function pollRefreshJob(job_id, onProgress) {
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const r = await apiFetch('/api/reconciliation/refresh/' + job_id);
+        const job = await r.json();
+        if (job.status === 'done' || job.status === 'failed') {
+          clearInterval(poll);
+          resolve(job.status);
+        } else if (onProgress) {
+          onProgress(attempts * 2);
+        }
+        if (attempts >= 75) { clearInterval(poll); resolve('timeout'); }
+      } catch(e) { clearInterval(poll); resolve('error'); }
+    }, 2000);
+  });
+}
+
 async function triggerManualRefresh() {
   const btn = document.querySelector('button.btn-primary[onclick="triggerManualRefresh()"]');
   const tbody = document.getElementById('pakd-tbody');
@@ -905,33 +931,17 @@ async function triggerManualRefresh() {
     if (btn) { btn.disabled = false; btn.textContent = '\u27F3 Rekonsiliasi Manual'; }
     return;
   }
-  async function pollJob(job_id, label) {
-    return new Promise((resolve) => {
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        attempts++;
-        try {
-          const r = await apiFetch('/api/reconciliation/refresh/' + job_id);
-          const job = await r.json();
-          if (job.status === 'done' || job.status === 'failed') {
-            clearInterval(poll);
-            resolve(job.status);
-          } else {
-            tbody.innerHTML = '<tr class="loading-row"><td colspan="8">Rekonsiliasi ' + escapeHtml(label) + '... (' + attempts * 2 + 's)</td></tr>';
-          }
-          if (attempts >= 75) { clearInterval(poll); resolve('timeout'); }
-        } catch(e) { clearInterval(poll); resolve('error'); }
-      }, 2000);
-    });
-  }
   try {
     for (let i = 0; i < pakdList.length; i++) {
       const pakd = pakdList[i];
-      tbody.innerHTML = '<tr class="loading-row"><td colspan="8">(' + (i+1) + '/' + pakdList.length + ') Mengirim job untuk ' + escapeHtml(pakd.nama) + '...</td></tr>';
+      const label = '(' + (i+1) + '/' + pakdList.length + ') ' + pakd.nama;
+      tbody.innerHTML = '<tr class="loading-row"><td colspan="8">' + escapeHtml(label) + ': mengirim job...</td></tr>';
       const res = await apiFetch('/api/reconciliation/refresh?pakd_id=' + encodeURIComponent(pakd.id), {method: 'POST'});
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const {job_id} = await res.json();
-      const result = await pollJob(job_id, '(' + (i+1) + '/' + pakdList.length + ') ' + pakd.nama);
+      const result = await pollRefreshJob(job_id, (secs) => {
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="8">Rekonsiliasi ' + escapeHtml(label) + '... (' + secs + 's)</td></tr>';
+      });
       if (result === 'timeout' || result === 'error') {
         console.warn('Timeout/error pada ' + pakd.nama + ', lanjut ke PAKD berikutnya');
       } else if (result === 'failed') {

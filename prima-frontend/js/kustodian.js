@@ -1280,12 +1280,14 @@ async function saveEditModal() {
   const persediaan_akd_idr = parseInt(document.getElementById('edit-persediaan').value) || null;
   const simpanan_pedagang_akd_idr = parseInt(document.getElementById('edit-simpanan').value) || null;
   const customer_akd_idr = parseInt(document.getElementById('edit-customer').value) || null;
+  let newPakdId = null;
   try {
     let resp;
     if (_editPakdId === null) {
       const newId = document.getElementById('edit-pakd-id').value.trim();
       if (!newId) return alert('ID PAKD wajib diisi');
       if (!nama) return alert('Nama PAKD wajib diisi');
+      newPakdId = newId;
       resp = await apiFetch('/api/input-manual', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -1304,11 +1306,32 @@ async function saveEditModal() {
       try { errMsg = (await resp.json()).message; } catch { errMsg = await resp.text(); }
       throw new Error(errMsg);
     }
-    const _savedPakdId = _editPakdId;
+    const _isNewPakd = (_editPakdId === null);
+    const _savedPakdId = _isNewPakd ? newPakdId : _editPakdId;
     closeEditModal();
     const tbody = document.getElementById('pakd-tbody');
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--blue)">Memperbarui snapshot...</td></tr>';
-    if (_savedPakdId) {
+    if (_isNewPakd) {
+      // D82: PAKD baru tidak punya baris reconciliation_snapshots sama sekali --
+      // recalc-snapshot 404 diam-diam kalau dipanggil di sini (butuh snapshot
+      // lama untuk direproses). Jalankan job fetch on-chain asli lewat endpoint
+      // yang sama dipakai tombol "Rekonsiliasi Manual", supaya entitas baru
+      // langsung tampil, bukan menunggu siklus cron berikutnya (~10 menit).
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--blue)">Menjalankan rekonsiliasi awal untuk ' + escapeHtml(_savedPakdId) + '...</td></tr>';
+      try {
+        const jobRes = await apiFetch('/api/reconciliation/refresh?pakd_id=' + encodeURIComponent(_savedPakdId), {method: 'POST'});
+        if (jobRes.ok) {
+          const {job_id} = await jobRes.json();
+          await pollRefreshJob(job_id, (secs) => {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--blue)">Menjalankan rekonsiliasi awal untuk ' + escapeHtml(_savedPakdId) + '... (' + secs + 's)</td></tr>';
+          });
+        } else {
+          console.warn('Gagal memicu job rekonsiliasi awal untuk ' + _savedPakdId + ': HTTP ' + jobRes.status);
+        }
+      } catch (e) {
+        console.warn('Rekonsiliasi awal gagal untuk PAKD baru, akan tertangkap siklus cron berikutnya:', e.message);
+      }
+    } else {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--blue)">Memperbarui snapshot...</td></tr>';
       await apiFetch('/api/pakd/' + _savedPakdId + '/recalc-snapshot', {method:'POST'}).catch(() => {});
     }
     loadSnapshot();
