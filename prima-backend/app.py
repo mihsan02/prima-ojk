@@ -724,7 +724,10 @@ def _get_kustodian_data_for_pakd(pakd_id, conn=None):
     if own_conn:
         conn = _get_db_conn()
     if not conn:
-        return [], []
+        # D84: elemen kedua wajib dict -- pemanggil memakai .get(),
+        # dan list kosong akan melempar AttributeError kalau suatu saat
+        # ada pemanggil yang tidak menjaga kust_ids kosong lebih dulu.
+        return [], {}
     try:
         cur = conn.cursor()
         cur.execute("SELECT kustodian_id FROM kustodian_pakd WHERE pakd_id = %s", (pakd_id,))
@@ -733,7 +736,7 @@ def _get_kustodian_data_for_pakd(pakd_id, conn=None):
             cur.close()
             if own_conn:
                 _return_db_conn(conn)
-            return [], []
+            return [], {}
         cur.execute("""
             SELECT entity_id, network, address, verified, verified_at
             FROM wallets
@@ -755,7 +758,7 @@ def _get_kustodian_data_for_pakd(pakd_id, conn=None):
         print(f"[30/70] _get_kustodian_data_for_pakd failed: {e}", flush=True)
         if own_conn:
             _return_db_conn(conn)
-        return [], []
+        return [], {}
 
 
 def _get_reported_values(pakd_id, conn=None):
@@ -2574,6 +2577,32 @@ def api_update_kustodian(kust_id):
                     INSERT INTO wallets (pakd_id, network, address, verified, verified_at, entity_type, entity_id)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """, (w.get("pakd_id") or None, w["network"], w["address"], w.get("verified", False), w.get("verified_at"), "KUSTODIAN", kust_id))
+
+            # D84: mendedikasikan wallet kustodian ke sebuah PAKD adalah
+            # pernyataan bahwa keduanya terhubung, tapi tautan entitasnya
+            # hidup di kustodian_pakd -- tabel terpisah yang jalur ini tidak
+            # pernah sentuh. Tanpa baris itu,
+            # _get_kustodian_data_for_pakd() balik kosong dan
+            # compute_30_70_compliance() melaporkan kustodian_onchain_idr
+            # None: saldo wallet benar tersimpan tapi mesin Pasal 91 tidak
+            # pernah melihatnya. Turunkan tautannya dari dedikasi wallet.
+            _dedicated_pakd_ids = {
+                w.get("pakd_id") for w in body["wallets"] if w.get("pakd_id")
+            }
+            for _pid in sorted(_dedicated_pakd_ids):
+                cur.execute("SELECT 1 FROM pakd WHERE id = %s", (_pid,))
+                if not cur.fetchone():
+                    conn.rollback()
+                    cur.close()
+                    _return_db_conn(conn)
+                    return _error_response(
+                        f"PAKD {_pid} tidak ditemukan; wallet tidak dapat didedikasikan ke entitas yang tidak terdaftar.",
+                        status_code=404)
+                cur.execute("""
+                    INSERT INTO kustodian_pakd (kustodian_id, pakd_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT DO NOTHING
+                """, (kust_id, _pid))
 
         conn.commit()
         cur.close()
